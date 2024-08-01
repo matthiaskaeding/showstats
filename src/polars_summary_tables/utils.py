@@ -3,7 +3,7 @@
 import polars as pl
 
 
-def make_table(df):
+def make_tables(df):
     """
     Calculate summary statistics for a DataFrame.
     Args:
@@ -19,10 +19,11 @@ def make_table(df):
 
     # All functions
     functions = {}
-    functions["num"] = ["null_count", "mean", "median", "std", "min", "max"]
-    functions["cat"] = ["null_count", "n_unique", "min", "max"]
-    functions["datetime"] = ["null_count", "mean", "median", "min", "max"]
-    functions["date"] = ["null_count", "min", "max"]
+    functions_all = ["null_count", "min", "max"]
+    functions["num"] = functions_all + ["mean", "median", "std"]
+    functions["cat"] = functions_all + ["n_unique"]
+    functions["datetime"] = functions_all + ["mean", "median"]
+    functions["date"] = functions_all
 
     # Map vars to functions
     vars = {}
@@ -42,11 +43,9 @@ def make_table(df):
         vars_var_type = vars[var_type]
         for var in vars_var_type:
             for fun in functions_var_type:
-                print(fun, var)
                 varname = f"{fun}_{var}"
                 expr = getattr(pl.col(var), fun)().alias(varname)
                 compound_varnames[var_type].append(varname)
-                print(expr)
                 exprs.append(expr)
 
     # Compute summary statistics in one go, leveraging Polars' query planner
@@ -71,6 +70,22 @@ def make_table(df):
         dfs[var_type] = pl.DataFrame(rows)
 
     return dfs
+
+
+def print_summary(df):
+    from polars import Config
+
+    Config.set_tbl_hide_dataframe_shape(True).set_tbl_formatting(
+        "ASCII_MARKDOWN"
+    ).set_tbl_hide_column_data_types(True).set_float_precision(2)
+
+    dfs = make_tables(df)
+    for var_type in ["num", "cat", "datetime", "date"]:
+        if var_type in dfs:
+            # print("Numerical columns:")
+            df_var_type = dfs[var_type]
+
+            print(df_var_type, "\n")
 
 
 if __name__ == "__main__":
@@ -109,5 +124,6 @@ if __name__ == "__main__":
             "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
         }
     )
-    out = make_table(df)
-    print(out)
+    out = make_tables(df)
+    # print(out)
+    print_summary(df)
