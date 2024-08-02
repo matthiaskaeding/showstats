@@ -46,6 +46,8 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
     """
     import random
 
+    assert n >= 100, "There must be >= 100 rows"
+
     random.seed(a=1, version=2)
     int_data = range(n)
     float_data = [i / 100 for i in range(n)]
@@ -66,9 +68,14 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
     categorical_data = random.choices(cats, k=n)
     null_data = [None] * n
 
+    int_with_missing_data = list(int_data)
+    for i in range(10, 30):
+        int_with_missing_data[i] = None
+
     return pl.DataFrame(
         {
             "int_col": int_data,
+            "int_with_missing": int_with_missing_data,
             "float_col": float_data,
             "bool_col": bool_data,
             "str_col": str_data,
@@ -207,9 +214,7 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
                 .truediv(num_rows)
                 .alias("perc_missing")
                 .mul(100)
-                .round(0)
-                .cast(pl.Int16)
-                # .alias("null_count")
+                .round(1)
             )
             .with_columns(
                 pl.format("{} ({}%)", pl.col("null_count"), pl.col("perc_missing"))
@@ -237,7 +242,7 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def print_summary(df: pl.DataFrame) -> None:
+def show_summary(df: pl.DataFrame) -> None:
     """
     Print a summary table for the given DataFrame.
 
@@ -246,13 +251,16 @@ def print_summary(df: pl.DataFrame) -> None:
     """
     from polars import Config
 
-    Config.set_tbl_hide_dataframe_shape(True).set_tbl_formatting(
-        "ASCII_MARKDOWN"
-    ).set_tbl_hide_column_data_types(True).set_float_precision(2)
-
-    print(_make_summary_table(df))
+    with Config(
+        tbl_hide_dataframe_shape=True,
+        tbl_formatting="ASCII_MARKDOWN",
+        tbl_hide_column_data_types=True,
+        float_precision=2,
+        fmt_str_lengths=100,
+    ):
+        print(_make_summary_table(df))
 
 
 if __name__ == "__main__":
     df = _sample_df(10000)
-    print_summary(df)
+    show_summary(df)
