@@ -3,43 +3,19 @@ from datetime import date, datetime
 import polars as pl
 import pytest
 from polars_summary_tables.utils import (
-    make_tables,
+    _make_tables,
+    _sample_df,
     print_summary,
 )
 
 
 @pytest.fixture
 def sample_df():
-    # Generate sample data
-    import random
-
-    random.seed(a=1, version=2)
-    n = 100
-    int_data = range(n)
-    float_data = [i / 100 for i in range(n)]
-    bool_data = [i % 2 == 0 for i in range(n)]
-    str_data = random.choices(["foo", "bar", "baz", "ABC"], k=n)
-    date_data = pl.date_range(start=date(2022, 1, 1), end=date(2022, 4, 10), eager=True)
-    datetime_data = pl.datetime_range(
-        start=datetime(2022, 1, 1), end=datetime(2022, 4, 10), interval="1d", eager=True
-    )
-    categorical_data = random.choices(["low", "medium", "high"], k=n)
-
-    return pl.DataFrame(
-        {
-            "int_col": int_data,
-            "float_col": float_data,
-            "bool_col": bool_data,
-            "str_col": str_data,
-            "date_col": pl.Series(date_data).cast(pl.Date),
-            "datetime_col": pl.Series(datetime_data).cast(pl.Datetime),
-            "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
-        }
-    )
+    return _sample_df()
 
 
 def test_make_tables(sample_df):
-    result = make_tables(sample_df)
+    result = _make_tables(sample_df)
 
     assert isinstance(result, dict)
     assert set(result.keys()) == {"num", "cat", "datetime", "date"}
@@ -96,7 +72,7 @@ def test_print_summary(sample_df, capsys):
 
 def test_empty_dataframe():
     empty_df = pl.DataFrame()
-    result = make_tables(empty_df)
+    result = _make_tables(empty_df)
     assert isinstance(result, dict)
     assert all(isinstance(df, pl.DataFrame) for df in result.values())
     assert all(df.is_empty() for df in result.values())
@@ -104,7 +80,7 @@ def test_empty_dataframe():
 
 def test_single_column_dataframe():
     single_col_df = pl.DataFrame({"test_col": range(10)})
-    result = make_tables(single_col_df)
+    result = _make_tables(single_col_df)
     assert isinstance(result, dict)
     assert "num" in result
     assert "test_col" in result["num"]["Variable"]
@@ -112,7 +88,7 @@ def test_single_column_dataframe():
 
 def test_all_null_column():
     null_df = pl.DataFrame({"null_col": [None] * 10})
-    result = make_tables(null_df)
+    result = _make_tables(null_df)
     assert isinstance(result, dict)
     assert "cat" not in result
     assert len(result) == 1
@@ -122,8 +98,3 @@ def test_all_null_column():
         result["null"].filter(pl.col("Variable") == "null_col").item(0, "null_count")
         == 10
     )
-
-
-if __name__ == "__main__":
-    df = sample_df()
-    print(df)

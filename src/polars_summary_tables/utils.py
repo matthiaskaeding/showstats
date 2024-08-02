@@ -3,7 +3,43 @@
 import polars as pl
 
 
-def make_tables(df):
+def _sample_df(n=100):
+    # Generate sample data
+    import random
+    from datetime import date, datetime
+
+    random.seed(a=1, version=2)
+    int_data = range(n)
+    float_data = [i / 100 for i in range(n)]
+    bool_data = [i % 2 == 0 for i in range(n)]
+    str_data = random.choices(["foo", "bar", "baz", "ABC"], k=n)
+    date_data = pl.date_range(
+        start=date(2022, 1, 1),
+        end=date(2022, 1, 1) + pl.duration(days=n - 1),
+        eager=True,
+    )
+    datetime_data = pl.datetime_range(
+        start=datetime(2022, 1, 1),
+        end=datetime(2022, 1, 1) + pl.duration(seconds=n - 1),
+        interval="1s",
+        eager=True,
+    )
+    categorical_data = random.choices(["low", "medium", "high"], k=n)
+
+    return pl.DataFrame(
+        {
+            "int_col": int_data,
+            "float_col": float_data,
+            "bool_col": bool_data,
+            "str_col": str_data,
+            "date_col": pl.Series(date_data).cast(pl.Date),
+            "datetime_col": pl.Series(datetime_data).cast(pl.Datetime),
+            "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
+        }
+    )
+
+
+def _make_tables(df):
     """
     Calculate summary statistics for a DataFrame.
     Args:
@@ -106,7 +142,7 @@ def print_summary(df):
         "ASCII_MARKDOWN"
     ).set_tbl_hide_column_data_types(True).set_float_precision(2)
 
-    dfs = make_tables(df)
+    dfs = _make_tables(df)
     varnames = [
         "Variable",
         "null_count",
@@ -146,49 +182,5 @@ def print_summary(df):
 
 
 if __name__ == "__main__":
-    from datetime import date, datetime
-
-    import numpy as np
-    import polars as pl
-
-    # Generate data
-    length = 100
-
-    # Various data types
-    int_data = np.random.randint(0, 100, size=length)
-    float_data = np.random.rand(length)
-    bool_data = np.random.choice([True, False], size=length)
-    str_data = np.random.choice(["foo", "bar", "baz"], size=length)
-    date_data = pl.date_range(
-        start=date(2022, 1, 1), end=date(2022, 1, 1) + pl.duration(days=99), eager=True
-    )
-    datetime_data = pl.datetime_range(
-        start=datetime(2022, 3, 1),
-        end=datetime(2022, 3, 1) + pl.duration(days=99),
-        interval="1d",
-        eager=True,
-    )
-    categorical_data = np.random.choice(["low", "medium", "high"], size=length)
-
-    # Create Polars DataFrame
-    df = pl.DataFrame(
-        {
-            "int_col": int_data,
-            "float_col": float_data,
-            "bool_col": bool_data,
-            "str_col": str_data,
-            "date_col": pl.Series(date_data).cast(pl.Date),
-            "datetime_col": pl.Series(datetime_data).cast(pl.Datetime),
-            "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
-        }
-    )
-    # out = make_tables(df)
-    # print(out)
-    # print_summary(df)
-
-    null_df = pl.DataFrame({"null_col": [None] * 10})
-    print(make_tables(df))
-
-    # x = pl.DataFrame({"a": [1.0, -0.00005, 123.0]})
-    # x = x.with_columns(pl.col("a").cast(pl.String))
-    # print(x)
+    df = _sample_df(1000)
+    print_summary(df)
