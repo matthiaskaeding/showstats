@@ -26,7 +26,7 @@ df = _sample_df()
 import polars as pl
 
 # Polars
-df.describe()
+print(df.describe())
 ```
 
 This package prints a summary table, mapping each input column to one row. 

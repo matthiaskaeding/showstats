@@ -9,17 +9,38 @@ number of columns as `df`) format.
 import polars as pl
 
 # Polars
-df.describe()
+print(df.describe())
 ```
 
-<div><style>
-.dataframe > thead > tr,
-.dataframe > tbody > tr {
-  text-align: right;
-  white-space: pre-wrap;
-}
-</style>
-<small>shape: (9, 11)</small><table border="1" class="dataframe"><thead><tr><th>statistic</th><th>int_col</th><th>int_with_missing</th><th>float_col</th><th>bool_col</th><th>str_col</th><th>date_col</th><th>datetime_col</th><th>categorical_col</th><th>enum_col</th><th>null_col</th></tr><tr><td>str</td><td>f64</td><td>f64</td><td>f64</td><td>f64</td><td>str</td><td>str</td><td>str</td><td>str</td><td>str</td><td>f64</td></tr></thead><tbody><tr><td>&quot;count&quot;</td><td>100.0</td><td>80.0</td><td>100.0</td><td>100.0</td><td>&quot;100&quot;</td><td>&quot;100&quot;</td><td>&quot;100&quot;</td><td>&quot;100&quot;</td><td>&quot;100&quot;</td><td>0.0</td></tr><tr><td>&quot;null_count&quot;</td><td>0.0</td><td>20.0</td><td>0.0</td><td>0.0</td><td>&quot;0&quot;</td><td>&quot;0&quot;</td><td>&quot;0&quot;</td><td>&quot;0&quot;</td><td>&quot;0&quot;</td><td>100.0</td></tr><tr><td>&quot;mean&quot;</td><td>49.5</td><td>57.0</td><td>0.495</td><td>0.5</td><td>null</td><td>&quot;2022-02-19 12:00:00&quot;</td><td>&quot;2022-01-01 00:00:49.500000&quot;</td><td>null</td><td>null</td><td>null</td></tr><tr><td>&quot;std&quot;</td><td>29.011492</td><td>27.595633</td><td>0.290115</td><td>null</td><td>null</td><td>null</td><td>null</td><td>null</td><td>null</td><td>null</td></tr><tr><td>&quot;min&quot;</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>&quot;ABC&quot;</td><td>&quot;2022-01-01&quot;</td><td>&quot;2022-01-01 00:00:00&quot;</td><td>null</td><td>null</td><td>null</td></tr><tr><td>&quot;25%&quot;</td><td>25.0</td><td>40.0</td><td>0.25</td><td>null</td><td>null</td><td>&quot;2022-01-26&quot;</td><td>&quot;2022-01-01 00:00:25&quot;</td><td>null</td><td>null</td><td>null</td></tr><tr><td>&quot;50%&quot;</td><td>50.0</td><td>60.0</td><td>0.5</td><td>null</td><td>null</td><td>&quot;2022-02-20&quot;</td><td>&quot;2022-01-01 00:00:50&quot;</td><td>null</td><td>null</td><td>null</td></tr><tr><td>&quot;75%&quot;</td><td>74.0</td><td>79.0</td><td>0.74</td><td>null</td><td>null</td><td>&quot;2022-03-16&quot;</td><td>&quot;2022-01-01 00:01:14&quot;</td><td>null</td><td>null</td><td>null</td></tr><tr><td>&quot;max&quot;</td><td>99.0</td><td>99.0</td><td>0.99</td><td>1.0</td><td>&quot;foo&quot;</td><td>&quot;2022-04-10&quot;</td><td>&quot;2022-01-01 00:01:39&quot;</td><td>null</td><td>null</td><td>null</td></tr></tbody></table></div>
+    shape: (9, 11)
+    ┌────────────┬───────────┬───────────┬───────────┬───┬───────────┬───────────┬──────────┬──────────┐
+    │ statistic  ┆ int_col   ┆ int_with_ ┆ float_col ┆ … ┆ datetime_ ┆ categoric ┆ enum_col ┆ null_col │
+    │ ---        ┆ ---       ┆ missing   ┆ ---       ┆   ┆ col       ┆ al_col    ┆ ---      ┆ ---      │
+    │ str        ┆ f64       ┆ ---       ┆ f64       ┆   ┆ ---       ┆ ---       ┆ str      ┆ f64      │
+    │            ┆           ┆ f64       ┆           ┆   ┆ str       ┆ str       ┆          ┆          │
+    ╞════════════╪═══════════╪═══════════╪═══════════╪═══╪═══════════╪═══════════╪══════════╪══════════╡
+    │ count      ┆ 100.0     ┆ 80.0      ┆ 100.0     ┆ … ┆ 100       ┆ 100       ┆ 100      ┆ 0.0      │
+    │ null_count ┆ 0.0       ┆ 20.0      ┆ 0.0       ┆ … ┆ 0         ┆ 0         ┆ 0        ┆ 100.0    │
+    │ mean       ┆ 49.5      ┆ 57.0      ┆ 0.495     ┆ … ┆ 2022-01-0 ┆ null      ┆ null     ┆ null     │
+    │            ┆           ┆           ┆           ┆   ┆ 1 00:00:4 ┆           ┆          ┆          │
+    │            ┆           ┆           ┆           ┆   ┆ 9.500000  ┆           ┆          ┆          │
+    │ std        ┆ 29.011492 ┆ 27.595633 ┆ 0.290115  ┆ … ┆ null      ┆ null      ┆ null     ┆ null     │
+    │ min        ┆ 0.0       ┆ 0.0       ┆ 0.0       ┆ … ┆ 2022-01-0 ┆ null      ┆ null     ┆ null     │
+    │            ┆           ┆           ┆           ┆   ┆ 1         ┆           ┆          ┆          │
+    │            ┆           ┆           ┆           ┆   ┆ 00:00:00  ┆           ┆          ┆          │
+    │ 25%        ┆ 25.0      ┆ 40.0      ┆ 0.25      ┆ … ┆ 2022-01-0 ┆ null      ┆ null     ┆ null     │
+    │            ┆           ┆           ┆           ┆   ┆ 1         ┆           ┆          ┆          │
+    │            ┆           ┆           ┆           ┆   ┆ 00:00:25  ┆           ┆          ┆          │
+    │ 50%        ┆ 50.0      ┆ 60.0      ┆ 0.5       ┆ … ┆ 2022-01-0 ┆ null      ┆ null     ┆ null     │
+    │            ┆           ┆           ┆           ┆   ┆ 1         ┆           ┆          ┆          │
+    │            ┆           ┆           ┆           ┆   ┆ 00:00:50  ┆           ┆          ┆          │
+    │ 75%        ┆ 74.0      ┆ 79.0      ┆ 0.74      ┆ … ┆ 2022-01-0 ┆ null      ┆ null     ┆ null     │
+    │            ┆           ┆           ┆           ┆   ┆ 1         ┆           ┆          ┆          │
+    │            ┆           ┆           ┆           ┆   ┆ 00:01:14  ┆           ┆          ┆          │
+    │ max        ┆ 99.0      ┆ 99.0      ┆ 0.99      ┆ … ┆ 2022-01-0 ┆ null      ┆ null     ┆ null     │
+    │            ┆           ┆           ┆           ┆   ┆ 1         ┆           ┆          ┆          │
+    │            ┆           ┆           ┆           ┆   ┆ 00:01:39  ┆           ┆          ┆          │
+    └────────────┴───────────┴───────────┴───────────┴───┴───────────┴───────────┴──────────┴──────────┘
 
 This package prints a summary table, mapping each input column to one
 row.
