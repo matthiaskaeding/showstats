@@ -157,20 +157,18 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
                 exprs.append(expr)
 
     # Compute summary statistics in one go, leveraging Polars' query planner
-    stats = df.select(exprs)
+    stats = df.select(exprs).row(0, named=True)
 
     # Make split summary tables
     dfs = {}
     for var_type in vars:
         functions_var_type = functions[var_type]
         vars_var_type = vars[var_type]
-
         rows = []
         for var in vars_var_type:
             row = {"Variable": var}
             for fun in functions_var_type:
-                vn = f"{fun}_{var}"
-                row[fun] = stats.item(0, vn)
+                row[fun] = stats[f"{fun}_{var}"]
             rows.append(row)
         dfs[var_type] = pl.DataFrame(rows)
 
@@ -202,13 +200,9 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
 
     # Order
     for var_type in var_types:
-        exprs = []
-        for col_name in varnames:
-            if col_name not in dfs[var_type].columns:
-                exprs.append(pl.lit("").alias(col_name))
-        dfs[var_type] = (
-            dfs[var_type]
-            .with_columns(pl.selectors.numeric().round(2))
+        df_var_type = dfs[var_type].lazy()
+        df_var_type = (
+            df_var_type.with_columns(pl.selectors.numeric().round(2))
             .with_columns(
                 pl.col("null_count")
                 .truediv(num_rows)
@@ -219,26 +213,39 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
             .with_columns(
                 pl.format("{} ({}%)", pl.col("null_count"), pl.col("perc_missing"))
             )
-            .with_columns(pl.col("*").cast(pl.String))
-            .with_columns(*exprs)
-            .select(varnames)
         )
+        # Special conversion for datetimes
+        if var_type == "datetime":
+            df_var_type = df_var_type.with_columns(
+                pl.col("mean", "median", "min", "max").dt.to_string("%Y-%m-%d %H:%M:%S")
+            )
+        else:
+            df_var_type = df_var_type.with_columns(pl.col("*").cast(pl.String))
+        # Add missing values as ""
+        for col_name in varnames:
+            if col_name not in dfs[var_type].columns:
+                df_var_type = df_var_type.with_columns(pl.lit("").alias(col_name))
+        dfs[var_type] = df_var_type.select(varnames)
 
     thr = 100_000
     if num_rows < thr:
         name_var = f"Var; N = {_format_num_rows(num_rows, thr)}"
     else:
         name_var = f"Var; N \u2248 {_format_num_rows(num_rows, thr)}"
-    return pl.concat([dfs[key] for key in var_types]).rename(
-        {
-            "Variable": name_var,
-            "null_count": "Missing",
-            "mean": "Mean",
-            "median": "Median",
-            "std": "Std.",
-            "min": "Min",
-            "max": "Max",
-        }
+    return (
+        pl.concat([dfs[key] for key in var_types])
+        .rename(
+            {
+                "Variable": name_var,
+                "null_count": "Missing",
+                "mean": "Mean",
+                "median": "Median",
+                "std": "Std.",
+                "min": "Min",
+                "max": "Max",
+            }
+        )
+        .collect()
     )
 
 
@@ -263,4 +270,4 @@ def show_summary(df: pl.DataFrame) -> None:
 
 if __name__ == "__main__":
     df = _sample_df(10000)
-    show_summary(df)
+    res = show_summary(df)
