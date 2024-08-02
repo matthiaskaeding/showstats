@@ -1,7 +1,5 @@
-polars-summary-tables
+summtable
 ================
-
-# summtable
 
 Polars and pandas offer a good way to summarize a dataframe `df` via the
 `df.describe` method, however this returns the output in a wide (same
@@ -40,8 +38,7 @@ show_summary(df)
     | float_col     | 0 (0.0%)     | 0.5          | 0.5          | 0.29  | 0.0          | 0.99         |
     | bool_col      | 0 (0.0%)     | 0.5          | 0.5          | 0.5   | 0.0          | 1.0          |
     | datetime_col  | 0 (0.0%)     | 2022-01-01   | 2022-01-01   |       | 2022-01-01   | 2022-01-01   |
-    |               |              | 00:00:49.500 | 00:00:49.500 |       | 00:00:00.000 | 00:01:39.000 |
-    |               |              | 000          | 000          |       | 000          | 000          |
+    |               |              | 00:00:49     | 00:00:49     |       | 00:00:00     | 00:01:39     |
     | date_col      | 0 (0.0%)     |              |              |       | 2022-01-01   | 2022-04-10   |
     | str_col       | 0 (0.0%)     |              |              |       | ABC          | foo          |
     | enum_col      | 0 (0.0%)     |              |              |       | low          | high         |

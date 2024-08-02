@@ -1,10 +1,8 @@
 ---
-title: "polars-summary-tables"
+title: "summtable"
 format: gfm
 jupyter: python3
 ---
-
-# summtable
 
 Polars and pandas offer a good way to summarize a dataframe ``df`` via the ``df.describe`` method, however this returns the output in a wide (same number of columns as ``df``) format.  
 
