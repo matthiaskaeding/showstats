@@ -1,11 +1,19 @@
-# %%
+from datetime import date, datetime
+from typing import Dict, List
 
 import polars as pl
 
 
-def _format_num_rows(num, thr):
+def _format_num_rows(num: int, thr: float) -> str:
     """
-    Formats nicely a number
+    Formats a number nicely, using scientific notation for large numbers.
+
+    Args:
+        num (int): The number to format.
+        thr (int): The threshold above which to use scientific notation.
+
+    Returns:
+        str: The formatted number as a string.
     """
     import math
 
@@ -26,10 +34,17 @@ def _format_num_rows(num, thr):
     return f"{coefficient:.2f}×10{exp_superscript}"
 
 
-def _sample_df(n=100):
-    # Generate sample data
+def _sample_df(n: int = 100) -> pl.DataFrame:
+    """
+    Generate a sample DataFrame with various data types.
+
+    Args:
+        n (int): Number of rows to generate. Default is 100.
+
+    Returns:
+        pl.DataFrame: A DataFrame with sample data.
+    """
     import random
-    from datetime import date, datetime
 
     random.seed(a=1, version=2)
     int_data = range(n)
@@ -66,21 +81,18 @@ def _sample_df(n=100):
     )
 
 
-def _make_tables(df):
+def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     """
     Calculate summary statistics for a DataFrame.
-    Args:
-        df (DataFrame): The input DataFrame.
-        which (str, optional): The type of summary statistics to calculate.
-            Possible values are "numeric" (default) and "character".
-        nums_file (str, optional): File path to save the summary statistics for numeric variables.
-        chars_file (str, optional): File path to save the summary statistics for character variables.
-    Returns:
-        DataFrame: The summary statistics DataFrame.
-    """
 
+    Args:
+        df (pl.DataFrame): The input DataFrame.
+
+    Returns:
+        Dict[str, pl.DataFrame]: A dictionary of summary statistics DataFrames for each data type.
+    """
     # All functions
-    functions = {}
+    functions: Dict[str, List[str]] = {}
     functions_all = ["null_count", "min", "max"]
 
     # Map vars to functions
@@ -158,7 +170,16 @@ def _make_tables(df):
     return dfs
 
 
-def _make_summary_table(df):
+def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Create a summary table for the given DataFrame.
+
+    Args:
+        df (pl.DataFrame): The input DataFrame.
+
+    Returns:
+        pl.DataFrame: A summary table with statistics for each variable.
+    """
     dfs = _make_tables(df)
     varnames = [
         "Variable",
@@ -203,7 +224,13 @@ def _make_summary_table(df):
     )
 
 
-def print_summary(df):
+def print_summary(df: pl.DataFrame) -> None:
+    """
+    Print a summary table for the given DataFrame.
+
+    Args:
+        df (pl.DataFrame): The input DataFrame.
+    """
     from polars import Config
 
     Config.set_tbl_hide_dataframe_shape(True).set_tbl_formatting(
@@ -216,4 +243,3 @@ def print_summary(df):
 if __name__ == "__main__":
     df = _sample_df(115_000)
     print_summary(df)
-    # print(_format_num_rows(100100))
