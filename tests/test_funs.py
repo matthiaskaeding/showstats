@@ -60,6 +60,7 @@ def test_print_summary(sample_df, capsys):
     show_summary(sample_df)
     captured = capsys.readouterr()
     output = captured.out
+
     # Check if the output contains expected column names
     expected_columns = ["Missing", "Mean", "Median", "Std.", "Min", "Max"]
     for col in expected_columns:
@@ -76,11 +77,10 @@ def test_print_summary(sample_df, capsys):
 
 
 def test_empty_dataframe():
-    empty_df = pl.DataFrame()
-    result = _make_tables(empty_df)
-    assert isinstance(result, dict)
-    assert all(isinstance(df, pl.DataFrame) for df in result.values())
-    assert all(df.is_empty() for df in result.values())
+    with pytest.raises(ValueError) as err:
+        empty_df = pl.DataFrame()
+        show_summary(empty_df)
+        assert "Input data frame must have rows and columns" in str(err.value)
 
 
 def test_single_column_dataframe():

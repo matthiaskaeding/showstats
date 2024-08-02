@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Dict, List
+from typing import Dict
 
 import polars as pl
 
@@ -93,13 +93,14 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     Calculate summary statistics for a DataFrame.
 
     Args:
-        df (pl.DataFrame): The input DataFrame.
+        df (pl.DataFrame): The input DataFrame. If not a polars.DataFrame, will try
+        to cast
 
     Returns:
         Dict[str, pl.DataFrame]: A dictionary of summary statistics DataFrames for each data type.
     """
-    # All functions
-    functions: Dict[str, List[str]] = {}
+
+    functions = {}
     functions_all = ["null_count", "min", "max"]
 
     # Map vars to functions
@@ -257,6 +258,20 @@ def show_summary(df: pl.DataFrame) -> None:
         df (pl.DataFrame): The input DataFrame.
     """
     from polars import Config
+
+    if isinstance(df, pl.DataFrame) is False:
+        print(
+            "Detected that input-df is not a data.frame. Attempting to convert to polars-data, results might be wrong"
+        )
+        try:
+            df = pl.DataFrame(df)
+        except Exception as e:
+            raise ValueError(
+                f"Unable to convert input to Polars DataFrame. Error: {str(e)}"
+            )
+
+    if df.height == 0 or df.width == 0:
+        raise ValueError("Input data frame must have rows and columns")
 
     with Config(
         tbl_hide_dataframe_shape=True,
