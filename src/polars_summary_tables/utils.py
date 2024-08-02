@@ -3,6 +3,29 @@
 import polars as pl
 
 
+def _format_num_rows(num, thr):
+    """
+    Formats nicely a number
+    """
+    import math
+
+    if num < thr:
+        return f"{num:,.0f}"
+
+    exponent = int(math.floor(math.log10(abs(num))))
+    coefficient = num / 10**exponent
+
+    # Unicode superscript digits
+    superscripts = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+
+    # Convert exponent to superscript
+    exp_superscript = "".join(superscripts[int(d)] for d in str(abs(exponent)))
+    if exponent < 0:
+        exp_superscript = "⁻" + exp_superscript
+
+    return f"{coefficient:.2f}×10{exp_superscript}"
+
+
 def _sample_df(n=100):
     # Generate sample data
     import random
@@ -26,7 +49,7 @@ def _sample_df(n=100):
     )
     cats = ["low", "medium", "high"]
     categorical_data = random.choices(cats, k=n)
-    enum_data = random.choices(cats, k=n)
+    null_data = [None] * n
 
     return pl.DataFrame(
         {
@@ -38,6 +61,7 @@ def _sample_df(n=100):
             "datetime_col": pl.Series(datetime_data).cast(pl.Datetime),
             "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
             "enum_col": pl.Series(categorical_data).cast(pl.Enum(cats)),
+            "null_col": pl.Series(null_data),
         }
     )
 
@@ -54,7 +78,6 @@ def _make_tables(df):
     Returns:
         DataFrame: The summary statistics DataFrame.
     """
-    from collections import defaultdict
 
     # All functions
     functions = {}
@@ -117,9 +140,6 @@ def _make_tables(df):
     # Compute summary statistics in one go, leveraging Polars' query planner
     stats = df.select(exprs)
 
-    rows = defaultdict(list)
-    # return stats
-
     # Make split summary tables
     dfs = {}
     for var_type in vars:
@@ -149,7 +169,7 @@ def _make_summary_table(df):
         "min",
         "max",
     ]
-    var_types = [x for x in ["num", "cat", "datetime", "date", "null"] if x in dfs]
+    var_types = [x for x in ["num", "datetime", "date", "cat", "null"] if x in dfs]
 
     # Order
     for var_type in var_types:
@@ -165,8 +185,14 @@ def _make_summary_table(df):
             .select(varnames)
         )
 
+    thr = 100_000
+    if df.height < thr:
+        name_var = f"Var; N = {_format_num_rows(df.height, thr)}"
+    else:
+        name_var = f"Var; N \u2248 {_format_num_rows(df.height, thr)}"
     return pl.concat([dfs[key] for key in var_types]).rename(
         {
+            "Variable": name_var,
             "null_count": "Missings",
             "mean": "Mean",
             "median": "Median",
@@ -188,5 +214,6 @@ def print_summary(df):
 
 
 if __name__ == "__main__":
-    df = _sample_df(1000)
+    df = _sample_df(115_000)
     print_summary(df)
+    # print(_format_num_rows(100100))

@@ -1,5 +1,3 @@
-from datetime import date, datetime
-
 import polars as pl
 import pytest
 from polars_summary_tables.utils import (
@@ -18,7 +16,7 @@ def test_make_tables(sample_df):
     result = _make_tables(sample_df)
 
     assert isinstance(result, dict)
-    assert set(result.keys()) == {"num", "cat", "datetime", "date"}
+    assert set(result.keys()) == {"num", "cat", "datetime", "date", "null"}
 
     for key, df in result.items():
         assert isinstance(df, pl.DataFrame)
@@ -58,9 +56,10 @@ def test_print_summary(sample_df, capsys):
     captured = capsys.readouterr()
     output = captured.out
     # Check if the output contains expected column names
-    expected_columns = ["Variable", "Missings", "Mean", "Median", "Std.", "Min", "Max"]
+    expected_columns = ["Missings", "Mean", "Median", "Std.", "Min", "Max"]
     for col in expected_columns:
         assert col in output, f"{col} not in output"
+    assert "Var" in output
 
     # Check if all variable names are in the output
     for col in sample_df.columns:
