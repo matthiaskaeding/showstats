@@ -181,6 +181,7 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
         pl.DataFrame: A summary table with statistics for each variable.
     """
     dfs = _make_tables(df)
+    num_rows = df.height
     varnames = [
         "Variable",
         "null_count",
@@ -201,20 +202,32 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
         dfs[var_type] = (
             dfs[var_type]
             .with_columns(pl.selectors.numeric().round(2))
+            .with_columns(
+                pl.col("null_count")
+                .truediv(num_rows)
+                .alias("perc_missing")
+                .mul(100)
+                .round(0)
+                .cast(pl.Int16)
+                # .alias("null_count")
+            )
+            .with_columns(
+                pl.format("{} ({}%)", pl.col("null_count"), pl.col("perc_missing"))
+            )
             .with_columns(pl.col("*").cast(pl.String))
             .with_columns(*exprs)
             .select(varnames)
         )
 
     thr = 100_000
-    if df.height < thr:
-        name_var = f"Var; N = {_format_num_rows(df.height, thr)}"
+    if num_rows < thr:
+        name_var = f"Var; N = {_format_num_rows(num_rows, thr)}"
     else:
-        name_var = f"Var; N \u2248 {_format_num_rows(df.height, thr)}"
+        name_var = f"Var; N \u2248 {_format_num_rows(num_rows, thr)}"
     return pl.concat([dfs[key] for key in var_types]).rename(
         {
             "Variable": name_var,
-            "null_count": "Missings",
+            "null_count": "Missing",
             "mean": "Mean",
             "median": "Median",
             "std": "Std.",
@@ -241,5 +254,5 @@ def print_summary(df: pl.DataFrame) -> None:
 
 
 if __name__ == "__main__":
-    df = _sample_df(115_000)
+    df = _sample_df(10000)
     print_summary(df)
