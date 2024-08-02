@@ -5,17 +5,15 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "polars_summary_tables"
 description = "Produces nice summary tables for polars data frames"
-authors = [
-  { name = "Matthias Kaeding" },
-]
+authors = [{ name = "Matthias Kaeding" }]
 
-classifiers = [
-    "Programming Language :: Python :: 3",
-    
-]
+classifiers = ["Programming Language :: Python :: 3"]
 version = "0.0.1"
 readme = "README.md"
 requires-python = "~=3.11"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

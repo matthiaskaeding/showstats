@@ -18,6 +18,10 @@ lint:
 	ruff check --fix
 	ruff format
 
+## Run pytests
+.PHONY: test
+test:
+	pytest
 
 # Self Documenting Commands #
 .DEFAULT_GOAL := help
