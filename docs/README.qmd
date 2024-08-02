@@ -1,0 +1,40 @@
+---
+title: "polars-summary-tables"
+format: gfm
+jupyter: python3
+---
+
+# summtable
+
+Polars and pandas offer a good way to summarize a dataframe ``df`` via the ``df.describe`` method, however this returns the output in a wide (same number of columns as ``df``) format.  
+
+```{python}
+# | output: false
+# | echo: false
+import polars as pl
+import sys
+from pathlib import Path
+
+cur_dir = Path.cwd()
+src_dir = cur_dir.parent / "src" / "summtable"
+sys.path.append("../src/summtable")
+from summtable import _sample_df
+
+df = _sample_df()
+
+```
+
+```{python}
+import polars as pl
+
+# Polars
+df.describe()
+```
+
+This package prints a summary table, mapping each input column to one row. 
+
+```{python}
+from summtable import show_summary
+
+show_summary(df)
+```
