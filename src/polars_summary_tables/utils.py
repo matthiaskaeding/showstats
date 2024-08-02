@@ -24,7 +24,9 @@ def _sample_df(n=100):
         interval="1s",
         eager=True,
     )
-    categorical_data = random.choices(["low", "medium", "high"], k=n)
+    cats = ["low", "medium", "high"]
+    categorical_data = random.choices(cats, k=n)
+    enum_data = random.choices(cats, k=n)
 
     return pl.DataFrame(
         {
@@ -35,6 +37,7 @@ def _sample_df(n=100):
             "date_col": pl.Series(date_data).cast(pl.Date),
             "datetime_col": pl.Series(datetime_data).cast(pl.Datetime),
             "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
+            "enum_col": pl.Series(categorical_data).cast(pl.Enum(cats)),
         }
     )
 
@@ -135,13 +138,7 @@ def _make_tables(df):
     return dfs
 
 
-def print_summary(df):
-    from polars import Config
-
-    Config.set_tbl_hide_dataframe_shape(True).set_tbl_formatting(
-        "ASCII_MARKDOWN"
-    ).set_tbl_hide_column_data_types(True).set_float_precision(2)
-
+def _make_summary_table(df):
     dfs = _make_tables(df)
     varnames = [
         "Variable",
@@ -168,7 +165,7 @@ def print_summary(df):
             .select(varnames)
         )
 
-    df_super = pl.concat([dfs[key] for key in var_types]).rename(
+    return pl.concat([dfs[key] for key in var_types]).rename(
         {
             "null_count": "Missings",
             "mean": "Mean",
@@ -178,7 +175,16 @@ def print_summary(df):
             "max": "Max",
         }
     )
-    print(df_super)
+
+
+def print_summary(df):
+    from polars import Config
+
+    Config.set_tbl_hide_dataframe_shape(True).set_tbl_formatting(
+        "ASCII_MARKDOWN"
+    ).set_tbl_hide_column_data_types(True).set_float_precision(2)
+
+    print(_make_summary_table(df))
 
 
 if __name__ == "__main__":

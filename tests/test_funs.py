@@ -39,6 +39,7 @@ def test_make_tables(sample_df):
     assert set(cat_df.get_column("Variable")) == {
         "str_col",
         "categorical_col",
+        "enum_col",
     }
     assert "n_unique" in cat_df.columns
 
