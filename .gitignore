@@ -179,3 +179,7 @@ cython_debug/
 # Figures
 references/figures/*
 !references/figures/.gitkeep
+.vscode/settings.json
+
+# Playground folder
+src/playground/
