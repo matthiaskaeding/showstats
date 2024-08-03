@@ -1,10 +1,6 @@
 import polars as pl
 import pytest
-from summtable import (
-    _make_tables,
-    show_summary,
-)
-
+from summtable import _make_tables, show_summary, _make_summary_table
 from utils import _sample_df
 
 
@@ -104,3 +100,13 @@ def test_all_null_column():
         result["null"].filter(pl.col("Variable") == "null_col").item(0, "null_count")
         == 10
     )
+
+
+def test_make_summary_table(sample_df):
+    summary_table = _make_summary_table(sample_df)
+    col_0 = summary_table.columns[0]
+    sorted_cols = sorted(sample_df.columns)
+    assert sorted(summary_table.get_column(col_0)) == sorted_cols
+
+    summary_table_pandas = _make_summary_table(sample_df.to_pandas())
+    assert sorted(summary_table_pandas.get_column(col_0)) == sorted_cols

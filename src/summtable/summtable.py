@@ -1,5 +1,4 @@
 # Centrea functions for table making
-from datetime import date, datetime
 from typing import Dict
 
 import polars as pl
@@ -17,6 +16,7 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     Returns:
         Dict[str, pl.DataFrame]: A dictionary of summary statistics DataFrames for each data type.
     """
+    from polars import selectors as cs
 
     functions = {}
     functions_all = ["null_count", "min", "max"]
@@ -50,12 +50,12 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
         vars["cat"] = vars_cat
         functions["cat"] = functions_all + ["n_unique"]
 
-    vars_datetime = df.select(pl.col(pl.Datetime)).columns
+    vars_datetime = df.select(cs.datetime()).columns
     if len(vars_datetime) > 0:
         vars["datetime"] = vars_datetime
         functions["datetime"] = functions_all + ["mean", "median"]
 
-    vars_date = df.select(pl.col(pl.Date)).columns
+    vars_date = df.select(cs.date()).columns
     if len(vars_date) > 0:
         vars["date"] = vars_date
         functions["date"] = functions_all
@@ -106,7 +106,9 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
     """
     if isinstance(df, pl.DataFrame) is False:
         print(
-            "Detected that input-df is not a data.frame. Attempting to convert to polars-data, results might be wrong"
+            """Input-df is not a polars data.frame, convert.
+            Data-type might not be perfectly preserved.
+            """
         )
         try:
             df = pl.DataFrame(df)

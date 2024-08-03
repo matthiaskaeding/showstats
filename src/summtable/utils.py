@@ -33,7 +33,6 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
         end=date(1500, 1, 1) + pl.duration(days=n - 1),
         eager=True,
     )
-
     datetime_col = pl.datetime_range(
         start=datetime(2022, 1, 1),
         end=datetime(2022, 1, 1) + pl.duration(seconds=n - 1),
