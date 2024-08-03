@@ -23,6 +23,11 @@ lint:
 test:
 	pytest
 
+## Make README 
+docs/README.md: docs/README.qmd src/summtable/summtable.py
+	cd docs && quarto render docs/README.qmd
+
+
 # Self Documenting Commands #
 .DEFAULT_GOAL := help
 

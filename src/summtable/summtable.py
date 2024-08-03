@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Dict, List
+from typing import Dict
 
 import polars as pl
 
@@ -46,6 +46,8 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
     """
     import random
 
+    assert n >= 100, "There must be >= 100 rows"
+
     random.seed(a=1, version=2)
     int_data = range(n)
     float_data = [i / 100 for i in range(n)]
@@ -66,9 +68,14 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
     categorical_data = random.choices(cats, k=n)
     null_data = [None] * n
 
+    int_with_missing_data = list(int_data)
+    for i in range(10, 30):
+        int_with_missing_data[i] = None
+
     return pl.DataFrame(
         {
             "int_col": int_data,
+            "int_with_missing": int_with_missing_data,
             "float_col": float_data,
             "bool_col": bool_data,
             "str_col": str_data,
@@ -86,13 +93,14 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     Calculate summary statistics for a DataFrame.
 
     Args:
-        df (pl.DataFrame): The input DataFrame.
+        df (pl.DataFrame): The input DataFrame. If not a polars.DataFrame, will try
+        to cast
 
     Returns:
         Dict[str, pl.DataFrame]: A dictionary of summary statistics DataFrames for each data type.
     """
-    # All functions
-    functions: Dict[str, List[str]] = {}
+
+    functions = {}
     functions_all = ["null_count", "min", "max"]
 
     # Map vars to functions
@@ -150,20 +158,18 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
                 exprs.append(expr)
 
     # Compute summary statistics in one go, leveraging Polars' query planner
-    stats = df.select(exprs)
+    stats = df.select(exprs).row(0, named=True)
 
     # Make split summary tables
     dfs = {}
     for var_type in vars:
         functions_var_type = functions[var_type]
         vars_var_type = vars[var_type]
-
         rows = []
         for var in vars_var_type:
             row = {"Variable": var}
             for fun in functions_var_type:
-                vn = f"{fun}_{var}"
-                row[fun] = stats.item(0, vn)
+                row[fun] = stats[f"{fun}_{var}"]
             rows.append(row)
         dfs[var_type] = pl.DataFrame(rows)
 
@@ -195,49 +201,56 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
 
     # Order
     for var_type in var_types:
-        exprs = []
-        for col_name in varnames:
-            if col_name not in dfs[var_type].columns:
-                exprs.append(pl.lit("").alias(col_name))
-        dfs[var_type] = (
-            dfs[var_type]
-            .with_columns(pl.selectors.numeric().round(2))
+        df_var_type = dfs[var_type].lazy()
+        df_var_type = (
+            df_var_type.with_columns(pl.selectors.numeric().round(2))
             .with_columns(
                 pl.col("null_count")
                 .truediv(num_rows)
                 .alias("perc_missing")
                 .mul(100)
-                .round(0)
-                .cast(pl.Int16)
-                # .alias("null_count")
+                .round(1)
             )
             .with_columns(
                 pl.format("{} ({}%)", pl.col("null_count"), pl.col("perc_missing"))
             )
-            .with_columns(pl.col("*").cast(pl.String))
-            .with_columns(*exprs)
-            .select(varnames)
         )
+        # Special conversion for datetimes
+        if var_type == "datetime":
+            df_var_type = df_var_type.with_columns(
+                pl.col("mean", "median", "min", "max").dt.to_string("%Y-%m-%d %H:%M:%S")
+            )
+        else:
+            df_var_type = df_var_type.with_columns(pl.col("*").cast(pl.String))
+        # Add missing values as ""
+        for col_name in varnames:
+            if col_name not in dfs[var_type].columns:
+                df_var_type = df_var_type.with_columns(pl.lit("").alias(col_name))
+        dfs[var_type] = df_var_type.select(varnames)
 
     thr = 100_000
     if num_rows < thr:
         name_var = f"Var; N = {_format_num_rows(num_rows, thr)}"
     else:
         name_var = f"Var; N \u2248 {_format_num_rows(num_rows, thr)}"
-    return pl.concat([dfs[key] for key in var_types]).rename(
-        {
-            "Variable": name_var,
-            "null_count": "Missing",
-            "mean": "Mean",
-            "median": "Median",
-            "std": "Std.",
-            "min": "Min",
-            "max": "Max",
-        }
+    return (
+        pl.concat([dfs[key] for key in var_types])
+        .rename(
+            {
+                "Variable": name_var,
+                "null_count": "Missing",
+                "mean": "Mean",
+                "median": "Median",
+                "std": "Std.",
+                "min": "Min",
+                "max": "Max",
+            }
+        )
+        .collect()
     )
 
 
-def print_summary(df: pl.DataFrame) -> None:
+def show_summary(df: pl.DataFrame) -> None:
     """
     Print a summary table for the given DataFrame.
 
@@ -246,13 +259,30 @@ def print_summary(df: pl.DataFrame) -> None:
     """
     from polars import Config
 
-    Config.set_tbl_hide_dataframe_shape(True).set_tbl_formatting(
-        "ASCII_MARKDOWN"
-    ).set_tbl_hide_column_data_types(True).set_float_precision(2)
+    if isinstance(df, pl.DataFrame) is False:
+        print(
+            "Detected that input-df is not a data.frame. Attempting to convert to polars-data, results might be wrong"
+        )
+        try:
+            df = pl.DataFrame(df)
+        except Exception as e:
+            raise ValueError(
+                f"Unable to convert input to Polars DataFrame. Error: {str(e)}"
+            )
 
-    print(_make_summary_table(df))
+    if df.height == 0 or df.width == 0:
+        raise ValueError("Input data frame must have rows and columns")
+
+    with Config(
+        tbl_hide_dataframe_shape=True,
+        tbl_formatting="ASCII_MARKDOWN",
+        tbl_hide_column_data_types=True,
+        float_precision=2,
+        fmt_str_lengths=100,
+    ):
+        print(_make_summary_table(df))
 
 
 if __name__ == "__main__":
     df = _sample_df(10000)
-    print_summary(df)
+    res = show_summary(df)

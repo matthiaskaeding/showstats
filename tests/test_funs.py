@@ -1,9 +1,9 @@
 import polars as pl
 import pytest
-from polars_summary_tables.utils import (
+from summtable.summtable import (
     _make_tables,
     _sample_df,
-    print_summary,
+    show_summary,
 )
 
 
@@ -28,7 +28,12 @@ def test_make_tables(sample_df):
 
     # Check specific data-frames
     num_df = result["num"]
-    assert set(num_df["Variable"]) == {"int_col", "float_col", "bool_col"}
+    assert set(num_df["Variable"]) == {
+        "int_col",
+        "float_col",
+        "bool_col",
+        "int_with_missing",
+    }
     assert "mean" in num_df.columns
     assert "median" in num_df.columns
     assert "std" in num_df.columns
@@ -52,11 +57,12 @@ def test_make_tables(sample_df):
 
 def test_print_summary(sample_df, capsys):
     pl.Config.set_fmt_str_lengths(n=10000).set_tbl_width_chars(10000)
-    print_summary(sample_df)
+    show_summary(sample_df)
     captured = capsys.readouterr()
     output = captured.out
+
     # Check if the output contains expected column names
-    expected_columns = ["Missings", "Mean", "Median", "Std.", "Min", "Max"]
+    expected_columns = ["Missing", "Mean", "Median", "Std.", "Min", "Max"]
     for col in expected_columns:
         assert col in output, f"{col} not in output"
     assert "Var" in output
@@ -71,11 +77,10 @@ def test_print_summary(sample_df, capsys):
 
 
 def test_empty_dataframe():
-    empty_df = pl.DataFrame()
-    result = _make_tables(empty_df)
-    assert isinstance(result, dict)
-    assert all(isinstance(df, pl.DataFrame) for df in result.values())
-    assert all(df.is_empty() for df in result.values())
+    with pytest.raises(ValueError) as err:
+        empty_df = pl.DataFrame()
+        show_summary(empty_df)
+        assert "Input data frame must have rows and columns" in str(err.value)
 
 
 def test_single_column_dataframe():
