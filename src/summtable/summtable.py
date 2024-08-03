@@ -1,91 +1,8 @@
-from datetime import date, datetime
+# Centrea functions for table making
 from typing import Dict
 
 import polars as pl
-
-
-def _format_num_rows(num: int, thr: float) -> str:
-    """
-    Formats a number nicely, using scientific notation for large numbers.
-
-    Args:
-        num (int): The number to format.
-        thr (int): The threshold above which to use scientific notation.
-
-    Returns:
-        str: The formatted number as a string.
-    """
-    import math
-
-    if num < thr:
-        return f"{num:,.0f}"
-
-    exponent = int(math.floor(math.log10(abs(num))))
-    coefficient = num / 10**exponent
-
-    # Unicode superscript digits
-    superscripts = "⁰¹²³⁴⁵⁶⁷⁸⁹"
-
-    # Convert exponent to superscript
-    exp_superscript = "".join(superscripts[int(d)] for d in str(abs(exponent)))
-    if exponent < 0:
-        exp_superscript = "⁻" + exp_superscript
-
-    return f"{coefficient:.2f}×10{exp_superscript}"
-
-
-def _sample_df(n: int = 100) -> pl.DataFrame:
-    """
-    Generate a sample DataFrame with various data types.
-
-    Args:
-        n (int): Number of rows to generate. Default is 100.
-
-    Returns:
-        pl.DataFrame: A DataFrame with sample data.
-    """
-    import random
-
-    assert n >= 100, "There must be >= 100 rows"
-
-    random.seed(a=1, version=2)
-    int_data = range(n)
-    float_data = [i / 100 for i in range(n)]
-    bool_data = [i % 2 == 0 for i in range(n)]
-    str_data = random.choices(["foo", "bar", "baz", "ABC"], k=n)
-    date_data = pl.date_range(
-        start=date(2022, 1, 1),
-        end=date(2022, 1, 1) + pl.duration(days=n - 1),
-        eager=True,
-    )
-    datetime_data = pl.datetime_range(
-        start=datetime(2022, 1, 1),
-        end=datetime(2022, 1, 1) + pl.duration(seconds=n - 1),
-        interval="1s",
-        eager=True,
-    )
-    cats = ["low", "medium", "high"]
-    categorical_data = random.choices(cats, k=n)
-    null_data = [None] * n
-
-    int_with_missing_data = list(int_data)
-    for i in range(10, 30):
-        int_with_missing_data[i] = None
-
-    return pl.DataFrame(
-        {
-            "int_col": int_data,
-            "int_with_missing": int_with_missing_data,
-            "float_col": float_data,
-            "bool_col": bool_data,
-            "str_col": str_data,
-            "date_col": pl.Series(date_data).cast(pl.Date),
-            "datetime_col": pl.Series(datetime_data).cast(pl.Datetime),
-            "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
-            "enum_col": pl.Series(categorical_data).cast(pl.Enum(cats)),
-            "null_col": pl.Series(null_data),
-        }
-    )
+from utils import _format_num_rows
 
 
 def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
@@ -99,6 +16,7 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     Returns:
         Dict[str, pl.DataFrame]: A dictionary of summary statistics DataFrames for each data type.
     """
+    from polars import selectors as cs
 
     functions = {}
     functions_all = ["null_count", "min", "max"]
@@ -132,12 +50,12 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
         vars["cat"] = vars_cat
         functions["cat"] = functions_all + ["n_unique"]
 
-    vars_datetime = df.select(pl.col(pl.Datetime)).columns
+    vars_datetime = df.select(cs.datetime()).columns
     if len(vars_datetime) > 0:
         vars["datetime"] = vars_datetime
         functions["datetime"] = functions_all + ["mean", "median"]
 
-    vars_date = df.select(pl.col(pl.Date)).columns
+    vars_date = df.select(cs.date()).columns
     if len(vars_date) > 0:
         vars["date"] = vars_date
         functions["date"] = functions_all
@@ -186,6 +104,19 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
     Returns:
         pl.DataFrame: A summary table with statistics for each variable.
     """
+    if isinstance(df, pl.DataFrame) is False:
+        print(
+            """Input-df is not a polars data.frame, convert.
+            Data-type might not be perfectly preserved.
+            """
+        )
+        try:
+            df = pl.DataFrame(df)
+        except Exception as e:
+            raise ValueError(
+                f"Unable to convert input to Polars DataFrame. Error: {str(e)}"
+            )
+
     dfs = _make_tables(df)
     num_rows = df.height
     varnames = [
@@ -259,17 +190,6 @@ def show_summary(df: pl.DataFrame) -> None:
     """
     from polars import Config
 
-    if isinstance(df, pl.DataFrame) is False:
-        print(
-            "Detected that input-df is not a data.frame. Attempting to convert to polars-data, results might be wrong"
-        )
-        try:
-            df = pl.DataFrame(df)
-        except Exception as e:
-            raise ValueError(
-                f"Unable to convert input to Polars DataFrame. Error: {str(e)}"
-            )
-
     if df.height == 0 or df.width == 0:
         raise ValueError("Input data frame must have rows and columns")
 
@@ -279,10 +199,16 @@ def show_summary(df: pl.DataFrame) -> None:
         tbl_hide_column_data_types=True,
         float_precision=2,
         fmt_str_lengths=100,
+        set_tbl_rows=15,
     ):
         print(_make_summary_table(df))
 
 
 if __name__ == "__main__":
+    from utils import _sample_df
+
     df = _sample_df(10000)
-    res = show_summary(df)
+    # res = show_summary(df)
+    print(df.columns)
+    print(_make_summary_table(df.to_pandas()))
+    print(_make_summary_table(df))

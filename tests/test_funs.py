@@ -1,10 +1,7 @@
 import polars as pl
 import pytest
-from summtable.summtable import (
-    _make_tables,
-    _sample_df,
-    show_summary,
-)
+from summtable import _make_tables, show_summary, _make_summary_table
+from utils import _sample_df
 
 
 @pytest.fixture
@@ -47,12 +44,12 @@ def test_make_tables(sample_df):
     assert "n_unique" in cat_df.columns
 
     datetime_df = result["datetime"]
-    assert set(datetime_df.get_column("Variable")) == {"datetime_col"}
+    assert set(datetime_df.get_column("Variable")) == {"datetime_col", "datetime_col_2"}
     assert "mean" in datetime_df.columns
     assert "median" in datetime_df.columns
 
     date_df = result["date"]
-    assert set(date_df["Variable"]) == {"date_col"}
+    assert set(date_df["Variable"]) == {"date_col", "date_col_2"}
 
 
 def test_print_summary(sample_df, capsys):
@@ -103,3 +100,13 @@ def test_all_null_column():
         result["null"].filter(pl.col("Variable") == "null_col").item(0, "null_count")
         == 10
     )
+
+
+def test_make_summary_table(sample_df):
+    summary_table = _make_summary_table(sample_df)
+    col_0 = summary_table.columns[0]
+    sorted_cols = sorted(sample_df.columns)
+    assert sorted(summary_table.get_column(col_0)) == sorted_cols
+
+    summary_table_pandas = _make_summary_table(sample_df.to_pandas())
+    assert sorted(summary_table_pandas.get_column(col_0)) == sorted_cols
