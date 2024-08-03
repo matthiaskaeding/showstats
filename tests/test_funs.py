@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from dfstats import make_stats_df, _make_tables, show_stats
+from dfstats import _make_tables, make_stats_df, show_stats
 from utils import _sample_df
 
 
