@@ -16,4 +16,4 @@ requires-python = "~=3.11"
 extend-include = ["*.ipynb"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src/summtable"]

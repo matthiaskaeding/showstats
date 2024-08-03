@@ -1,10 +1,11 @@
 import polars as pl
 import pytest
-from summtable.summtable import (
+from summtable import (
     _make_tables,
-    _sample_df,
     show_summary,
 )
+
+from utils import _sample_df
 
 
 @pytest.fixture
