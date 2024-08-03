@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from summtable import _make_summary_table, _make_tables, show_summary
+from dfstats import _make_tables, make_stats_df, show_stats
 from utils import _sample_df
 
 
@@ -58,7 +58,7 @@ def test_make_tables(sample_df):
 
 def test_print_summary(sample_df, capsys):
     pl.Config.set_fmt_str_lengths(n=10000).set_tbl_width_chars(10000)
-    show_summary(sample_df)
+    show_stats(sample_df)
     captured = capsys.readouterr()
     output = captured.out
 
@@ -80,7 +80,7 @@ def test_print_summary(sample_df, capsys):
 def test_empty_dataframe():
     with pytest.raises(ValueError) as err:
         empty_df = pl.DataFrame()
-        show_summary(empty_df)
+        show_stats(empty_df)
         assert "Input data frame must have rows and columns" in str(err.value)
 
 
@@ -106,8 +106,8 @@ def test_all_null_column():
     )
 
 
-def test_make_summary_table(sample_df):
-    summary_table = _make_summary_table(sample_df)
+def testmake_stats_df(sample_df):
+    summary_table = make_stats_df(sample_df)
     col_0 = summary_table.columns[0]
     sorted_cols = sorted(sample_df.columns)
     assert sorted(summary_table.get_column(col_0)) == sorted_cols
@@ -129,5 +129,5 @@ def test_make_summary_table(sample_df):
         == "17.0"
     )
 
-    summary_table_pandas = _make_summary_table(sample_df.to_pandas())
+    summary_table_pandas = make_stats_df(sample_df.to_pandas())
     assert sorted(summary_table_pandas.get_column(col_0)) == sorted_cols

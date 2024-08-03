@@ -1,5 +1,5 @@
 ---
-title: "summtable"
+title: "dfstats: summary statistics"
 format: gfm
 jupyter: python3
 ---
@@ -14,8 +14,8 @@ import sys
 from pathlib import Path
 
 cur_dir = Path.cwd()
-src_dir = cur_dir.parent / "src" / "summtable"
-sys.path.append("../src/summtable")
+src_dir = cur_dir.parent / "src" / "dfstats"
+sys.path.append("../src/dfstats")
 from utils import _sample_df
 
 df = _sample_df()
@@ -31,9 +31,9 @@ print(df.describe())
 This package prints a summary table, mapping each input column to one row. 
 
 ```{python}
-from summtable import show_summary
+from dfstats import show_stats
 
-show_summary(df)
+show_stats(df)
 ```
 
 Primarily intended for polars data frame, works for pandas as well, however there is no guarantee that data-types are perfectly preserved.

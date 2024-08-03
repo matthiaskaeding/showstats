@@ -1,4 +1,4 @@
-summtable
+dfstats
 ================
 
 Polars offers a good way to summarize a dataframe `df` via the
@@ -46,9 +46,9 @@ This package prints a summary table, mapping each input column to one
 row.
 
 ``` python
-from summtable import show_summary
+from dfstats import show_stats
 
-show_summary(df)
+show_stats(df)
 ```
 
     | Var; N = 100  | Missing      | Mean         | Median       | Std.  | Min          | Max          |
