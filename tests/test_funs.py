@@ -48,12 +48,12 @@ def test_make_tables(sample_df):
     assert "n_unique" in cat_df.columns
 
     datetime_df = result["datetime"]
-    assert set(datetime_df.get_column("Variable")) == {"datetime_col"}
+    assert set(datetime_df.get_column("Variable")) == {"datetime_col", "datetime_col_2"}
     assert "mean" in datetime_df.columns
     assert "median" in datetime_df.columns
 
     date_df = result["date"]
-    assert set(date_df["Variable"]) == {"date_col"}
+    assert set(date_df["Variable"]) == {"date_col", "date_col_2"}
 
 
 def test_print_summary(sample_df, capsys):

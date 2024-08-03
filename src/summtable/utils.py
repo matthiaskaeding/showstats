@@ -23,17 +23,30 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
     float_data = [i / 100 for i in range(n)]
     bool_data = [i % 2 == 0 for i in range(n)]
     str_data = random.choices(["foo", "bar", "baz", "ABC"], k=n)
-    date_data = pl.date_range(
+    date_col = pl.date_range(
         start=date(2022, 1, 1),
         end=date(2022, 1, 1) + pl.duration(days=n - 1),
         eager=True,
     )
-    datetime_data = pl.datetime_range(
+    date_col_2 = pl.date_range(
+        start=date(1500, 1, 1),
+        end=date(1500, 1, 1) + pl.duration(days=n - 1),
+        eager=True,
+    )
+
+    datetime_col = pl.datetime_range(
         start=datetime(2022, 1, 1),
         end=datetime(2022, 1, 1) + pl.duration(seconds=n - 1),
         interval="1s",
         eager=True,
     )
+    datetime_col_2 = pl.datetime_range(
+        start=datetime(1995, 1, 1),
+        end=datetime(1995, 1, 1) + pl.duration(seconds=n - 1),
+        interval="1s",
+        eager=True,
+    )
+
     cats = ["low", "medium", "high"]
     categorical_data = random.choices(cats, k=n)
     null_data = [None] * n
@@ -49,8 +62,10 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
             "float_col": float_data,
             "bool_col": bool_data,
             "str_col": str_data,
-            "date_col": pl.Series(date_data).cast(pl.Date),
-            "datetime_col": pl.Series(datetime_data).cast(pl.Datetime),
+            "date_col": date_col,
+            "date_col_2": date_col_2,
+            "datetime_col": datetime_col,
+            "datetime_col_2": datetime_col_2,
             "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
             "enum_col": pl.Series(categorical_data).cast(pl.Enum(cats)),
             "null_col": pl.Series(null_data),

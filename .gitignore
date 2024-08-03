@@ -181,8 +181,4 @@ references/figures/*
 !references/figures/.gitkeep
 .vscode/settings.json
 
-# Playground folder
-src/playground/
-
-# Playground folder
-src/playground/
+src/summtable/playground.py

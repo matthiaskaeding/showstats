@@ -197,6 +197,7 @@ def show_summary(df: pl.DataFrame) -> None:
         tbl_hide_column_data_types=True,
         float_precision=2,
         fmt_str_lengths=100,
+        set_tbl_rows=15,
     ):
         print(_make_summary_table(df))
 
