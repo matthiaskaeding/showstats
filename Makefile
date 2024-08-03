@@ -24,7 +24,7 @@ test:
 	pytest
 
 ## Make README 
-docs/README.md: docs/README.qmd src/summtable/summtable.py
+docs/README.md: docs/README.qmd src/dfstats/dfstats.py
 	cd docs && quarto render docs/README.qmd
 
 

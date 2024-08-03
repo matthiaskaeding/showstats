@@ -94,7 +94,7 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     return dfs
 
 
-def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
+def make_stats_df(df: pl.DataFrame) -> pl.DataFrame:
     """
     Create a summary table for the given DataFrame.
 
@@ -181,7 +181,7 @@ def _make_summary_table(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def show_summary(df: pl.DataFrame) -> None:
+def show_stats(df: pl.DataFrame) -> None:
     """
     Print a summary table for the given DataFrame.
 
@@ -201,14 +201,14 @@ def show_summary(df: pl.DataFrame) -> None:
         fmt_str_lengths=100,
         set_tbl_rows=15,
     ):
-        print(_make_summary_table(df))
+        print(make_stats_df(df))
 
 
 if __name__ == "__main__":
     from utils import _sample_df
 
     df = _sample_df(10000)
-    # res = show_summary(df)
+    # res = show_stats(df)
     print(df.columns)
-    print(_make_summary_table(df.to_pandas()))
-    print(_make_summary_table(df))
+    print(make_stats_df(df.to_pandas()))
+    print(make_stats_df(df))

@@ -181,4 +181,4 @@ references/figures/*
 !references/figures/.gitkeep
 .vscode/settings.json
 
-src/summtable/playground.py
+src/dfstats/playground.py
