@@ -4,7 +4,37 @@ from datetime import date, datetime
 import polars as pl
 
 
-def _sample_df(n: int = 100) -> pl.DataFrame:
+def _sample_series(
+    seed: int = 1,
+    n: int = 100,
+    min: float = None,
+    max: float = None,
+    std: float = None,
+    mean: float = None,
+) -> pl.Series:
+    import random
+
+    random.seed(seed)
+
+    data = [random.gauss(mu=0.0, sigma=1.0) for _ in range(n)]
+    sr = pl.Series(data)
+    if mean is not None:
+        sr_mean = sr.mean()
+        sr = (sr - sr_mean) + mean
+    if std is not None:
+        st_std = sr.std()
+        sr = sr * std / st_std
+    if min is not None:
+        sr_min = sr.min()
+        sr = sr - sr_min + min
+    if max is not None:
+        sr_max = sr.max()
+        sr = sr - sr_max + max
+
+    return sr
+
+
+def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
     """
     Generate a sample DataFrame with various data types.
 
@@ -18,7 +48,7 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
 
     assert n >= 100, "There must be >= 100 rows"
 
-    random.seed(a=1, version=2)
+    random.seed(a=seed, version=2)
     int_data = range(n)
     float_data = [i / 100 for i in range(n)]
     bool_data = [i % 2 == 0 for i in range(n)]
@@ -59,6 +89,10 @@ def _sample_df(n: int = 100) -> pl.DataFrame:
             "int_col": int_data,
             "int_with_missing": int_with_missing_data,
             "float_col": float_data,
+            "float_col_with_mean_2": _sample_series(n=n, seed=seed, mean=2),
+            "float_col_with_std_2": _sample_series(n=n, seed=seed, std=2),
+            "float_col_with_min_7": _sample_series(n=n, seed=seed, min=7),
+            "float_col_with_max_17": _sample_series(n=n, seed=seed, max=17),
             "bool_col": bool_data,
             "str_col": str_data,
             "date_col": date_col,

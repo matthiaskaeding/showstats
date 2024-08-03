@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from summtable import _make_tables, show_summary, _make_summary_table
+from summtable import _make_summary_table, _make_tables, show_summary
 from utils import _sample_df
 
 
@@ -30,6 +30,10 @@ def test_make_tables(sample_df):
         "float_col",
         "bool_col",
         "int_with_missing",
+        "float_col_with_mean_2",
+        "float_col_with_std_2",
+        "float_col_with_min_7",
+        "float_col_with_max_17",
     }
     assert "mean" in num_df.columns
     assert "median" in num_df.columns
@@ -107,6 +111,23 @@ def test_make_summary_table(sample_df):
     col_0 = summary_table.columns[0]
     sorted_cols = sorted(sample_df.columns)
     assert sorted(summary_table.get_column(col_0)) == sorted_cols
+
+    assert (
+        summary_table.filter(pl.col(col_0).eq("float_col_with_mean_2")).item(0, "Mean")
+        == "2.0"
+    )
+    assert (
+        summary_table.filter(pl.col(col_0).eq("float_col_with_std_2")).item(0, "Std.")
+        == "2.0"
+    )
+    assert (
+        summary_table.filter(pl.col(col_0).eq("float_col_with_min_7")).item(0, "Min")
+        == "7.0"
+    )
+    assert (
+        summary_table.filter(pl.col(col_0).eq("float_col_with_max_17")).item(0, "Max")
+        == "17.0"
+    )
 
     summary_table_pandas = _make_summary_table(sample_df.to_pandas())
     assert sorted(summary_table_pandas.get_column(col_0)) == sorted_cols
