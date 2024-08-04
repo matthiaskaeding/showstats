@@ -11,9 +11,9 @@ clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
 
-## Lint and fix using ruff
-.PHONY: lint
-lint:
+## Fix code using ruff
+.PHONY: fix
+fix:
 	ruff check --select I --fix
 	ruff check --fix
 	ruff format
@@ -23,10 +23,17 @@ lint:
 test:
 	pytest
 
+test2: reqs test
+
+
 ## Make README 
 docs/README.md: docs/README.qmd src/dfstats/dfstats.py
 	cd docs && quarto render docs/README.qmd
 
+## Run nox
+.PHONY: nox
+nox: 
+	nox
 
 # Self Documenting Commands #
 .DEFAULT_GOAL := help
