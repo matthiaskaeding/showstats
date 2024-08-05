@@ -134,7 +134,7 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
     for var_type in var_types:
         df_var_type = dfs[var_type].lazy()
         df_var_type = (
-            df_var_type.with_columns(pl.selectors.numeric().round(2))
+            df_var_type.with_columns(pl.selectors.float().round(2))
             .with_columns(
                 pl.col("null_count")
                 .truediv(num_rows)
@@ -183,7 +183,7 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
 
 def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
     """
-    Print a summary table for the given DataFrame.
+    Print a summary table for the given DataF‚rame.
 
     Args:
         df (pl.DataFrame): The input DataFrame.
@@ -193,22 +193,28 @@ def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
     if df.height == 0 or df.width == 0:
         raise ValueError("Input data frame must have rows and columns")
 
-    with Config(
+    stats_df = make_stats_df(df)
+    cfg = Config(
         tbl_hide_dataframe_shape=True,
         tbl_formatting="ASCII_MARKDOWN",
         tbl_hide_column_data_types=True,
         float_precision=2,
         fmt_str_lengths=100,
-        set_tbl_rows=15,
-    ):
-        print(make_stats_df(df))
+        set_tbl_rows=stats_df.height,
+    )
+
+    with cfg:
+        print(stats_df)
 
 
 if __name__ == "__main__":
     from utils import _sample_df
 
     df = _sample_df(10000)
-    # res = show_stats(df)
-    print(df.columns)
-    print(make_stats_df(df.to_pandas()))
-    print(make_stats_df(df))
+    for i in range(20):
+        df = df.with_columns(pl.lit(123123).alias("TEST" + str(i)))
+    show_stats(df)
+    print("\n" * 2)
+
+    # print(df.head())
+    # show_stats(df, False)

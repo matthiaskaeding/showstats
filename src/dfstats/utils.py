@@ -45,6 +45,7 @@ def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
         pl.DataFrame: A DataFrame with sample data.
     """
     import random
+    from datetime import timedelta
 
     assert n >= 100, "There must be >= 100 rows"
 
@@ -55,23 +56,23 @@ def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
     str_data = random.choices(["foo", "bar", "baz", "ABC"], k=n)
     date_col = pl.date_range(
         start=date(2022, 1, 1),
-        end=date(2022, 1, 1) + pl.duration(days=n - 1),
+        end=date(2022, 1, 1) + timedelta(days=n - 1),
         eager=True,
     )
     date_col_2 = pl.date_range(
         start=date(1500, 1, 1),
-        end=date(1500, 1, 1) + pl.duration(days=n - 1),
+        end=date(1500, 1, 1) + timedelta(days=n - 1),
         eager=True,
     )
     datetime_col = pl.datetime_range(
         start=datetime(2022, 1, 1),
-        end=datetime(2022, 1, 1) + pl.duration(seconds=n - 1),
+        end=datetime(2022, 1, 1) + timedelta(seconds=n - 1),
         interval="1s",
         eager=True,
     )
     datetime_col_2 = pl.datetime_range(
         start=datetime(1995, 1, 1),
-        end=datetime(1995, 1, 1) + pl.duration(seconds=n - 1),
+        end=datetime(1995, 1, 1) + timedelta(seconds=n - 1),
         interval="1s",
         eager=True,
     )
@@ -99,8 +100,8 @@ def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
             "date_col_2": date_col_2,
             "datetime_col": datetime_col,
             "datetime_col_2": datetime_col_2,
-            "categorical_col": pl.Series(categorical_data).cast(pl.Categorical),
-            "enum_col": pl.Series(categorical_data).cast(pl.Enum(cats)),
+            "categorical_col": pl.Series(categorical_data, dtype=pl.Categorical),
+            "enum_col": pl.Series(categorical_data, dtype=pl.Enum(cats)),
             "null_col": pl.Series(null_data),
         }
     )

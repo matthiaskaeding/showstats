@@ -182,3 +182,4 @@ references/figures/*
 .vscode/settings.json
 
 src/dfstats/playground.py
+.python-version

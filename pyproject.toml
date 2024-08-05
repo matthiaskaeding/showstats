@@ -3,7 +3,7 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-dependencies = ["polars>=1.0.0"]
+dependencies = ["polars>=0.20.21"]
 name = "dfstats"
 description = "Produces nice summary tables for polars data frames"
 authors = [{ name = "Matthias Kaeding" }]
@@ -13,7 +13,7 @@ readme = "README.md"
 requires-python = "~=3.11"
 
 [project.optional-dependencies]
-pandas = ["pandas>=2.2.2", "pyarrow>=17.0.0"]
+pandas = ["pandas>=1.5.3", "pyarrow>=17.0.0"]
 
 
 [tool.ruff]
