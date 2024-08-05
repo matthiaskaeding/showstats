@@ -1,11 +1,16 @@
-# Centrea functions for table making
-from typing import Dict
+# Central functions for table making
+from typing import TYPE_CHECKING, Dict, Union
 
 import polars as pl
 from utils import _format_num_rows
 
+if TYPE_CHECKING:
+    import pandas
 
-def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
+
+def _make_tables(
+    df: Union[pl.DataFrame, "pandas.DataFrame"],
+) -> Dict[str, pl.DataFrame]:
     """
     Calculate summary statistics for a DataFrame.
 
@@ -94,7 +99,7 @@ def _make_tables(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     return dfs
 
 
-def make_stats_df(df: pl.DataFrame) -> pl.DataFrame:
+def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
     """
     Create a summary table for the given DataFrame.
 
@@ -104,18 +109,13 @@ def make_stats_df(df: pl.DataFrame) -> pl.DataFrame:
     Returns:
         pl.DataFrame: A summary table with statistics for each variable.
     """
+
     if isinstance(df, pl.DataFrame) is False:
-        print(
-            """Input-df is not a polars data.frame, convert.
-            Data-type might not be perfectly preserved.
-            """
-        )
+        print("Attempting to convert input to polars.DataFrame")
         try:
             df = pl.DataFrame(df)
         except Exception as e:
-            raise ValueError(
-                f"Unable to convert input to Polars DataFrame. Error: {str(e)}"
-            )
+            print(f"Error occurred during attempted conversion: {e}")
 
     dfs = _make_tables(df)
     num_rows = df.height
@@ -181,7 +181,7 @@ def make_stats_df(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def show_stats(df: pl.DataFrame) -> None:
+def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
     """
     Print a summary table for the given DataFrame.
 

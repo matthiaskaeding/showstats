@@ -1,5 +1,5 @@
 ---
-title: "dfstats: summary statistics"
+title: "dfstats: quick and compact summary statistics"
 format: gfm
 jupyter: python3
 ---
@@ -36,4 +36,5 @@ from dfstats import show_stats
 show_stats(df)
 ```
 
-Primarily intended for polars data frame, works for pandas as well, however there is no guarantee that data-types are perfectly preserved.
+Primarily intended for polars data frame, dfstats will try to convert input such as pandas.DataFrame to a polars.DataFrame.
+ 

@@ -134,3 +134,9 @@ def _format_num_rows(num: int, thr: float) -> str:
         exp_superscript = "⁻" + exp_superscript
 
     return f"{coefficient:.2f}×10{exp_superscript}"
+
+
+def _is_pkg_available(pkg: str) -> None:
+    import importlib
+
+    return importlib.util.find_spec(pkg) is not None
