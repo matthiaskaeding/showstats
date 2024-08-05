@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 dependencies = ["polars >= 0.20.21"]
-name = "dfstats"
+name = "summarystats"
 description = "Produces nice summary tables for data frames"
 authors = [{ name = "Matthias Kaeding" }]
 classifiers = [
@@ -17,15 +17,15 @@ readme = "README.md"
 requires-python = ">= 3.8"
 
 [project.optional-dependencies]
-pandas = ["pandas>=1.5.3", "pyarrow>=17.0.0"]
+pandas = ["pandas>=1.5.3", "pyarrow>=10.0.0"]
 
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src/dfstats"]
+pythonpath = ["src/summarystats"]
 
 [project.urls]
-Homepage = "https://github.com/matthiaskaeding/dfstats"
-Issues = "https://github.com/matthiaskaeding/dfstats/issues"
+Homepage = "https://github.com/matthiaskaeding/summarystats"
+Issues = "https://github.com/matthiaskaeding/summarystats/issues"
