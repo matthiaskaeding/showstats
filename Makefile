@@ -3,7 +3,7 @@
 ## Install Python Dependencies
 .PHONY: reqs
 reqs:
-	uv pip install -r requirements.txt
+	uv pip install -r dev-requirements.txt
 
 ## Delete all compiled Python files
 .PHONY: clean
