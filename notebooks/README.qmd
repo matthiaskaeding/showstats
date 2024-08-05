@@ -4,7 +4,7 @@ format: gfm
 jupyter: python3
 ---
 
-Polars offers a good way to summarize a dataframe ``df`` via the ``df.describe`` method, however this returns the output in a wide (same number of columns as ``df``) format.  
+**dfstats** produces summary statistic tables with vertical orientation.
 
 ```{python}
 # | output: false
@@ -22,19 +22,9 @@ df = _sample_df()
 ```
 
 ```{python}
-import polars as pl
-
-# Polars
-print(df.describe())
-```
-
-This package prints a summary table, mapping each input column to one row. 
-
-```{python}
 from dfstats import show_stats
 
 show_stats(df)
 ```
 
-Primarily intended for polars data frame, dfstats will try to convert input such as pandas.DataFrame to a polars.DataFrame.
- 
+Primarily built for polars data frames. **dfstats** converts other inputs, for compatibility with pandas.DataFrames install as ``pip install dfstats[pandas]`` 
