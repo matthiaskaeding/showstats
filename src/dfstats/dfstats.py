@@ -1,7 +1,6 @@
 # Central functions for table making
 from typing import TYPE_CHECKING, Dict, Union
 
-import pandas as pd
 import polars as pl
 from utils import _format_num_rows
 
@@ -114,7 +113,7 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
     if isinstance(df, pl.DataFrame) is False:
         print("Attempting to convert input to polars.DataFrame")
         try:
-            df = _pandas_to_polars(df)
+            df = pl.DataFrame(df)
         except Exception as e:
             print(f"Error occurred during attempted conversion: {e}")
 
@@ -209,4 +208,7 @@ if __name__ == "__main__":
     from utils import _sample_df
 
     df = _sample_df(10000)
+    # res = show_stats(df)
+    print(df.columns)
+    print(make_stats_df(df.to_pandas()))
     print(make_stats_df(df))
