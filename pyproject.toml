@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 dependencies = ["polars >= 0.20.21"]
-name = "dfstats"
+name = "synopsis"
 description = "Vertical summary statistics for data frames"
 authors = [{ name = "Matthias Kaeding" }]
 classifiers = [
@@ -24,8 +24,8 @@ pandas = ["pandas>=1.5.3", "pyarrow>=10.0.0"]
 extend-include = ["*.ipynb"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src/dfstats"]
+pythonpath = ["src/synopsis"]
 
 [project.urls]
-Homepage = "https://github.com/matthiaskaeding/dfstats"
-Issues = "https://github.com/matthiaskaeding/dfstats/issues"
+Homepage = "https://github.com/matthiaskaeding/synopsis"
+Issues = "https://github.com/matthiaskaeding/synopsis/issues"

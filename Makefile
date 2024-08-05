@@ -27,7 +27,7 @@ test2: reqs test
 
 
 ## Make README 
-README.md: notebooks/README.qmd src/dfstats/dfstats.py
+README.md: notebooks/README.qmd src/synopsis/synopsis.py
 	quarto render notebooks/README.qmd
 	mv notebooks/README.md README.md
 
@@ -49,7 +49,7 @@ upload-testpypi:
 ## Test install
 .PHONY: test-inst
 test-inst:
-	uv pip install -i https://test.pypi.org/simple/ dfstats
+	uv pip install -i https://test.pypi.org/simple/ synopsis
 
 
 # Self Documenting Commands #

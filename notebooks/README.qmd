@@ -1,10 +1,10 @@
 ---
-title: "dfstats: quick and compact summary statistics"
+title: "synopsis: quick and compact summary statistics"
 format: gfm
 jupyter: python3
 ---
 
-**dfstats** produces summary statistic tables with vertical orientation.
+**synopsis** produces summary statistic tables with vertical orientation.
 
 ```{python}
 # | output: false
@@ -14,17 +14,17 @@ import sys
 from pathlib import Path
 
 cur_dir = Path.cwd()
-src_dir = cur_dir.parent / "src" / "dfstats"
-sys.path.append("../src/dfstats")
+src_dir = cur_dir.parent / "src" / "synopsis"
+sys.path.append("../src/synopsis")
 from utils import _sample_df
 
 df = _sample_df()
 ```
 
 ```{python}
-from dfstats import show_stats
+from synopsis import show_stats
 
 show_stats(df)
 ```
 
-Primarily built for polars data frames. **dfstats** converts other inputs, for compatibility with pandas.DataFrames install as ``pip install dfstats[pandas]`` 
+Primarily built for polars data frames. **synopsis** converts other inputs, for compatibility with pandas.DataFrames install as ``pip install synopsis[pandas]`` 
