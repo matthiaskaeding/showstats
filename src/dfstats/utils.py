@@ -1,7 +1,6 @@
 # Utility functions
 from datetime import date, datetime
 
-import pandas
 import polars as pl
 
 
