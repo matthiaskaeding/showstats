@@ -41,11 +41,6 @@ nox:
 build: 
 	python3 -m build
 
-## Upload to testpypi
-.PHONY: upload-testpypi
-upload-testpypi: 
-	python3 -m twine upload --repository testpypi dist/*
-
 ## Upload to pypi
 .PHONY: upload-pypi
 upload-pypi: 
