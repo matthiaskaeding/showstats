@@ -1,10 +1,10 @@
-# synopsis: quick and compact summary statistics
+# dfstats: quick and compact summary statistics
 
 
-**synopsis** produces summary tables with vertical orientation.
+**dfstats** produces summary tables with vertical orientation.
 
 ``` python
-from synopsis import show_stats
+from dfstats import show_stats
 
 show_stats(df)
 ```
@@ -36,6 +36,6 @@ show_stats(df)
     | ol            |              |              |              |       |              |              |
     | null_col      | 100 (100.0%) |              |              |       |              |              |
 
-Primarily built for polars data frames. **synopsis** converts other
+Primarily built for polars data frames. **dfstats** converts other
 inputs, for full compatibility with pandas.DataFrames install as
-`pip install synopsis[pandas]`
+`pip install dfstats[pandas]`

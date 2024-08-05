@@ -27,7 +27,7 @@ test2: reqs test
 
 
 ## Make README 
-README.md: notebooks/README.qmd src/synopsis/synopsis.py
+README.md: notebooks/README.qmd src/dfstats/dfstats.py
 	quarto render notebooks/README.qmd
 	mv notebooks/README.md README.md
 
@@ -46,10 +46,15 @@ build:
 upload-testpypi: 
 	python3 -m twine upload --repository testpypi dist/*
 
+## Upload to pypi
+.PHONY: upload-pypi
+upload-pypi: 
+	python3 -m twine upload --repository pypi dist/*
+
 ## Test install
 .PHONY: test-inst
 test-inst:
-	uv pip install -i https://test.pypi.org/simple/ synopsis
+	uv pip install -i https://test.pypi.org/simple/ dfstats
 
 
 # Self Documenting Commands #
