@@ -14,9 +14,6 @@ clean:
 ## Fix code using ruff
 .PHONY: fix
 fix:
-## Fix code using ruff
-.PHONY: fix
-fix:
 	ruff check --select I --fix
 	ruff check --fix
 	ruff format
@@ -25,9 +22,6 @@ fix:
 .PHONY: test
 test:
 	pytest
-
-test2: reqs test
-
 
 test2: reqs test
 
@@ -61,11 +55,6 @@ upload-pypi:
 .PHONY: test-inst
 test-inst:
 	uv pip install -i https://test.pypi.org/simple/ dfstats
-
-## Run nox
-.PHONY: nox
-nox: 
-	nox
 
 # Self Documenting Commands #
 .DEFAULT_GOAL := help
