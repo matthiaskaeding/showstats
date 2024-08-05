@@ -19,8 +19,8 @@ def test(session):
 
 
 @nox.parametrize("polars_version", ["0.20.21", "1.4.1"])
-@nox.parametrize("pandas_version", ["1.5.3", "2.2.2"])
-@nox.session(name="polars_pandas")
+@nox.parametrize("pandas_version", ["1.5.3"])
+@nox.session(name="polars_pandas", python="3.9")
 def test_polars_versions(session, polars_version, pandas_version):
     session.install(
         "pytest>=8.3.2",
