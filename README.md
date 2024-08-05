@@ -1,5 +1,5 @@
-dfstats: quick and compact summary statistics
-================
+# dfstats: quick and compact summary statistics
+
 
 Polars offers a good way to summarize a dataframe `df` via the
 `df.describe` method, however this returns the output in a wide (same

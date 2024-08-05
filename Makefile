@@ -27,8 +27,9 @@ test2: reqs test
 
 
 ## Make README 
-docs/README.md: docs/README.qmd src/dfstats/dfstats.py
-	cd docs && quarto render README.qmd
+README.md: notebooks/README.qmd src/dfstats/dfstats.py
+	quarto render notebooks/README.qmd
+	mv notebooks/README.md README.md
 
 ## Run nox
 .PHONY: nox
