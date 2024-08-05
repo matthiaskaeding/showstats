@@ -36,6 +36,12 @@ README.md: notebooks/README.qmd src/dfstats/dfstats.py
 nox: 
 	nox
 
+## Build package
+.PHONY: build
+build: 
+	python3 -m build
+
+
 # Self Documenting Commands #
 .DEFAULT_GOAL := help
 
