@@ -27,13 +27,34 @@ test2: reqs test
 
 
 ## Make README 
-docs/README.md: docs/README.qmd src/dfstats/dfstats.py
-	cd docs && quarto render README.qmd
+README.md: notebooks/README.qmd src/dfstats/dfstats.py
+	quarto render notebooks/README.qmd
+	mv notebooks/README.md README.md
 
 ## Run nox
 .PHONY: nox
 nox: 
 	nox
+
+## Build package
+.PHONY: build
+build: 
+	python3 -m build
+
+## Upload to testpypi
+.PHONY: upload-testpypi
+upload-testpypi: 
+	python3 -m twine upload --repository testpypi dist/*
+
+## Upload to pypi
+.PHONY: upload-pypi
+upload-pypi: 
+	python3 -m twine upload --repository pypi dist/*
+
+## Test install
+.PHONY: test-inst
+test-inst:
+	uv pip install -i https://test.pypi.org/simple/ dfstats
 
 # Self Documenting Commands #
 .DEFAULT_GOAL := help
