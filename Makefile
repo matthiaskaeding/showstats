@@ -41,6 +41,16 @@ nox:
 build: 
 	python3 -m build
 
+## Upload to testpypi
+.PHONY: upload-testpypi
+upload-testpypi: 
+	python3 -m twine upload --repository testpypi dist/*
+
+## Test install
+.PHONY: test-inst
+test-inst:
+	uv pip install -i https://test.pypi.org/simple/ dfstats
+
 
 # Self Documenting Commands #
 .DEFAULT_GOAL := help

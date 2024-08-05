@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-dependencies = ["polars>=0.20.21"]
+dependencies = ["polars >= 0.20.21"]
 name = "dfstats"
 description = "Produces nice summary tables for data frames"
 authors = [{ name = "Matthias Kaeding" }]
@@ -14,7 +14,7 @@ classifiers = [
 ]
 version = "0.0.1"
 readme = "README.md"
-requires-python = "~=3.11"
+requires-python = ">= 3.8"
 
 [project.optional-dependencies]
 pandas = ["pandas>=1.5.3", "pyarrow>=17.0.0"]
