@@ -23,6 +23,3 @@ def test_polars_versions(session, polars_version, pandas_version):
     session.install(f"polars=={polars_version}")
     session.install(f"pandas=={pandas_version}")
     session.run("pytest", "tests/")
-
-
-
