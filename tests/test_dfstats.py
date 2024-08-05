@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
 from dfstats import _make_tables, make_stats_df, show_stats
-from utils import _sample_df
+from dfstats.utils import _sample_df
 
 
 @pytest.fixture
