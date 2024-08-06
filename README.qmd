@@ -11,17 +11,18 @@ jupyter: python3
 # | echo: false
 import polars as pl
 import sys
+
+sys.path.append("src/")
+sys.path.append("tests/")
 from pathlib import Path
+from conftest import sample_df_
 
-cur_dir = Path.cwd()
-src_dir = cur_dir.parent / "src" / "dfstats"
-sys.path.append("../src/dfstats")
-from utils import _sample_df
-
-df = _sample_df()
+df = sample_df_()
+import dfstats
 ```
 
 ```{python}
+
 from dfstats import show_stats
 
 show_stats(df)
