@@ -27,9 +27,9 @@ test2: reqs test
 
 
 ## Make README 
-README.md: notebooks/README.qmd src/dfstats/dfstats.py
-	quarto render notebooks/README.qmd
-	mv notebooks/README.md README.md
+.PHONY: README.md
+README.md: README.qmd src/showstats/showstats.py
+	quarto render README.qmd
 
 ## Run nox
 .PHONY: nox
@@ -49,7 +49,7 @@ upload-pypi:
 ## Test install
 .PHONY: test-inst
 test-inst:
-	uv pip install -i https://test.pypi.org/simple/ dfstats
+	uv pip install -i https://test.pypi.org/simple/ showstats
 
 # Self Documenting Commands #
 .DEFAULT_GOAL := help

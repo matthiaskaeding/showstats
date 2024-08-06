@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from dfstats.dfstats import show_stats
+from showstats.showstats import show_stats
 
 
 def test_print_summary(sample_df, capsys):

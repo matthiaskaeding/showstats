@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 dependencies = ["polars >= 0.20.21"]
-name = "dfstats"
+name = "showstats"
 description = "Vertical summary statistics for data frames"
 authors = [{ name = "Matthias Kaeding" }]
 classifiers = [
@@ -27,5 +27,5 @@ extend-include = ["*.ipynb"]
 pythonpath = ["src"]
 
 [project.urls]
-Homepage = "https://github.com/matthiaskaeding/dfstats"
-Issues = "https://github.com/matthiaskaeding/dfstats/issues"
+Homepage = "https://github.com/matthiaskaeding/showstats"
+Issues = "https://github.com/matthiaskaeding/showstats/issues"

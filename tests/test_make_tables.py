@@ -1,5 +1,5 @@
 import polars as pl
-from dfstats.dfstats import _make_tables
+from showstats.showstats import _make_tables
 
 
 def test_make_tables(sample_df):

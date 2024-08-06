@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Dict, Union
 
 import polars as pl
 
-from dfstats.utils import _format_num_rows
+from showstats.utils import _format_num_rows
 
 if TYPE_CHECKING:
     import pandas

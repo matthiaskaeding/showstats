@@ -1,10 +1,11 @@
-# dfstats: quick and compact summary statistics
+# showstats: quick and compact summary statistics
 
 
-**dfstats** produces summary statistic tables with vertical orientation.
+**showstats** produces summary statistic tables with vertical
+orientation.
 
 ``` python
-from dfstats import show_stats
+from showstats import show_stats
 
 show_stats(df)
 ```
@@ -36,6 +37,6 @@ show_stats(df)
     | ol            |              |              |              |       |              |              |
     | null_col      | 100 (100.0%) |              |              |       |              |              |
 
-Primarily built for polars data frames. **dfstats** converts other
+Primarily built for polars data frames. **showstats** converts other
 inputs, for compatibility with pandas.DataFrames install as
-`pip install dfstats[pandas]`
+`pip install showstats[pandas]`
