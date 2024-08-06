@@ -2,7 +2,8 @@
 from typing import TYPE_CHECKING, Dict, Union
 
 import polars as pl
-from utils import _format_num_rows
+
+from showstats.utils import _format_num_rows
 
 if TYPE_CHECKING:
     import pandas
@@ -205,16 +206,3 @@ def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
 
     with cfg:
         print(stats_df)
-
-
-if __name__ == "__main__":
-    from utils import _sample_df
-
-    df = _sample_df(10000)
-    for i in range(20):
-        df = df.with_columns(pl.lit(123123).alias("TEST" + str(i)))
-    show_stats(df)
-    print("\n" * 2)
-
-    # print(df.head())
-    # show_stats(df, False)

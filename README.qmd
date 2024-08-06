@@ -1,0 +1,31 @@
+---
+title: "showstats: quick and compact summary statistics"
+format: gfm
+jupyter: python3
+---
+
+**showstats** produces summary statistic tables with vertical orientation.
+
+```{python}
+# | output: false
+# | echo: false
+import polars as pl
+import sys
+
+sys.path.append("src/")
+sys.path.append("tests/")
+from pathlib import Path
+from conftest import sample_df_
+
+df = sample_df_()
+import showstats
+```
+
+```{python}
+
+from showstats import show_stats
+
+show_stats(df)
+```
+
+Primarily built for polars data frames. **showstats** converts other inputs, for compatibility with pandas.DataFrames install as ``pip install showstats[pandas]`` 

@@ -1,10 +1,8 @@
-# Utility functions
-from datetime import date, datetime
-
 import polars as pl
+import pytest
 
 
-def _sample_series(
+def sample_series(
     seed: int = 1,
     n: int = 100,
     min: float = None,
@@ -12,6 +10,15 @@ def _sample_series(
     std: float = None,
     mean: float = None,
 ) -> pl.Series:
+    """
+    Samples a pl.Series with known moments.
+    seed (int): Random seed
+    min (float): Minimum
+    max (float): Maximum
+    std (float): Standard deviation
+    mean (float): Mean
+
+    """
     import random
 
     random.seed(seed)
@@ -34,7 +41,7 @@ def _sample_series(
     return sr
 
 
-def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
+def sample_df_(n: int = 100, seed: int = 1) -> pl.DataFrame:
     """
     Generate a sample DataFrame with various data types.
 
@@ -45,7 +52,7 @@ def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
         pl.DataFrame: A DataFrame with sample data.
     """
     import random
-    from datetime import timedelta
+    from datetime import date, datetime, timedelta
 
     assert n >= 100, "There must be >= 100 rows"
 
@@ -90,10 +97,10 @@ def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
             "int_col": int_data,
             "int_with_missing": int_with_missing_data,
             "float_col": float_data,
-            "float_col_with_mean_2": _sample_series(n=n, seed=seed, mean=2),
-            "float_col_with_std_2": _sample_series(n=n, seed=seed, std=2),
-            "float_col_with_min_7": _sample_series(n=n, seed=seed, min=7),
-            "float_col_with_max_17": _sample_series(n=n, seed=seed, max=17),
+            "float_col_with_mean_2": sample_series(n=n, seed=seed, mean=2),
+            "float_col_with_std_2": sample_series(n=n, seed=seed, std=2),
+            "float_col_with_min_7": sample_series(n=n, seed=seed, min=7),
+            "float_col_with_max_17": sample_series(n=n, seed=seed, max=17),
             "bool_col": bool_data,
             "str_col": str_data,
             "date_col": date_col,
@@ -107,37 +114,6 @@ def _sample_df(n: int = 100, seed: int = 1) -> pl.DataFrame:
     )
 
 
-def _format_num_rows(num: int, thr: float) -> str:
-    """
-    Formats a number nicely, using scientific notation for large numbers.
-
-    Args:
-        num (int): The number to format.
-        thr (int): The threshold above which to use scientific notation.
-
-    Returns:
-        str: The formatted number as a string.
-    """
-    import math
-
-    if num < thr:
-        return f"{num:,.0f}"
-
-    exponent = int(math.floor(math.log10(abs(num))))
-    coefficient = num / 10**exponent
-
-    # Unicode superscript digits
-    superscripts = "⁰¹²³⁴⁵⁶⁷⁸⁹"
-
-    # Convert exponent to superscript
-    exp_superscript = "".join(superscripts[int(d)] for d in str(abs(exponent)))
-    if exponent < 0:
-        exp_superscript = "⁻" + exp_superscript
-
-    return f"{coefficient:.2f}×10{exp_superscript}"
-
-
-def _is_pkg_available(pkg: str) -> None:
-    import importlib
-
-    return importlib.util.find_spec(pkg) is not None
+@pytest.fixture(scope="session")
+def sample_df():
+    return sample_df_(n=500)
