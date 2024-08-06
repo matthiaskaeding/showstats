@@ -181,5 +181,5 @@ references/figures/*
 !references/figures/.gitkeep
 .vscode/settings.json
 
-src/dfstats/experiments.py
+src/experiments.py
 .python-version
