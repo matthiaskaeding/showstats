@@ -38,7 +38,6 @@ def test_make_tables(sample_df):
         "categorical_col",
         "enum_col",
     }
-    assert "n_unique" in cat_df.columns
 
     datetime_df = result["datetime"]
     assert set(datetime_df.get_column("Variable")) == {"datetime_col", "datetime_col_2"}

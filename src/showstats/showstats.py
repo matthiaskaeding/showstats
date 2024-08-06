@@ -54,7 +54,7 @@ def _make_tables(
     ).columns
     if len(vars_cat) > 0:
         vars["cat"] = vars_cat
-        functions["cat"] = functions_all + ["n_unique"]
+        functions["cat"] = functions_all
 
     vars_datetime = df.select(cs.datetime()).columns
     if len(vars_datetime) > 0:
