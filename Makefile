@@ -46,6 +46,12 @@ build:
 upload-pypi: 
 	python3 -m twine upload --repository pypi dist/*
 
+## Upload to test-pypi
+.PHONY: upload-testpypi
+upload-testpypi: 
+	python3 -m twine upload --repository testpypi dist/*
+
+
 ## Test install
 .PHONY: test-inst
 test-inst:
