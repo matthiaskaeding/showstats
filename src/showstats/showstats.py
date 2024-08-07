@@ -107,11 +107,23 @@ def make_stats_df(
     """
     Create a summary table for the given DataFrame.
 
+    This function generates a comprehensive summary of the input DataFrame,
+    including statistics like percentage of missing values, mean, median,
+    standard deviation, minimum, and maximum for each column. It handles
+    different data types appropriately and allows for custom ordering of columns.
+
     Args:
-        df (pl.DataFrame): The input DataFrame.
-        top_cols (Union[List[str], str, None]): Column / list of columns that should appear on top.
+        df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
+        top_cols (Union[List[str], str, None], optional): Column or list of columns
+            that should appear at the top of the summary table. Defaults to None.
+
     Returns:
         pl.DataFrame: A summary table with statistics for each variable.
+
+    Note:
+        - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
+        - Percentage of missing values is grouped into categories for easier interpretation.
+        - Datetime columns are formatted as strings in the output.
     """
     from decimal import Decimal
 
@@ -250,11 +262,26 @@ def show_stats(
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
     """
-    Print table of summary statistics.
+    Print a table of summary statistics for the given DataFrame.
+
+    This function generates and prints a formatted table of summary statistics
+    using the make_stats_df function. It configures the output format for
+    optimal readability.
 
     Args:
-        df (pl.DataFrame or pandas.DataFrame): Input DataFrame
-        top_cols (Union[List[str], str, None]): Column / list of columns that should appear on top.
+        df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
+        top_cols (Union[List[str], str, None], optional): Column or list of columns
+            that should appear at the top of the summary table. Defaults to None.
+
+    Raises:
+        ValueError: If the input DataFrame has no rows or columns.
+
+    Note:
+        - The output is formatted as an ASCII Markdown table with left-aligned cells
+          and no column data types displayed.
+        - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
+        - Percentage of missing values is grouped into categories for easier interpretation.
+        - Datetime columns are formatted as strings in the output.
     """
     from polars import Config
 
