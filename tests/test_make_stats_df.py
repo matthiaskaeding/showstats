@@ -21,3 +21,14 @@ def test_make_stats_df(sample_df):
 
     summary_table_pandas = make_stats_df(sample_df.to_pandas())
     assert sorted(summary_table_pandas.get_column(col_0)) == sorted_cols
+
+    # Sorting
+
+    # Test with list
+    top_cols = ["int_with_missings", "bool_col"]
+    res_sorted = make_stats_df(sample_df, top_cols)
+    assert res_sorted.get_column(res_sorted.columns[0]).head(2).to_list() == top_cols
+
+    # Test with singleton
+    res_sorted = make_stats_df(sample_df, "enum_col")
+    assert res_sorted.get_column(res_sorted.columns[0]).item(0) == "enum_col"

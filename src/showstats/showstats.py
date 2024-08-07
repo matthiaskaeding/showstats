@@ -1,5 +1,5 @@
 # Central functions for table making
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Dict, List, Union
 
 import polars as pl
 
@@ -100,13 +100,16 @@ def _make_tables(
     return dfs
 
 
-def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
+def make_stats_df(
+    df: Union[pl.DataFrame, "pandas.DataFrame"],
+    top_cols: Union[List[str], None, str] = None,
+) -> pl.DataFrame:
     """
     Create a summary table for the given DataFrame.
 
     Args:
         df (pl.DataFrame): The input DataFrame.
-
+        top_cols (Union[List[str], str, None]): Column / list of columns that should appear on top.
     Returns:
         pl.DataFrame: A summary table with statistics for each variable.
     """
@@ -133,10 +136,16 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
     var_types = [x for x in ["num", "datetime", "date", "cat", "null"] if x in dfs]
 
     # Order
+    all_columns_in_order = []
+
     for var_type in var_types:
+        df_var_type = dfs[var_type]
+        if top_cols is not None:
+            # Save column names for later
+            all_columns_in_order.extend(df_var_type.get_column("Variable"))
+
         df_var_type = (
-            dfs[var_type]
-            .lazy()
+            df_var_type.lazy()
             .with_columns(pl.selectors.float().round_sig_figs(2))
             .with_columns(
                 pl.col("null_count")
@@ -203,41 +212,56 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
 
         dfs[var_type] = df_var_type.select(varnames)
 
+    print(all_columns_in_order)
+
     thr = 100_000
     if num_rows < thr:
         name_var = f"Var. N={num_rows}"
     else:
         name_var = f"Var. N={Decimal(num_rows):.2E}"
-    return (
-        pl.concat([dfs[key] for key in var_types])
-        .rename(
-            {
-                "Variable": name_var,
-                "perc_missing": "Null %",
-                "mean": "Mean",
-                "median": "Median",
-                "std": "Std.",
-                "min": "Min",
-                "max": "Max",
-            }
-        )
-        .collect()
+    stats_df = pl.concat([dfs[key] for key in var_types]).rename(
+        {
+            "Variable": name_var,
+            "perc_missing": "Null %",
+            "mean": "Mean",
+            "median": "Median",
+            "std": "Std.",
+            "min": "Min",
+            "max": "Max",
+        }
     )
 
+    if top_cols is not None:
+        if isinstance(top_cols, str):
+            top_cols = [top_cols]
 
-def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
+        new_order = top_cols + [
+            var for var in all_columns_in_order if var not in top_cols
+        ]
+        stats_df = stats_df.with_columns(
+            pl.col(name_var).cast(pl.Enum(new_order))
+        ).sort(name_var)
+
+    return stats_df.collect()
+
+
+def show_stats(
+    df: Union[pl.DataFrame, "pandas.DataFrame"],
+    top_cols: Union[List[str], str, None] = None,
+) -> None:
     """
     Print table of summary statistics.
 
     Args:
         df (pl.DataFrame or pandas.DataFrame): Input DataFrame
+        top_cols (Union[List[str], str, None]): Column / list of columns that should appear on top.
     """
     from polars import Config
 
     if df.height == 0 or df.width == 0:
         raise ValueError("Input data frame must have rows and columns")
 
-    stats_df = make_stats_df(df)
+    stats_df = make_stats_df(df, top_cols)
     cfg = Config(
         tbl_hide_dataframe_shape=True,
         tbl_formatting="ASCII_MARKDOWN",
