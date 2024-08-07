@@ -11,12 +11,20 @@ clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
 	rm -rf ./README.quarto_ipynb
+	
 ## Fix code using ruff
 .PHONY: fix
 fix:
 	ruff check --select I --fix
 	ruff check --fix
 	ruff format
+
+## Time show_stats
+.PHONY: timing
+timing:
+	cd notebooks && jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True timing.ipynb
+
+docs: README.md timing
 
 ## Run pytests
 .PHONY: test

@@ -10,7 +10,7 @@ from showstats import show_stats
 show_stats(df)
 ```
 
-    | Var;          | Null % | Mean          | Median        | Std.     | Min           | Max          |
+    | Var.          | Null % | Mean          | Median        | Std.     | Min           | Max          |
     | N=1.00E+6     |        |               |               |          |               |              |
     |---------------|--------|---------------|---------------|----------|---------------|--------------|
     | float_mean_2  | 0%     | 2.0           | 2.0           | 1.0      | -2.6          | 6.6          |
@@ -38,3 +38,6 @@ show_stats(df)
 Primarily built for polars data frames, **showstats** converts other
 inputs. For full compatibility with pandas.DataFrames install as
 `pip install showstats[pandas]`.
+
+Because **showstats** uses polars as backend, its really fast: \<1
+second for a 1,000,000 × 1,000 data frame, running on a M1 MacBook.

@@ -201,17 +201,13 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
                 df_var_type, ["min", "max", "mean", "median", "std"]
             )
 
-        # for col_name in varnames:
-        #     if col_name not in df_var_type.columns:
-        #         print(col_name)
-        #         df_var_type = df_var_type.with_columns(pl.lit("").alias(col_name))
         dfs[var_type] = df_var_type.select(varnames)
 
     thr = 100_000
     if num_rows < thr:
-        name_var = f"Var; N={num_rows}"
+        name_var = f"Var. N={num_rows}"
     else:
-        name_var = f"Var; N={Decimal(num_rows):.2E}"
+        name_var = f"Var. N={Decimal(num_rows):.2E}"
     return (
         pl.concat([dfs[key] for key in var_types])
         .rename(
@@ -249,7 +245,7 @@ def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
         float_precision=2,
         fmt_str_lengths=100,
         tbl_rows=stats_df.height,
-        # tbl_cell_alignment="LEFT",
+        tbl_cell_alignment="LEFT",
     )
 
     with cfg:
