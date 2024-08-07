@@ -2,7 +2,7 @@ import polars as pl
 from showstats.showstats import make_stats_df
 
 
-def testmake_stats_df(sample_df):
+def test_make_stats_df(sample_df):
     summary_table = make_stats_df(sample_df)
     col_0 = summary_table.columns[0]
     sorted_cols = sorted(sample_df.columns)
