@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Dict, Union
 
 import polars as pl
 
-from showstats.utils import _format_num_rows
+from showstats.utils import _add_empty_strings
 
 if TYPE_CHECKING:
     import pandas
@@ -110,6 +110,7 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
     Returns:
         pl.DataFrame: A summary table with statistics for each variable.
     """
+    from decimal import Decimal
 
     if isinstance(df, pl.DataFrame) is False:
         print("Attempting to convert input to polars.DataFrame")
@@ -122,7 +123,7 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
     num_rows = df.height
     varnames = [
         "Variable",
-        "null_count",
+        "perc_missing",
         "mean",
         "median",
         "std",
@@ -133,20 +134,55 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
 
     # Order
     for var_type in var_types:
-        df_var_type = dfs[var_type].lazy()
         df_var_type = (
-            df_var_type.with_columns(pl.selectors.float().round(2))
+            dfs[var_type]
+            .lazy()
+            .with_columns(pl.selectors.float().round_sig_figs(2))
             .with_columns(
                 pl.col("null_count")
                 .truediv(num_rows)
-                .alias("perc_missing")
                 .mul(100)
-                .round(1)
+                .round(2)
+                .alias("perc_missing")
             )
             .with_columns(
-                pl.format("{} ({}%)", pl.col("null_count"), pl.col("perc_missing"))
+                # Group percentages. Because pl.cut is unstable, manually use pl.when
+                pl.when(pl.col("perc_missing").eq(0))
+                .then(pl.lit("0%"))
+                .when(pl.col("perc_missing") < 1)
+                .then(pl.lit("<1%"))
+                .when(pl.col("perc_missing") < 2)
+                .then(pl.lit("<2%"))
+                .when(pl.col("perc_missing") < 3)
+                .then(pl.lit("<3%"))
+                .when(pl.col("perc_missing") < 5)
+                .then(pl.lit("<5%"))
+                .when(pl.col("perc_missing") < 10)
+                .then(pl.lit("<10%"))
+                .when(pl.col("perc_missing") < 20)
+                .then(pl.lit("<20%"))
+                .when(pl.col("perc_missing") < 30)
+                .then(pl.lit("<30%"))
+                .when(pl.col("perc_missing") < 40)
+                .then(pl.lit("<40%"))
+                .when(pl.col("perc_missing") < 50)
+                .then(pl.lit("<50%"))
+                .when(pl.col("perc_missing") < 60)
+                .then(pl.lit("<60%"))
+                .when(pl.col("perc_missing") < 70)
+                .then(pl.lit("<70%"))
+                .when(pl.col("perc_missing") < 80)
+                .then(pl.lit("<80%"))
+                .when(pl.col("perc_missing") < 90)
+                .then(pl.lit("<90%"))
+                .when(pl.col("perc_missing") < 100)
+                .then(pl.lit("<100%"))
+                .when(pl.col("perc_missing") == 100)
+                .then(pl.lit("100%"))
+                .alias("perc_missing")
             )
         )
+
         # Special conversion for datetimes
         if var_type == "datetime":
             df_var_type = df_var_type.with_columns(
@@ -154,23 +190,34 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
             )
         else:
             df_var_type = df_var_type.with_columns(pl.col("*").cast(pl.String))
+
         # Add missing values as ""
-        for col_name in varnames:
-            if col_name not in dfs[var_type].columns:
-                df_var_type = df_var_type.with_columns(pl.lit("").alias(col_name))
+        if var_type in ("cat", "date"):
+            df_var_type = _add_empty_strings(df_var_type, ["mean", "median", "std"])
+        elif var_type == "datetime":
+            df_var_type = _add_empty_strings(df_var_type, ["std"])
+        elif var_type == "null":
+            df_var_type = _add_empty_strings(
+                df_var_type, ["min", "max", "mean", "median", "std"]
+            )
+
+        # for col_name in varnames:
+        #     if col_name not in df_var_type.columns:
+        #         print(col_name)
+        #         df_var_type = df_var_type.with_columns(pl.lit("").alias(col_name))
         dfs[var_type] = df_var_type.select(varnames)
 
     thr = 100_000
     if num_rows < thr:
-        name_var = f"Var; N = {_format_num_rows(num_rows, thr)}"
+        name_var = f"Var; N={num_rows}"
     else:
-        name_var = f"Var; N \u2248 {_format_num_rows(num_rows, thr)}"
+        name_var = f"Var; N={Decimal(num_rows):.2E}"
     return (
         pl.concat([dfs[key] for key in var_types])
         .rename(
             {
                 "Variable": name_var,
-                "null_count": "Missing",
+                "perc_missing": "Null %",
                 "mean": "Mean",
                 "median": "Median",
                 "std": "Std.",
@@ -184,10 +231,10 @@ def make_stats_df(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> pl.DataFrame:
 
 def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
     """
-    Print a summary table for the given DataF‚rame.
+    Print table of summary statistics.
 
     Args:
-        df (pl.DataFrame): The input DataFrame.
+        df (pl.DataFrame or pandas.DataFrame): Input DataFrame
     """
     from polars import Config
 
@@ -201,7 +248,8 @@ def show_stats(df: Union[pl.DataFrame, "pandas.DataFrame"]) -> None:
         tbl_hide_column_data_types=True,
         float_precision=2,
         fmt_str_lengths=100,
-        set_tbl_rows=stats_df.height,
+        tbl_rows=stats_df.height,
+        # tbl_cell_alignment="LEFT",
     )
 
     with cfg:

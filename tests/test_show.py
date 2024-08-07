@@ -10,7 +10,7 @@ def test_print_summary(sample_df, capsys):
     output = captured.out
 
     # Check if the output contains expected column names
-    expected_columns = ["Missing", "Mean", "Median", "Std.", "Min", "Max"]
+    expected_columns = ["Null %", "Mean", "Median", "Std.", "Min", "Max"]
     for col in expected_columns:
         assert col in output, f"{col} not in output"
     assert "Var" in output

@@ -1,4 +1,7 @@
 # Utility functions
+from typing import List, Union
+
+import polars as pl
 
 
 def _format_num_rows(num: int, thr: float) -> str:
@@ -35,3 +38,9 @@ def _is_pkg_available(pkg: str) -> None:
     import importlib
 
     return importlib.util.find_spec(pkg) is not None
+
+
+def _add_empty_strings(
+    df: Union[pl.LazyFrame, pl.DataFrame], col_names: List[str]
+) -> pl.LazyFrame:
+    return df.with_columns([pl.lit("").alias(x) for x in col_names])

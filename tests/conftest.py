@@ -147,10 +147,10 @@ def sample_df_(n: int = 100, seed: int = 1) -> pl.DataFrame:
     df = (
         pl.LazyFrame(
             {
-                "float_col_with_mean_2": sample_series(n=n, seed=seed, mean=2),
-                "float_col_with_std_2": sample_series(n=n, seed=seed, std=2),
-                "float_col_with_min_7": sample_series(n=n, seed=seed, min=7),
-                "float_col_with_max_17": sample_series(n=n, seed=seed, max=17),
+                "float_mean_2": sample_series(n=n, seed=seed, mean=2),
+                "float_std_2": sample_series(n=n, seed=seed, std=2),
+                "float_min_7": sample_series(n=n, seed=seed, min=7),
+                "float_max_17": sample_series(n=n, seed=seed, max=17),
                 "bool_col": bool_data,
                 "str_col": str_data,
                 "categorical_col": pl.Series(categorical_data, dtype=pl.Categorical),
@@ -177,7 +177,7 @@ def sample_df_(n: int = 100, seed: int = 1) -> pl.DataFrame:
         pl.when(pl.col("U").lt(0.1))
         .then(None)
         .otherwise(pl.col("int_col"))
-        .alias("int_col_with_missings"),
+        .alias("int_with_missings"),
         pl.when(pl.col("U").lt(0.34))
         .then(None)
         .otherwise(pl.col("bool_col"))

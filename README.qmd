@@ -28,4 +28,6 @@ from showstats import show_stats
 show_stats(df)
 ```
 
-Primarily built for polars data frames. **showstats** converts other inputs, for compatibility with pandas.DataFrames install as ``pip install showstats[pandas]`` 
+Primarily built for polars data frames, **showstats** converts other inputs. 
+
+For compatibility with pandas.DataFrames install as ``pip install showstats[pandas]``. 
