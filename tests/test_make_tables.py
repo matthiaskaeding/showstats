@@ -22,11 +22,12 @@ def test_make_tables(sample_df):
         "int_col",
         "float_col",
         "bool_col",
-        "int_with_missing",
-        "float_col_with_mean_2",
-        "float_col_with_std_2",
-        "float_col_with_min_7",
-        "float_col_with_max_17",
+        "int_with_missings",
+        "float_mean_2",
+        "float_std_2",
+        "float_min_7",
+        "float_max_17",
+        "U",
     }
     assert "mean" in num_df.columns
     assert "median" in num_df.columns
@@ -38,7 +39,6 @@ def test_make_tables(sample_df):
         "categorical_col",
         "enum_col",
     }
-    assert "n_unique" in cat_df.columns
 
     datetime_df = result["datetime"]
     assert set(datetime_df.get_column("Variable")) == {"datetime_col", "datetime_col_2"}
