@@ -17,7 +17,17 @@ sys.path.append("tests/")
 from pathlib import Path
 from conftest import sample_df_
 
-df = sample_df_()
+df_all = sample_df_()
+
+df = df_all.select(
+    pl.col("float_col").alias("float_col"),
+    pl.col("str_col").alias("string"),
+    pl.col("date_col").alias("date"),
+    pl.col("datetime_col").alias("datetime"),
+    pl.col("null_col"),
+    pl.col("int_col").alias("X"),
+    pl.col("int_with_missing").alias("Y"),
+)
 import showstats
 ```
 
