@@ -10,7 +10,7 @@ reqs:
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
-
+	rm -rf ./README.quarto_ipynb
 ## Fix code using ruff
 .PHONY: fix
 fix:

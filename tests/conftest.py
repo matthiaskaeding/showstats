@@ -140,8 +140,8 @@ def sample_df_(n: int = 100, seed: int = 1) -> pl.DataFrame:
     bool_data = [i % 2 == 0 for i in range(n)]
     str_data = np_random.choice(["foo", "bar", "baz", "ABC"], size=n)
 
-    cats = ["low", "medium", "high"]
-    categorical_data = np_random.choice(cats, size=n)
+    cats_enum = ["worst", "medium", "best"]
+    cats_cat = ["Fara", "Car"]
     null_data = [None] * n
 
     df = (
@@ -153,8 +153,12 @@ def sample_df_(n: int = 100, seed: int = 1) -> pl.DataFrame:
                 "float_max_17": sample_series(n=n, seed=seed, max=17),
                 "bool_col": bool_data,
                 "str_col": str_data,
-                "categorical_col": pl.Series(categorical_data, dtype=pl.Categorical),
-                "enum_col": pl.Series(categorical_data, dtype=pl.Enum(cats)),
+                "categorical_col": pl.Series(
+                    np_random.choice(cats_cat, size=n), dtype=pl.Categorical
+                ),
+                "enum_col": pl.Series(
+                    np_random.choice(cats_enum, size=n), dtype=pl.Enum(cats_enum)
+                ),
                 "null_col": pl.Series(null_data),
             }
         )
