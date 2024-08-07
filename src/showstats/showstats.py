@@ -224,8 +224,6 @@ def make_stats_df(
 
         dfs[var_type] = df_var_type.select(varnames)
 
-    print(all_columns_in_order)
-
     thr = 100_000
     if num_rows < thr:
         name_var = f"Var. N={num_rows}"
