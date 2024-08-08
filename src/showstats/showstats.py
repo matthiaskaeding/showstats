@@ -100,7 +100,7 @@ def _make_tables(
     return dfs
 
 
-def make_stats_df(
+def _make_stats_df(
     df: Union[pl.DataFrame, "pandas.DataFrame"],
     top_cols: Union[List[str], None, str] = None,
 ) -> pl.DataFrame:
@@ -263,7 +263,7 @@ def show_stats(
     Print a table of summary statistics for the given DataFrame.
 
     This function generates and prints a formatted table of summary statistics
-    using the make_stats_df function. It configures the output format for
+    using the _make_stats_df function. It configures the output format for
     optimal readability.
 
     Args:
@@ -286,7 +286,7 @@ def show_stats(
     if df.height == 0 or df.width == 0:
         raise ValueError("Input data frame must have rows and columns")
 
-    stats_df = make_stats_df(df, top_cols)
+    stats_df = _make_stats_df(df, top_cols)
     cfg = Config(
         tbl_hide_dataframe_shape=True,
         tbl_formatting="ASCII_MARKDOWN",
