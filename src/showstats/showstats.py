@@ -1,132 +1,13 @@
 # Central functions for table making
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, List, Union
 
 import polars as pl
 
+from showstats.tables import _make_tables
 from showstats.utils import _add_empty_strings
 
 if TYPE_CHECKING:
     import pandas
-
-
-def _set_expressions(
-    df: pl.DataFrame, var_type: str, expressions: List[pl.Expr], sep: str
-):
-    """
-    In place appends to a list of expressions
-    Each expression is a function applied to one column in the data frame df
-    """
-    from polars import selectors as cs
-
-    if var_type == "num":
-        vars = df.select(
-            pl.col(
-                pl.Decimal,
-                pl.Float32,
-                pl.Float64,
-                pl.Int16,
-                pl.Int32,
-                pl.Int64,
-                pl.Int8,
-                pl.UInt16,
-                pl.UInt32,
-                pl.UInt64,
-                pl.UInt8,
-                pl.Boolean,
-            )
-        ).columns
-        if len(vars) == 0:
-            return
-        functions = ["null_count", "min", "max", "mean", "median", "std"]
-
-    elif var_type == "cat":
-        vars = df.select(
-            pl.col(pl.String), pl.col(pl.Enum), pl.col(pl.Categorical)
-        ).columns
-        if len(vars) == 0:
-            return []
-        functions = ["null_count", "min", "max"]
-
-    elif var_type == "datetime":
-        vars = df.select(cs.datetime()).columns
-        if len(vars) == 0:
-            return []
-        functions = ["null_count", "min", "max", "mean", "median"]
-
-    elif var_type == "date":
-        vars = df.select(cs.date()).columns
-        if len(vars) == 0:
-            return []
-        functions = ["null_count", "min", "max"]
-
-    elif var_type == "null":
-        vars = df.select(pl.col(pl.Null)).columns
-        if len(vars) == 0:
-            return []
-        functions = ["null_count"]
-
-    for var in vars:
-        for function in functions:
-            varname = f"{var_type}{sep}{function}{sep}{var}"
-            expr = getattr(pl.col(var), function)().alias(varname)
-            expressions.append(expr)
-
-    return
-
-
-def _make_tables(
-    df: Union[pl.DataFrame, "pandas.DataFrame"],
-) -> Dict[str, pl.DataFrame]:
-    """
-    Calculate summary statistics for a DataFrame.
-
-    Args:
-        df (pl.DataFrame): The input DataFrame. If not a polars.DataFrame, will try
-        to cast
-
-    Returns:
-        Dict[str, pl.DataFrame]: A dictionary of summary statistics DataFrames for each data type.
-    """
-    from collections import defaultdict
-
-    # Fill expressions
-    expressions = []
-    sep = "____"
-
-    for var_type in ["num", "cat", "datetime", "date", "null"]:
-        _set_expressions(df, var_type, expressions, sep)
-    n_exprs = len(expressions)
-
-    # Evaluate expressions
-    stats_df = df.select(expressions)  # 1 x n_exprs df
-    nms = stats_df.columns
-    stats = stats_df.row(0)  # Turn into tuple for faster access
-
-    # Loop through summary statistics
-    # Expressions are ordered by var, which we use to fill
-
-    # Initialize
-    last_var_type, fun, last_var = nms[0].split(sep, 2)
-    row = {"Variable": last_var, fun: stats[0]}
-    rows = defaultdict(list)
-
-    for i in range(1, n_exprs):
-        var_type, function_name, var = nms[i].split(sep, 2)
-        function_value = stats[i]
-        if var == last_var:
-            # Simple update
-            row[function_name] = function_value
-        else:
-            # Switch: store current row, make new one
-            rows[last_var_type].append(row)
-            last_var = var
-            last_var_type = var_type
-            row = {"Variable": var, function_name: function_value}
-    else:
-        # Covers edge case of 1-column df + last column in generl
-        rows[var_type].append(row)
-
-    return {key: pl.DataFrame(rows[key]) for key in rows}
 
 
 def make_stats_df(
