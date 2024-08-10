@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, List, Union
 
 import polars as pl
 
-from showstats.metatable import Metatable
+from showstats._table import _Table
 
 if TYPE_CHECKING:
     import pandas
@@ -46,5 +46,5 @@ def show_stats(
     if df.height == 0 or df.width == 0:
         raise ValueError("Input data frame must have rows and columns")
 
-    mt = Metatable(df)
-    mt.print(top_cols=top_cols)
+    mt = _Table(df)
+    mt.show(top_cols=top_cols)

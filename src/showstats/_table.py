@@ -1,11 +1,12 @@
-from collections import defaultdict
 from typing import Iterable, Union
 
 import polars as pl
 from polars import selectors as cs
 
 
-class Metatable:
+class _Table:
+    """Models the metadata of a table"""
+
     def __init__(
         self,
         df: pl.DataFrame,
@@ -20,14 +21,13 @@ class Metatable:
         self.num_rows = df.height
         self.stat_df = None
         base_functions = ("null_count", "min", "max")
-        vars = {}
-        stat_names = {key: [] for key in var_types}
-        functions = {}
-        expressions = []
+        vars_map = {}  # Maps var-type to columns in df
+        funs_map = {}  # Maps var-type to functions
+        stat_names_map = {}  # Maps var-type to names of computed statistics
 
-        if "num" in var_types:
-            vars["num"] = df.select(
-                pl.col(
+        for var_type in var_types:
+            if var_type == "num":
+                col_vt = pl.col(
                     pl.Decimal,
                     pl.Float32,
                     pl.Float64,
@@ -41,47 +41,51 @@ class Metatable:
                     pl.UInt64,
                     pl.Boolean,
                 )
-            ).columns
-            functions["num"] = base_functions + ("mean", "median", "std")
+                funs_vp = base_functions + ("mean", "median", "std")
+            elif var_type == "cat":
+                col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
+                funs_vp = base_functions
+            elif var_type == "cat_special":
+                col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
+                funs_vp = base_functions + ("n_unique",)
+            elif var_type == "datetime":
+                col_vt = pl.col(pl.Datetime)
+                funs_vp = base_functions + ("mean", "median")
+            elif var_type == "date":
+                col_vt = pl.col(pl.Date)
+                funs_vp = base_functions
+            elif var_type == "null":
+                col_vt = pl.col(pl.Null)
+                funs_vp = ("null_count",)
+            else:
+                raise ValueError(f"var_type {var_type} not supported")
+            vars_vt = df.select(col_vt).columns
+            if vars_vt:
+                vars_map[var_type] = vars_vt
+                funs_map[var_type] = funs_vp
+                stat_names_map[var_type] = []
 
-        if "cat" in var_types:
-            vars["cat"] = df.select(pl.col(pl.Enum, pl.String, pl.Categorical)).columns
-            functions["cat"] = base_functions
-        if "datetime" in var_types:
-            vars["datetime"] = df.select(pl.col(pl.Datetime)).columns
-            functions["datetime"] = base_functions + ("mean", "median")
-
-        if "date" in var_types:
-            vars["date"] = df.select(pl.col(pl.Date)).columns
-            functions["date"] = base_functions
-        if "null" in var_types:
-            vars["null"] = df.select(pl.col(pl.Null)).columns
-            functions["null"] = ["null_count"]
-
-        if "cat_special" in var_types:
-            vars["cat_special"] = df.select(cs.string()).columns
-            functions["cat_special"] = base_functions + ("n_unique",)
-
+        self.funs_map = funs_map
+        expressions = []
         sep = "____"
-        for vt in var_types:
-            functions_vt = functions[vt]
-            vars_vp = vars[vt]
-            for var in vars_vp:
+        for vt in vars_map:
+            functions_vt = funs_map[vt]
+            for var in vars_map[vt]:
                 for function in functions_vt:
                     stat_name = f"{var}{sep}{function}"
                     expr = getattr(pl.col(var), function)().alias(stat_name)
                     expressions.append(expr)
-                    stat_names[vt].append(stat_name)
+                    stat_names_map[vt].append(stat_name)
 
         if "cat_special" in var_types:
             expr = (
-                cs.by_name(vars["cat_special"])
+                cs.by_name(vars_map["cat_special"])
                 .value_counts(sort=True)
                 .implode()
                 .name.prefix(f"top_5{sep}")
             )
             stats = df.select(*expressions, expr).row(0, named=True)
-            vars_cat_special = vars["cat_special"]
+            vars_cat_special = vars_map["cat_special"]
             for var in vars_cat_special:
                 key = f"top_5{sep}{var}"
                 top_5_list = stats[key]
@@ -91,36 +95,30 @@ class Metatable:
                     share = count / self.num_rows  # % of rows which have <freq_value>
                     entry = f"{freq_value} ({share:.0%})"
                     stats[nm] = entry
-                    stat_names["cat_special"].append(nm)
+                    stat_names_map["cat_special"].append(nm)
                 del stats[key]
 
         else:
             stats = df.select(expressions).row(0, named=True)
 
-        self.stat_names = stat_names
+        self.stat_names_map = stat_names_map
         self.stats = stats
-        self.vars = vars
+        self.vars_map = vars_map
         self.sep = sep
 
+        # Columns of resultant table
         if var_types != ("cat_special",):
-            all_functions = list(
-                {item for sublist in functions.values() for item in sublist}
+            self.columns_stat_df = (
+                "Variable",
+                "null_count",
+                "mean",
+                "median",
+                "std",
+                "min",
+                "max",
             )
-
-            self.columns_stat_df = ["Variable"] + [
-                x
-                for x in [
-                    "null_count",
-                    "mean",
-                    "median",
-                    "std",
-                    "min",
-                    "max",
-                ]
-                if x in all_functions
-            ]
         else:
-            self.columns_stat_df = [
+            self.columns_stat_df = (
                 "Variable",
                 "null_count",
                 "n_unique",
@@ -129,15 +127,16 @@ class Metatable:
                 "top_3",
                 "top_4",
                 "top_5",
-            ]
+            )
 
     def make_dt(self, var_type: str) -> pl.DataFrame:
-        data = defaultdict(list)
-        data["Variable"] = self.vars[var_type]
-        stat_names = self.stat_names[var_type]
-
+        data = {}
+        data["Variable"] = self.vars_map[var_type]
+        for fun_name in self.funs_map[var_type]:
+            data[fun_name] = []
+        stat_names = self.stat_names_map[var_type]
         for name in stat_names:
-            var_name, fun_name = name.split(self.sep, 1)
+            _, fun_name = name.split(self.sep, 1)
             stat_value = self.stats[name]
             data[fun_name].append(stat_value)
 
@@ -188,11 +187,11 @@ class Metatable:
             )
         )
 
+        # Some special cases
         if var_type == "num":
             df = df.with_columns(
                 pl.col("mean", "median", "min", "max", "std").round_sig_figs(2)
             )
-        # Convert to string
         if var_type == "datetime":
             df = df.with_columns(
                 pl.col("mean", "median", "min", "max").dt.to_string("%Y-%m-%d %H:%M:%S")
@@ -216,8 +215,7 @@ class Metatable:
             name_var = f"Var. N={self.num_rows}"
         else:
             name_var = f"Var. N={Decimal(self.num_rows):.2E}"
-
-        ll = [self.make_dt(var_type) for var_type in self.vars]
+        ll = [self.make_dt(var_type) for var_type in self.vars_map]
         stat_df = pl.concat(ll)
         stat_df = stat_df.rename(
             {
@@ -233,8 +231,8 @@ class Metatable:
 
         if self.top_cols is not None:  # Put top_cols at front
             all_columns_in_order = []
-            for vt in self.vars:
-                all_columns_in_order.extend(self.vars[vt])
+            for vt in self.vars_map:
+                all_columns_in_order.extend(self.vars_map[vt])
             new_order = self.top_cols + [
                 var for var in all_columns_in_order if var not in self.top_cols
             ]
@@ -244,7 +242,7 @@ class Metatable:
 
         self.stat_df = stat_df.collect()
 
-    def print(self):
+    def show(self):
         if self.stat_df is None:
             self.form_stat_df()
         cfg = pl.Config(
