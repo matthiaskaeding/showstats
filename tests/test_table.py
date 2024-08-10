@@ -17,23 +17,28 @@ def test_metatable(sample_df):
     assert isinstance(df_datetime, pl.LazyFrame)
     assert isinstance(df_null, pl.LazyFrame)
 
-    desired_schema = pl.Schema(
-        [
-            ("Variable", pl.String),
-            ("null_count", pl.String),
-            ("mean", pl.String),
-            ("median", pl.String),
-            ("std", pl.String),
-            ("min", pl.String),
-            ("max", pl.String),
-        ]
-    )
+    desired_names = ["Variable", "null_count", "mean", "median", "std", "min", "max"]
+    desired_dtypes = [pl.String for _ in desired_names]
 
-    assert df_num.collect_schema() == desired_schema
-    assert df_cat.collect_schema() == desired_schema
-    assert df_date.collect_schema() == desired_schema
-    assert df_datetime.collect_schema() == desired_schema
-    assert df_null.collect_schema() == desired_schema
+    df_num = df_num.collect()
+    assert df_num.columns == desired_names
+    assert df_num.dtypes == desired_dtypes
+
+    df_cat = df_cat.collect()
+    assert df_cat.columns == desired_names
+    assert df_cat.dtypes == desired_dtypes
+
+    df_date = df_date.collect()
+    assert df_date.columns == desired_names
+    assert df_date.dtypes == desired_dtypes
+
+    df_datetime = df_datetime.collect()
+    assert df_datetime.columns == desired_names
+    assert df_datetime.dtypes == desired_dtypes
+
+    df_null = df_null.collect()
+    assert df_null.columns == desired_names
+    assert df_null.dtypes == desired_dtypes
 
 
 def test_that_statistics_are_correct(sample_df):
