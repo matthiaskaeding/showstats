@@ -249,11 +249,11 @@ class _Table:
                 "Variable": name_var,
                 "null_count": "Null %",
                 "n_unique": "Distinct values",
-                "top_1": "Top 1",
-                "top_2": "Top 2",
-                "top_3": "Top 3",
-                "top_4": "Top 4",
-                "top_5": "Top 5",
+                "top_1": "Top 1 (%)",
+                "top_2": "Top 2 (%)",
+                "top_3": "Top 3 (%)",
+                "top_4": "Top 4 (%)",
+                "top_5": "Top 5 (%)",
             }
 
         stat_df = stat_df.rename(rename_dict)
