@@ -1,4 +1,4 @@
-from typing import Iterable, Union
+from typing import Iterable, Union, List
 from collections import defaultdict
 import polars as pl
 from polars import selectors as cs
@@ -9,10 +9,13 @@ class Metatable:
         self,
         df: pl.DataFrame,
         var_types: Union[Iterable, str] = ("num", "cat", "datetime", "date", "null"),
+        top_cols: Iterable = None,
     ):
         if isinstance(var_types, str):
             var_types = (var_types,)
-
+        if isinstance(top_cols, str):
+            top_cols = [top_cols]
+        self.top_cols = top_cols
         self.num_rows = df.height
         self.stat_df = None
         base_functions = ("null_count", "min", "max")
@@ -212,9 +215,10 @@ class Metatable:
             name_var = f"Var. N={self.num_rows}"
         else:
             name_var = f"Var. N={Decimal(self.num_rows):.2E}"
+
         ll = [self.make_dt(var_type) for var_type in self.vars]
         stat_df = pl.concat(ll)
-        self.stat_df = stat_df.rename(
+        stat_df = stat_df.rename(
             {
                 "Variable": name_var,
                 "null_count": "Null %",
@@ -226,19 +230,31 @@ class Metatable:
             }
         )
 
+        if self.top_cols is not None:  # Put top_cols at front
+            all_columns_in_order = []
+            for vt in self.vars:
+                all_columns_in_order.extend(self.vars[vt])
+            new_order = self.top_cols + [
+                var for var in all_columns_in_order if var not in self.top_cols
+            ]
+            stat_df = stat_df.with_columns(
+                pl.col(name_var).cast(pl.Enum(new_order))
+            ).sort(name_var)
+
+        self.stat_df = stat_df.collect()
+
     def print(self):
         if self.stat_df is None:
             self.form_stat_df()
-        stat_df_in_memory = self.stat_df.collect()
         cfg = pl.Config(
             tbl_hide_dataframe_shape=True,
             tbl_formatting="ASCII_MARKDOWN",
             tbl_hide_column_data_types=True,
             float_precision=2,
             fmt_str_lengths=100,
-            tbl_rows=stat_df_in_memory.height,
+            tbl_rows=self.stat_df.height,
             tbl_cell_alignment="LEFT",
         )
 
         with cfg:
-            print(stat_df_in_memory)
+            print(self.stat_df)

@@ -48,4 +48,4 @@ def show_stats(
         raise ValueError("Input data frame must have rows and columns")
 
     mt = Metatable(df)
-    mt.print()
+    mt.print(top_cols=top_cols)
