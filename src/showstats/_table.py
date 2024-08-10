@@ -17,6 +17,10 @@ class _Table:
             var_types = (var_types,)
         if isinstance(top_cols, str):
             top_cols = [top_cols]
+        if var_types == ("cat_special",):
+            self.special_case = "cat_special"
+        else:
+            self.special_case = None
         self.top_cols = top_cols
         self.num_rows = df.height
         self.stat_df = None
@@ -47,7 +51,12 @@ class _Table:
                 funs_vp = base_functions
             elif var_type == "cat_special":
                 col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
-                funs_vp = base_functions + ("n_unique",)
+                funs_vp = (
+                    "null_count",
+                    "n_unique",
+                    "min",
+                    "max",
+                )
             elif var_type == "datetime":
                 col_vt = pl.col(pl.Datetime)
                 funs_vp = base_functions + ("mean", "median")
@@ -77,7 +86,7 @@ class _Table:
                     expressions.append(expr)
                     stat_names_map[vt].append(stat_name)
 
-        if "cat_special" in var_types:
+        if self.special_case == "cat_special":
             expr = (
                 cs.by_name(vars_map["cat_special"])
                 .value_counts(sort=True)
@@ -86,6 +95,7 @@ class _Table:
             )
             stats = df.select(*expressions, expr).row(0, named=True)
             vars_cat_special = vars_map["cat_special"]
+            funs_map["cat_special"] += ("top_1", "top_2", "top_3", "top_4", "top_5")
             for var in vars_cat_special:
                 key = f"top_5{sep}{var}"
                 top_5_list = stats[key]
@@ -96,6 +106,13 @@ class _Table:
                     entry = f"{freq_value} ({share:.0%})"
                     stats[nm] = entry
                     stat_names_map["cat_special"].append(nm)
+                if i < 4:
+                    for j in range(i + 1, 5):
+                        nm = f"{var}{sep}top_{j+1}"  # varname for stats
+                        stats[nm] = "(0%)"
+                        stat_names_map["cat_special"].append(nm)
+                # Sort so that the stat names are sorted by input-column
+                stat_names_map["cat_special"].sort()
                 del stats[key]
 
         else:
@@ -107,7 +124,7 @@ class _Table:
         self.sep = sep
 
         # Columns of resultant table
-        if var_types != ("cat_special",):
+        if self.special_case is None:  # Common case
             self.columns_stat_df = (
                 "Variable",
                 "null_count",
@@ -117,7 +134,7 @@ class _Table:
                 "min",
                 "max",
             )
-        else:
+        elif self.special_case == "cat_special":  # Special case
             self.columns_stat_df = (
                 "Variable",
                 "null_count",
@@ -217,8 +234,8 @@ class _Table:
             name_var = f"Var. N={Decimal(self.num_rows):.2E}"
         ll = [self.make_dt(var_type) for var_type in self.vars_map]
         stat_df = pl.concat(ll)
-        stat_df = stat_df.rename(
-            {
+        if self.special_case is None:
+            rename_dict = {
                 "Variable": name_var,
                 "null_count": "Null %",
                 "mean": "Mean",
@@ -227,7 +244,19 @@ class _Table:
                 "min": "Min",
                 "max": "Max",
             }
-        )
+        elif self.special_case == "cat_special":
+            rename_dict = {
+                "Variable": name_var,
+                "null_count": "Null %",
+                "n_unique": "Distinct values",
+                "top_1": "Top 1",
+                "top_2": "Top 2",
+                "top_3": "Top 3",
+                "top_4": "Top 4",
+                "top_5": "Top 5",
+            }
+
+        stat_df = stat_df.rename(rename_dict)
 
         if self.top_cols is not None:  # Put top_cols at front
             all_columns_in_order = []
