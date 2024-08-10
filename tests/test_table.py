@@ -48,15 +48,24 @@ def test_that_statistics_are_correct(sample_df):
 
 
 def test_top_cols(sample_df):
-    mt_sorted = _Table(sample_df, top_cols="U")
-    mt_sorted.form_stat_df()
+    table_no_top_cols = _Table(sample_df)
+    table_no_top_cols.form_stat_df()
+    table_top_cols = _Table(sample_df, top_cols="U")
+    table_top_cols.form_stat_df()
 
-    assert mt_sorted.stat_df.item(0, 0) == "U"
+    assert table_top_cols.stat_df.item(0, 0) == "U"
 
-    mt_sorted = _Table(sample_df, top_cols=["enum_col", "int_col"])
-    mt_sorted.form_stat_df()
-    assert mt_sorted.stat_df.item(0, 0) == "enum_col"
-    assert mt_sorted.stat_df.item(1, 0) == "int_col"
+    table_top_cols = _Table(sample_df, top_cols=["enum_col", "int_col"])
+    table_top_cols.form_stat_df()
+    assert table_top_cols.stat_df.item(0, 0) == "enum_col"
+    assert table_top_cols.stat_df.item(1, 0) == "int_col"
+    assert table_top_cols.stat_df.shape == table_no_top_cols.stat_df.shape
+
+    name_col_0 = table_top_cols.stat_df.columns[0]
+    col_0_top_cols = table_top_cols.stat_df.get_column(name_col_0)
+    col_0_no_top_cols = table_no_top_cols.stat_df.get_column(name_col_0)
+    assert col_0_top_cols.equals(col_0_no_top_cols) is False
+    assert sorted(col_0_top_cols.to_list()) == sorted(col_0_no_top_cols.to_list())
 
 
 def test_single_columns():
