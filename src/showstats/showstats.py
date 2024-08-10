@@ -35,7 +35,6 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    from polars import Config
 
     if isinstance(df, pl.DataFrame) is False:
         print("Attempting to convert input to polars.DataFrame")

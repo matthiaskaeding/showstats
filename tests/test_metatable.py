@@ -1,5 +1,5 @@
-from showstats.metatable import Metatable
 import polars as pl
+from showstats.metatable import Metatable
 
 
 def test_metatable(sample_df):

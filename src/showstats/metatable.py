@@ -1,5 +1,6 @@
-from typing import Iterable, Union, List
 from collections import defaultdict
+from typing import Iterable, Union
+
 import polars as pl
 from polars import selectors as cs
 
