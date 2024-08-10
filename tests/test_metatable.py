@@ -42,3 +42,13 @@ def test_metatable(sample_df):
 
     mt = Metatable(sample_df, "cat_special")
     assert mt.stats.keys() == set(mt.stat_names["cat_special"])
+
+    mt_sorted = Metatable(sample_df, top_cols="U")
+    mt_sorted.form_stat_df()
+
+    assert mt_sorted.stat_df.item(0, 0) == "U"
+
+    mt_sorted = Metatable(sample_df, top_cols=["enum_col", "int_col"])
+    mt_sorted.form_stat_df()
+    assert mt_sorted.stat_df.item(0, 0) == "enum_col"
+    assert mt_sorted.stat_df.item(1, 0) == "int_col"
