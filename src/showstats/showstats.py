@@ -15,11 +15,8 @@ def show_stats(
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
     """
-    Print a table of summary statistics for the given DataFrame.
-
-    This function generates and prints a formatted table of summary statistics
-    using the make_stats_df function. It configures the output format for
-    optimal readability.
+    Print a table of summary statistics for the given DataFrame, configured
+    for for optimal readability.
 
     Args:
         df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
@@ -46,11 +43,9 @@ def show_cat_stats(
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
     """
-    Print a table of summary statistics for categorical varibles of the  DataFrame.
-
-    This function generates and prints a formatted table of summary statistics
-    using the make_stats_df function. It configures the output format for
-    optimal readability.
+    Print a table of summary statistics for the categorical variables.
+    Gives the share of null values, the number of unique values and the three most
+    frequent values.
 
     Args:
         df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
@@ -65,7 +60,6 @@ def show_cat_stats(
           and no column data types displayed.
         - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
         - Percentage of missing values is grouped into categories for easier interpretation.
-        - Datetime columns are formatted as strings in the output.
     """
     df = _check_input_maybe_try_transform(df)
     _table = _Table(df, ("cat_special",), top_cols)
