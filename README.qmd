@@ -16,19 +16,22 @@ sys.path.append("src/")
 sys.path.append("tests/")
 from pathlib import Path
 from conftest import sample_df_
+import showstats
+from showstats import show_stats, show_cat_stats
 
 df = sample_df_(1000_000)
-
-
-import showstats
 ```
 
 ```{python}
-
-from showstats import show_stats
+from showstats import show_stats, show_cat_stats
 
 show_stats(df)
 ```
+
+```{python}
+show_cat_stats(df)
+```
+
 
 Primarily built for polars data frames, **showstats** converts other inputs.
 For full compatibility with pandas.DataFrames install as ``pip install showstats[pandas]``.

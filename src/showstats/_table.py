@@ -54,8 +54,6 @@ class _Table:
                 funs_vp = (
                     "null_count",
                     "n_unique",
-                    "min",
-                    "max",
                 )
             elif var_type == "datetime":
                 col_vt = pl.col(pl.Datetime)
@@ -85,36 +83,21 @@ class _Table:
                     expr = getattr(pl.col(var), function)().alias(stat_name)
                     expressions.append(expr)
                     stat_names_map[vt].append(stat_name)
-
+        # Evaluate expressions
+        # Cover special cases.
+        # Those conditions must always hold:
+        # (1) Stats is a dict.
+        # (2) Each value in stats is one summary statistic.
+        # (3) Each list in stat_names_mp is sorted by variable name.
         if self.special_case == "cat_special":
             expr = (
                 cs.by_name(vars_map["cat_special"])
                 .value_counts(sort=True)
+                .head(3)
                 .implode()
-                .name.prefix(f"top_5{sep}")
+                .name.prefix(f"top_3{sep}")
             )
             stats = df.select(*expressions, expr).row(0, named=True)
-            vars_cat_special = vars_map["cat_special"]
-            funs_map["cat_special"] += ("top_1", "top_2", "top_3", "top_4", "top_5")
-            for var in vars_cat_special:
-                key = f"top_5{sep}{var}"
-                top_5_list = stats[key]
-                for i, dd in enumerate(top_5_list):
-                    freq_value, count = dd[var], dd["count"]
-                    nm = f"{var}{sep}top_{i+1}"  # varname for stats
-                    share = count / self.num_rows  # % of rows which have <freq_value>
-                    entry = f"{freq_value} ({share:.0%})"
-                    stats[nm] = entry
-                    stat_names_map["cat_special"].append(nm)
-                if i < 4:
-                    for j in range(i + 1, 5):
-                        nm = f"{var}{sep}top_{j+1}"  # varname for stats
-                        stats[nm] = "(0%)"
-                        stat_names_map["cat_special"].append(nm)
-                # Sort so that the stat names are sorted by input-column
-                stat_names_map["cat_special"].sort()
-                del stats[key]
-
         else:
             stats = df.select(expressions).row(0, named=True)
 
@@ -139,11 +122,6 @@ class _Table:
                 "Variable",
                 "null_count",
                 "n_unique",
-                "top_1",
-                "top_2",
-                "top_3",
-                "top_4",
-                "top_5",
             )
 
     def make_dt(self, var_type: str) -> pl.DataFrame:
@@ -157,16 +135,15 @@ class _Table:
             stat_value = self.stats[name]
             data[fun_name].append(stat_value)
 
-        df = (
-            pl.LazyFrame(data)
-            .with_columns(
+        df = pl.LazyFrame(data)
+        if "null_count" in self.columns_stat_df:
+            df = df.with_columns(
                 pl.col("null_count")
                 .truediv(self.num_rows)
                 .mul(100)
                 .round(2)
                 .alias("null_count")
-            )
-            .with_columns(
+            ).with_columns(
                 # Group percentages. Because pl.cut is unstable, manually use pl.when
                 pl.when(pl.col("null_count").eq(0))
                 .then(pl.lit("0%"))
@@ -202,7 +179,6 @@ class _Table:
                 .then(pl.lit("100%"))
                 .alias("null_count")
             )
-        )
 
         # Some special cases
         if var_type == "num":
@@ -248,12 +224,7 @@ class _Table:
             rename_dict = {
                 "Variable": name_var,
                 "null_count": "Null %",
-                "n_unique": "Distinct values",
-                "top_1": "Top 1 (%)",
-                "top_2": "Top 2 (%)",
-                "top_3": "Top 3 (%)",
-                "top_4": "Top 4 (%)",
-                "top_5": "Top 5 (%)",
+                "n_unique": "N uniq.",
             }
 
         stat_df = stat_df.rename(rename_dict)
@@ -270,6 +241,22 @@ class _Table:
             ).sort(name_var)
 
         self.stat_df = stat_df.collect()
+
+        if self.special_case == "cat_special":
+            data = []
+            for var_name in self.stat_df.get_column(name_var):
+                stat_name = f"top_3{self.sep}{var_name}"
+                freq_list = self.stats[stat_name]
+                freq_vals = []
+                for i, dd in enumerate(freq_list):
+                    val, count = dd[var_name], dd["count"]
+                    freq_vals.append(f"{val} ({count / self.num_rows:.0%})")
+                data.append("\n".join(freq_vals))
+            # sub_df = pl.DataFrame(
+            #     [self.stat_df.get_column(name_var), pl.Series("Top values", data)]
+            # )
+
+            self.stat_df = self.stat_df.with_columns(pl.Series("Top values", data))
 
     def show(self):
         if self.stat_df is None:

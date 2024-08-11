@@ -5,7 +5,7 @@
 orientation.
 
 ``` python
-from showstats import show_stats
+from showstats import show_stats, show_cat_stats
 
 show_stats(df)
 ```
@@ -23,17 +23,32 @@ show_stats(df)
     | U             | 0%     | 0.5           | 0.5           | 0.29     | 5.1e-7        | 1.0          |
     | int_with_miss | <20%   | 500000.0      | 500000.0      | 290000.0 | 1.0           | 1000000.0    |
     | ings          |        |               |               |          |               |              |
+    | str_col       | <60%   |               |               |          | ABC           | foo          |
+    | categorical_c | 0%     |               |               |          | Fara          | Car          |
+    | ol            |        |               |               |          |               |              |
+    | enum_col      | 0%     |               |               |          | worst         | best         |
     | datetime_col  | 0%     | 1750-01-30    | 1750-03-18    |          | 1500-01-01    | 1999-12-31   |
     |               |        | 01:54:50      | 04:52:16      |          | 04:17:28      | 21:39:20     |
     | datetime_col_ | 0%     | 1750-01-12    | 1750-01-22    |          | 1500-01-01    | 1999-12-31   |
     | 2             |        | 23:02:09      | 06:33:24      |          | 06:19:48      | 17:41:57     |
     | date_col      | 0%     |               |               |          | 1500-01-01    | 1999-12-31   |
     | date_col_2    | 0%     |               |               |          | 1500-01-01    | 1999-12-31   |
-    | str_col       | <60%   |               |               |          | ABC           | foo          |
-    | enum_col      | 0%     |               |               |          | worst         | best         |
-    | categorical_c | 0%     |               |               |          | Fara          | Car          |
-    | ol            |        |               |               |          |               |              |
     | null_col      | 100%   |               |               |          |               |              |
+
+``` python
+show_cat_stats(df)
+```
+
+    | Var. N=1.00E+6  | Null % | N uniq. | Top values   |
+    |-----------------|--------|---------|--------------|
+    | str_col         | <60%   | 5       | None (55%)   |
+    |                 |        |         | baz (11%)    |
+    |                 |        |         | ABC (11%)    |
+    | categorical_col | 0%     | 2       | Fara (50%)   |
+    |                 |        |         | Car (50%)    |
+    | enum_col        | 0%     | 3       | worst (33%)  |
+    |                 |        |         | medium (33%) |
+    |                 |        |         | best (33%)   |
 
 Primarily built for polars data frames, **showstats** converts other
 inputs. For full compatibility with pandas.DataFrames install as

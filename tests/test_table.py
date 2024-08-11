@@ -91,3 +91,33 @@ def test_single_columns():
     assert flt_table.stat_df.item(0, "Mean") == "1.6"
     assert flt_table.stat_df.item(0, 1) == "0%"
     assert flt_table.stat_df.columns[0] == "Var. N=2"
+
+
+def test_char_table():
+    import string
+
+    data = {}
+    data["x0"] = list(string.ascii_uppercase)
+    data["x1"] = ["A"] * 26
+    data["x2"] = ["A"] * 25 + ["B"]
+    data["x3"] = ["A"] * 24 + ["B", "C"]
+    data["x4"] = ["A"] * 23 + ["B", "C", "D"]
+    data["x5"] = ["A"] * 22 + [None] + ["B", "C", "D"]
+    data["x6"] = ["A"] * 21 + [None, None] + ["B", "C", "D"]
+
+    df = pl.DataFrame(data)
+    _table = _Table(df, "cat_special")
+    _table.form_stat_df()
+    stat_df = _table.stat_df
+    col0 = pl.col(stat_df.columns[0])
+
+    assert _table.stat_df.filter(col0 == "x1").item(0, "Null %") == "0%"
+    assert _table.stat_df.filter(col0 == "x1").item(0, "N uniq.") == "1"
+    assert _table.stat_df.filter(col0 == "x1").item(0, "Top values") == "A (100%)"
+    assert _table.stat_df.filter(col0 == "x3").item(0, "N uniq.") == "3"
+    assert (
+        _table.stat_df.filter(col0 == "x3").item(0, "Top values")
+        == "A (92%)\nB (4%)\nC (4%)"
+    )
+    assert stat_df.get_column(stat_df.columns[0]).to_list() == list(data.keys())
+    assert stat_df.columns == ["Var. N=26", "Null %", "N uniq.", "Top values"]

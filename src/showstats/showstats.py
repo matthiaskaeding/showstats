@@ -37,8 +37,8 @@ def show_stats(
         - Datetime columns are formatted as strings in the output.
     """
     df = _check_input_maybe_try_transform(df)
-    _table = _Table(df)
-    _table.show(top_cols=top_cols)
+    _table = _Table(df, top_cols=top_cols)
+    _table.show()
 
 
 def show_cat_stats(

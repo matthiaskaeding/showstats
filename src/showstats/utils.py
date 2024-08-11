@@ -15,3 +15,5 @@ def _check_input_maybe_try_transform(input):
             print(f"Error occurred during attempted conversion: {e}")
     if out.height == 0 or out.width == 0:
         raise ValueError("Input not compatible")
+    else:
+        return out
