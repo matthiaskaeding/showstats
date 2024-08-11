@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.3] (In development - 2024-08-11)
 
+### Changed
+
+- Better formatting for booleans and integer stats
+
 ### Added 
 
 - show_cat_stats for categorical functions
