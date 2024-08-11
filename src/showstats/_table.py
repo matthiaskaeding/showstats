@@ -10,7 +10,15 @@ class _Table:
     def __init__(
         self,
         df: pl.DataFrame,
-        var_types: Union[Iterable, str] = ("num", "cat", "datetime", "date", "null"),
+        var_types: Union[Iterable, str] = (
+            "num_float",
+            "num_int",
+            "num_bool",
+            "cat",
+            "datetime",
+            "date",
+            "null",
+        ),
         top_cols: Iterable = None,
     ):
         if isinstance(var_types, str):
@@ -30,11 +38,15 @@ class _Table:
         stat_names_map = {}  # Maps var-type to names of computed statistics
 
         for var_type in var_types:
-            if var_type == "num":
+            if var_type == "num_float":
                 col_vt = pl.col(
                     pl.Decimal,
                     pl.Float32,
                     pl.Float64,
+                )
+                funs_vp = base_functions + ("mean", "median", "std")
+            elif var_type == "num_int":
+                col_vt = pl.col(
                     pl.Int8,
                     pl.Int16,
                     pl.Int32,
@@ -43,8 +55,10 @@ class _Table:
                     pl.UInt16,
                     pl.UInt32,
                     pl.UInt64,
-                    pl.Boolean,
                 )
+                funs_vp = base_functions + ("mean", "median", "std")
+            elif var_type == "num_bool":
+                col_vt = pl.col(pl.Boolean)
                 funs_vp = base_functions + ("mean", "median", "std")
             elif var_type == "cat":
                 col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
@@ -181,10 +195,13 @@ class _Table:
             )
 
         # Some special cases
-        if var_type == "num":
+        if var_type == "num_float":
             df = df.with_columns(
                 pl.col("mean", "median", "min", "max", "std").round_sig_figs(2)
             )
+        elif var_type in ("num_int", "num_bool"):
+            df = df.with_columns(pl.col("mean", "median", "std").round_sig_figs(2))
+
         if var_type == "datetime":
             df = df.with_columns(
                 pl.col("mean", "median", "min", "max").dt.to_string("%Y-%m-%d %H:%M:%S")

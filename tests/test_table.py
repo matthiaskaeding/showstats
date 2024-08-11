@@ -2,16 +2,20 @@ import polars as pl
 from showstats._table import _Table
 
 
-def test_metatable(sample_df):
-    mt = _Table(sample_df)
+def test_make_dt(sample_df):
+    _table = _Table(sample_df)
 
-    df_num = mt.make_dt("num")
-    df_cat = mt.make_dt("cat")
-    df_date = mt.make_dt("date")
-    df_datetime = mt.make_dt("datetime")
-    df_null = mt.make_dt("null")
+    df_num_float = _table.make_dt("num_float")
+    df_num_int = _table.make_dt("num_int")
+    df_num_bool = _table.make_dt("num_bool")
+    df_cat = _table.make_dt("cat")
+    df_date = _table.make_dt("date")
+    df_datetime = _table.make_dt("datetime")
+    df_null = _table.make_dt("null")
 
-    assert isinstance(df_num, pl.LazyFrame)
+    assert isinstance(df_num_int, pl.LazyFrame)
+    assert isinstance(df_num_float, pl.LazyFrame)
+    assert isinstance(df_num_bool, pl.LazyFrame)
     assert isinstance(df_cat, pl.LazyFrame)
     assert isinstance(df_date, pl.LazyFrame)
     assert isinstance(df_datetime, pl.LazyFrame)
@@ -20,9 +24,17 @@ def test_metatable(sample_df):
     desired_names = ["Variable", "null_count", "mean", "median", "std", "min", "max"]
     desired_dtypes = [pl.String for _ in desired_names]
 
-    df_num = df_num.collect()
-    assert df_num.columns == desired_names
-    assert df_num.dtypes == desired_dtypes
+    df_num_float = df_num_float.collect()
+    assert df_num_float.columns == desired_names
+    assert df_num_float.dtypes == desired_dtypes
+
+    df_num_int = df_num_int.collect()
+    assert df_num_int.columns == desired_names
+    assert df_num_int.dtypes == desired_dtypes
+
+    df_num_bool = df_num_bool.collect()
+    assert df_num_bool.columns == desired_names
+    assert df_num_bool.dtypes == desired_dtypes
 
     df_cat = df_cat.collect()
     assert df_cat.columns == desired_names
@@ -71,6 +83,14 @@ def test_top_cols(sample_df):
     col_0_no_top_cols = table_no_top_cols.stat_df.get_column(name_col_0)
     assert col_0_top_cols.equals(col_0_no_top_cols) is False
     assert sorted(col_0_top_cols.to_list()) == sorted(col_0_no_top_cols.to_list())
+
+    assert (
+        table_no_top_cols.stat_df.height == sample_df.width
+    ), "Each row in table_no_top_cols-stat_df must be one column in sample_df"
+
+    assert sorted(col_0_no_top_cols.to_list()) == sorted(
+        sample_df.columns
+    ), "Each row in table_no_top_cols-stat_df must be one column in sample_df"
 
 
 def test_single_columns():
