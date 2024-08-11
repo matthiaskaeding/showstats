@@ -13,6 +13,7 @@ class _Table:
         var_types: Union[Iterable, str] = (
             "num_float",
             "num_int",
+            "num_bool",
             "cat",
             "datetime",
             "date",
@@ -42,7 +43,6 @@ class _Table:
                     pl.Decimal,
                     pl.Float32,
                     pl.Float64,
-                    pl.Boolean,
                 )
                 funs_vp = base_functions + ("mean", "median", "std")
             elif var_type == "num_int":
@@ -56,6 +56,9 @@ class _Table:
                     pl.UInt32,
                     pl.UInt64,
                 )
+                funs_vp = base_functions + ("mean", "median", "std")
+            elif var_type == "num_bool":
+                col_vt = pl.col(pl.Boolean)
                 funs_vp = base_functions + ("mean", "median", "std")
             elif var_type == "cat":
                 col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
@@ -196,7 +199,7 @@ class _Table:
             df = df.with_columns(
                 pl.col("mean", "median", "min", "max", "std").round_sig_figs(2)
             )
-        elif var_type == "num_int":
+        elif var_type in ("num_int", "num_bool"):
             df = df.with_columns(pl.col("mean", "median", "std").round_sig_figs(2))
 
         if var_type == "datetime":
