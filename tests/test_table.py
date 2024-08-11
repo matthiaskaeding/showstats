@@ -5,13 +5,15 @@ from showstats._table import _Table
 def test_metatable(sample_df):
     mt = _Table(sample_df)
 
-    df_num = mt.make_dt("num")
+    df_num_float = mt.make_dt("num_float")
+    df_num_int = mt.make_dt("num_int")
     df_cat = mt.make_dt("cat")
     df_date = mt.make_dt("date")
     df_datetime = mt.make_dt("datetime")
     df_null = mt.make_dt("null")
 
-    assert isinstance(df_num, pl.LazyFrame)
+    assert isinstance(df_num_int, pl.LazyFrame)
+    assert isinstance(df_num_float, pl.LazyFrame)
     assert isinstance(df_cat, pl.LazyFrame)
     assert isinstance(df_date, pl.LazyFrame)
     assert isinstance(df_datetime, pl.LazyFrame)
@@ -20,9 +22,13 @@ def test_metatable(sample_df):
     desired_names = ["Variable", "null_count", "mean", "median", "std", "min", "max"]
     desired_dtypes = [pl.String for _ in desired_names]
 
-    df_num = df_num.collect()
-    assert df_num.columns == desired_names
-    assert df_num.dtypes == desired_dtypes
+    df_num_float = df_num_float.collect()
+    assert df_num_float.columns == desired_names
+    assert df_num_float.dtypes == desired_dtypes
+
+    df_num_int = df_num_int.collect()
+    assert df_num_int.columns == desired_names
+    assert df_num_int.dtypes == desired_dtypes
 
     df_cat = df_cat.collect()
     assert df_cat.columns == desired_names
