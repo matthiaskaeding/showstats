@@ -32,6 +32,11 @@ show_stats(df)
 show_cat_stats(df)
 ```
 
+Importing **statsshow** adds the stats namespace:
+
+```{python}
+df.select("U", "int_col").stats.show()
+```
 
 Primarily built for polars data frames, **showstats** converts other inputs.
 For full compatibility with pandas.DataFrames install as ``pip install showstats[pandas]``.

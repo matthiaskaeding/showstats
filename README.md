@@ -17,12 +17,12 @@ show_stats(df)
     | float_std_2   | 0%     | 0.0013        | 0.00024       | 2.0      | -9.3          | 9.3          |
     | float_min_7   | 0%     | 12.0          | 12.0          | 1.0      | 7.0           | 16.0         |
     | float_max_17  | 0%     | 12.0          | 12.0          | 1.0      | 7.7           | 17.0         |
-    | bool_col      | <40%   | 0.5           | 0.0           | 0.5      | 0.0           | 1.0          |
-    | int_col       | 0%     | 500000.0      | 500000.0      | 290000.0 | 0.0           | 1000000.0    |
     | float_col     | 0%     | 5000.0        | 5000.0        | 2900.0   | 0.0           | 10000.0      |
     | U             | 0%     | 0.5           | 0.5           | 0.29     | 5.1e-7        | 1.0          |
-    | int_with_miss | <20%   | 500000.0      | 500000.0      | 290000.0 | 1.0           | 1000000.0    |
+    | int_col       | 0%     | 500000.0      | 500000.0      | 290000.0 | 0             | 999999       |
+    | int_with_miss | <20%   | 500000.0      | 500000.0      | 290000.0 | 1             | 999999       |
     | ings          |        |               |               |          |               |              |
+    | bool_col      | <40%   | 0.5           | 0.0           | 0.5      | false         | true         |
     | str_col       | <60%   |               |               |          | ABC           | foo          |
     | categorical_c | 0%     |               |               |          | Fara          | Car          |
     | ol            |        |               |               |          |               |              |
@@ -49,6 +49,17 @@ show_cat_stats(df)
     | enum_col        | 0%     | 3       | worst (33%)  |
     |                 |        |         | medium (33%) |
     |                 |        |         | best (33%)   |
+
+Importing **statsshow** adds the stats namespace:
+
+``` python
+df.select("U", "int_col").stats.show()
+```
+
+    | Var. N=1.00E+6 | Null % | Mean     | Median   | Std.     | Min    | Max    |
+    |----------------|--------|----------|----------|----------|--------|--------|
+    | U              | 0%     | 0.5      | 0.5      | 0.29     | 5.1e-7 | 1.0    |
+    | int_col        | 0%     | 500000.0 | 500000.0 | 290000.0 | 0      | 999999 |
 
 Primarily built for polars data frames, **showstats** converts other
 inputs. For full compatibility with pandas.DataFrames install as
