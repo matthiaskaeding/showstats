@@ -1,7 +1,12 @@
-from typing import Iterable, Union
+from typing import TYPE_CHECKING, Iterable, Union
 
 import polars as pl
 from polars import selectors as cs
+
+from showstats.utils import _check_input_maybe_try_transform
+
+if TYPE_CHECKING:
+    import pandas
 
 
 class _Table:
@@ -9,7 +14,7 @@ class _Table:
 
     def __init__(
         self,
-        df: pl.DataFrame,
+        df: Union[pl.DataFrame, "pandas.DataFrame"],
         var_types: Union[Iterable, str] = (
             "num_float",
             "num_int",
@@ -21,6 +26,8 @@ class _Table:
         ),
         top_cols: Iterable = None,
     ):
+        df = _check_input_maybe_try_transform(df)
+
         if isinstance(var_types, str):
             var_types = (var_types,)
         if isinstance(top_cols, str):
@@ -106,6 +113,7 @@ class _Table:
         if self.special_case == "cat_special":
             expr = (
                 cs.by_name(vars_map["cat_special"])
+                .drop_nulls()
                 .value_counts(sort=True)
                 .head(3)
                 .implode()

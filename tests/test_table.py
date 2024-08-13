@@ -1,4 +1,5 @@
 import polars as pl
+from polars.testing import assert_frame_equal
 from showstats._table import _Table
 
 
@@ -141,3 +142,15 @@ def test_char_table():
     )
     assert stat_df.get_column(stat_df.columns[0]).to_list() == list(data.keys())
     assert stat_df.columns == ["Var. N=26", "Null %", "N uniq.", "Top values"]
+
+
+def test_pandas(sample_df):
+    tmp = pl.DataFrame({"a": [1, 2, 3], "b": ["A", "B", "C"]})
+
+    tmp_pandas = tmp.to_pandas()
+    _table_pandas = _Table(tmp)
+    _table_polars = _Table(tmp_pandas)
+    _table_pandas.form_stat_df()
+    _table_polars.form_stat_df()
+
+    assert_frame_equal(_table_pandas.stat_df, _table_polars.stat_df)

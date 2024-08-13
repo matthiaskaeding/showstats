@@ -1,4 +1,4 @@
-from showstats.showstats import show_cat_stats, show_stats
+from showstats.showstats import show_stats
 
 
 def test_show(sample_df, capsys):
@@ -7,7 +7,7 @@ def test_show(sample_df, capsys):
     assert "Var. N=500" in captured.out
     assert "float_mean_2" in captured.out
     assert "float_min_7" in captured.out
-    show_cat_stats(sample_df)
+    show_stats(sample_df, "cat")
     captured = capsys.readouterr()
     assert "Var. N=500" in captured.out
     assert "float_mean_2" not in captured.out
@@ -23,7 +23,7 @@ def test_namespace(sample_df, capsys):
     assert "Var. N=500" in captured.out
     assert "float_mean_2" in captured.out
     assert "float_min_7" in captured.out
-    sample_df.stats.show_cat()
+    sample_df.stats.show("cat")
     captured = capsys.readouterr()
     assert "Var. N=500" in captured.out
     assert "float_mean_2" not in captured.out
