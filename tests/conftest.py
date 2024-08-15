@@ -149,7 +149,7 @@ def sample_df_(n: int = 100, seed: int = 1) -> pl.DataFrame:
             {
                 "float_mean_2": sample_series(n=n, seed=seed, mean=2),
                 "float_std_2": sample_series(n=n, seed=seed, std=2),
-                "float_min_7": sample_series(n=n, seed=seed, min=7),
+                "float_min_-7": sample_series(n=n, seed=seed, min=-7),
                 "float_max_17": sample_series(n=n, seed=seed, max=17),
                 "bool_col": bool_data,
                 "str_col": str_data,

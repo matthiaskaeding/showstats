@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 def show_stats(
     df: Union[pl.DataFrame, "pandas.DataFrame"],
-    type: str = "all",
+    table_type: str = "all",
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
     """
@@ -22,7 +22,7 @@ def show_stats(
         df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
         top_cols (Union[List[str], str, None], optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
-        type (str): All variables (default) = "num" or categorical = "cat"
+        table_type (str): All variables (default) = "num" or categorical = "cat"
     Raises:
         ValueError: If the input DataFrame has no rows or columns.
 
@@ -33,18 +33,17 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if type == "all":
-        _table = _Table(df, top_cols=top_cols)
-    elif type == "cat":
-        _table = _Table(df, var_types=("cat_special",), top_cols=top_cols)
-    else:
-        raise ValueError("Type must be either 'all' or 'cat'")
+    if table_type not in ("num", "cat", "all"):
+        raise ValueError(f"type {type} not supported")
+
+    _table = _Table(df, table_type, top_cols)
+    _table.form_stat_df(table_type)
     _table.show()
 
 
 def make_stats_tbl(
     df: Union[pl.DataFrame, "pandas.DataFrame"],
-    type: str = "all",
+    table_type: str = "num",
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
     """
@@ -66,11 +65,8 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if type == "all":
-        _table = _Table(df, top_cols=top_cols)
-    elif type == "cat":
-        _table = _Table(df, var_types=("cat_special",), top_cols=top_cols)
-    else:
-        raise ValueError("Type must be either 'all' or 'cat'")
-    _table.form_stat_df()
-    return _table.stat_df
+    if table_type not in ("num", "cat"):
+        raise ValueError(f"Type {type} not supported")
+    _table = _Table(df, table_type, top_cols)
+    _table.form_stat_df(table_type)
+    return _table.stat_dfs[table_type]

@@ -14,8 +14,8 @@ class StatsFrame:
     def __init__(self, df: pl.DataFrame):
         self._df = df
 
-    def show(self, type: str = "all", top_cols: Iterable = None) -> None:
-        show_stats(self._df, type, top_cols)
+    def show(self, table_type: str = "all", top_cols: Iterable = None) -> None:
+        show_stats(self._df, table_type, top_cols)
 
-    def make_tbl(self, type: str = "all", top_cols: Iterable = None) -> None:
-        return make_stats_tbl(self._df, type, top_cols)
+    def make_tbl(self, table_type: str = "all", top_cols: Iterable = None) -> None:
+        return make_stats_tbl(self._df, table_type, top_cols)

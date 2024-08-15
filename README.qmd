@@ -17,20 +17,26 @@ sys.path.append("tests/")
 from pathlib import Path
 from conftest import sample_df_
 import showstats
-from showstats import show_stats, show_cat_stats
+from showstats import show_stats
 
 df = sample_df_(1000_000)
 ```
 
 ```{python}
-from showstats import show_stats, show_cat_stats
+from showstats import show_stats
 
 show_stats(df)
 ```
 
 ```{python}
-show_cat_stats(df)
+# Categorical
+show_stats(df, "cat")
 ```
+```{python}
+# Numeric
+show_stats(df, "cat")
+```
+
 
 Importing **statsshow** adds the stats namespace:
 

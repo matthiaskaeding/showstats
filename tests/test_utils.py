@@ -1,6 +1,9 @@
 import polars as pl
 import pytest
-from showstats.utils import _check_input_maybe_try_transform
+from showstats._table import (
+    _check_input_maybe_try_transform,
+    _get_cols_and_funs_for_var_type,
+)
 
 
 def test_input_check(sample_df):
@@ -33,3 +36,21 @@ def test_input_check(sample_df):
     assert sample_df.get_column("bool_col").equals(
         sample_df_from_pandas.get_column("bool_col")
     )
+
+
+def test_mapping(sample_df):
+    res_lag = None
+    for var_type in (
+        "num_float",
+        "num_bool",
+        "num_int",
+        "null",
+        "cat",
+        "date",
+        "datetime",
+    ):
+        res = _get_cols_and_funs_for_var_type(sample_df, var_type)
+        assert len(res[0]) > 0, f"{var_type} errs"
+        assert len(res[1]) > 0, f"{var_type} errs"
+        assert res_lag != res
+        res_lag = res
