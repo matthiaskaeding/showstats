@@ -11,10 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Better formatting for booleans and integer stats
 - By default now prints 2 seperate tables for num and cat
+- show_cat has argument table_type (num, cat and all)
 
 ### Added 
 
-- show_cat_stats for categorical functions
 - Tests
   
 ### Changed
