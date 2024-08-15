@@ -19,7 +19,7 @@ from conftest import sample_df_
 import showstats
 from showstats import show_stats
 
-df = sample_df_(1000_000)
+df = sample_df_(1000)
 ```
 
 ```{python}
