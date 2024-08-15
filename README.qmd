@@ -34,7 +34,7 @@ show_stats(df, "cat")
 ```
 ```{python}
 # Numeric
-show_stats(df, "cat")
+show_stats(df, "num")
 ```
 
 
