@@ -61,12 +61,12 @@ df.select("U", "int_col").stats_tbl.show()
 - Primarily built for polars data frames, **showstats** converts other
   inputs.
 
+  - For full compatibility with pandas.DataFrames install as
+    `pip install showstats[pandas]`.
+
 - Heavily inspired by the great R-packages
   [skimr](https://github.com/ropensci/skimr) and
-  [modelsummary](https://modelsummary.com/vignettes/datasummary.html)
-
-- For full compatibility with pandas.DataFrames install as
-  `pip install showstats[pandas]`.
+  [modelsummary](https://modelsummary.com/vignettes/datasummary.html).
 
 - Numbers with many digits are automatically converted to scientific
   notation.
