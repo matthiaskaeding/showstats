@@ -286,14 +286,14 @@ class _Table:
         if table_type in self.stat_dfs:
             with pl.Config(
                 tbl_hide_dataframe_shape=True,
-                tbl_formatting="ASCII_FULL_CONDENSED",
+                tbl_formatting="UTF8_FULL_CONDENSED",
                 tbl_hide_column_data_types=True,
                 float_precision=2,
                 fmt_str_lengths=100,
                 tbl_rows=-1,
                 tbl_cell_alignment="LEFT",
                 set_fmt_float="full",
-                set_tbl_width_chars=75,
+                set_tbl_width_chars=80,
             ):
                 print(self.stat_dfs[table_type])
         else:
