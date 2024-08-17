@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Iterable, Tuple, Union
 
 import polars as pl
 from polars import selectors as cs
+
 from showstats._utils import convert_df_scientific
 
 if TYPE_CHECKING:
@@ -263,7 +264,7 @@ class _Table:
             stat_df = stat_df.select(
                 pl.col("Variable").alias(name_var),
                 pl.col("null_count").alias("NA%"),
-                pl.col("median"),
+                pl.col("median").alias("Median"),
                 pl.col("min").alias("Min"),
                 pl.col("max").alias("Max"),
             )

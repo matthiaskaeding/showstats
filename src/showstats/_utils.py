@@ -43,7 +43,7 @@ def convert_df_scientific(df, varnames, thr=4):
             .when(var.eq(0))
             .then(pl.lit("0.0"))
             .when(var_exponent.le(pl.lit(thr)))
-            .then(var.round(3).cast(pl.String))
+            .then(var.round(2).cast(pl.String))
             .otherwise(
                 pl.format(
                     "{}E{}",
