@@ -63,9 +63,7 @@ df.select("U", "int_col").stats_tbl.show()
 
 - Heavily inspired by the great R-packages
   [skimr](https://github.com/ropensci/skimr) and
-  [modelsummary](https://modelsummary.com/vignettes/datasummary.html),
-  the main purpose of this package is to give a quick overview of a
-  dataset.
+  [modelsummary](https://modelsummary.com/vignettes/datasummary.html)
 
 - For full compatibility with pandas.DataFrames install as
   `pip install showstats[pandas]`.
