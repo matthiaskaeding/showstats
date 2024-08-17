@@ -197,17 +197,20 @@ class _Table:
             for var_name in self.vars_map["cat"]:
                 stat_name = f"top_3{self.sep}{var_name}"
                 freq_list = self.stats[stat_name]
-                freq_vals = []
+                row = {}
                 for i, dd in enumerate(freq_list):
                     val, count = dd[var_name], dd["count"]
-                    freq_vals.append(f"{val} ({count / self.num_rows:.0%})")
-                data.append("\n".join(freq_vals))
+                    row[f"Top {i+1}"] = f"{val} ({count / self.num_rows:.0%})"
+                data.append(row)
+            right = pl.DataFrame(data).fill_null("")
             df = df.select(
                 "Variable",
                 pl.col("null_count").alias("NA%"),
-                pl.col("n_unique").alias("N distinct"),
-                pl.Series("Top values", data),
+                pl.col("n_unique").alias("Uniques"),
             )
+            for col_name in right.columns:
+                column = right.get_column(col_name)
+                df = df.with_columns(column)
         return df
 
     def form_stat_df(self, table_type):
@@ -220,18 +223,6 @@ class _Table:
             self.form_stat_df("time")
             self.form_stat_df("num")
             self.form_stat_df("cat")
-            # Pad variable column so that it aligns
-            ms = []
-            if len(self.stat_dfs) > 1:
-                for tbl in self.stat_dfs.values():
-                    ms.append(tbl.get_column(tbl.columns[0]).str.len_chars().max())
-                m = max(ms)
-                for key in self.stat_dfs:
-                    tbl = self.stat_dfs[key]
-                    self.stat_dfs[key] = tbl.with_columns(
-                        pl.col(tbl.columns[0]).str.pad_end(m, " ")
-                    )
-
             return
 
         if self.num_rows < 100_000:
@@ -253,10 +244,10 @@ class _Table:
                 pl.col("Variable").alias(name_var),
                 pl.col("null_count").alias("NA%"),
                 pl.col("mean").alias("Avg"),
-                pl.col("std").alias("SD"),
-                pl.col("median").alias("Median"),
                 pl.col("min").alias("Min"),
                 pl.col("max").alias("Max"),
+                pl.col("median").alias("Median"),
+                pl.col("std").alias("SD"),
             )
         elif table_type == "cat":
             stat_df = stat_df.rename({"Variable": name_var})
@@ -264,9 +255,9 @@ class _Table:
             stat_df = stat_df.select(
                 pl.col("Variable").alias(name_var),
                 pl.col("null_count").alias("NA%"),
-                pl.col("median").alias("Median"),
                 pl.col("min").alias("Min"),
                 pl.col("max").alias("Max"),
+                pl.col("median").alias("Median"),
             )
 
         if self.top_cols is not None:  # Put top_cols at front
@@ -286,7 +277,7 @@ class _Table:
         if table_type in self.stat_dfs:
             with pl.Config(
                 tbl_hide_dataframe_shape=True,
-                tbl_formatting="UTF8_FULL_CONDENSED",
+                tbl_formatting="NOTHING",
                 tbl_hide_column_data_types=True,
                 float_precision=2,
                 fmt_str_lengths=100,
@@ -296,6 +287,9 @@ class _Table:
                 set_tbl_width_chars=80,
             ):
                 print(self.stat_dfs[table_type])
+                # s_split = s.split("\n")
+                # s_split = s_split[1:]
+                # print("\n".join(s_split))
         else:
             if table_type == "num":
                 print("No numerical columns found")
@@ -306,6 +300,12 @@ class _Table:
         if self.type in ("num", "cat", "time"):
             self.show_one_table(self.type)
         elif self.type == "all":
-            self.show_one_table("time")
-            self.show_one_table("num")
-            self.show_one_table("cat")
+            if "time" in self.stat_dfs:
+                print("#Time " + "#" * 74)
+                self.show_one_table("time")
+            if "num" in self.stat_dfs:
+                print("#Numeric " + "#" * 71)
+                self.show_one_table("num")
+            if "cat" in self.stat_dfs:
+                print("#Categorical " + "#" * 67)
+                self.show_one_table("cat")

@@ -64,10 +64,12 @@ def test_make_dt_cat(sample_df):
     desired_names = [
         "Variable",
         "NA%",
-        "N distinct",
-        "Top values",
+        "Uniques",
+        "Top 1",
+        "Top 2",
+        "Top 3",
     ]
-    desired_dtypes = [pl.String, pl.Int16, pl.Int64, pl.String]
+    desired_dtypes = [pl.String, pl.Int16, pl.Int64, pl.String, pl.String, pl.String]
 
     df_cat = df_cat.collect()
     assert df_cat.columns == desired_names
@@ -159,17 +161,15 @@ def test_char_table():
     col0 = pl.col(stat_df.columns[0])
 
     assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "NA%") == 0
-    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "N distinct") == 1
-    assert (
-        _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Top values") == "A (100%)"
-    )
-    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "N distinct") == 3
-    assert (
-        _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top values")
-        == "A (92%)\nB (4%)\nC (4%)"
-    )
+    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Uniques") == 1
+    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Top 1") == "A (100%)"
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Uniques") == 3
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top 1") == "A (92%)"
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top 2") == "B (4%)"
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top 3") == "C (4%)"
+
     assert stat_df.get_column(stat_df.columns[0]).to_list() == list(data.keys())
-    assert stat_df.columns == ["Var. N=26", "NA%", "N distinct", "Top values"]
+    assert stat_df.columns == ["Var. N=26", "NA%", "Uniques", "Top 1", "Top 2", "Top 3"]
 
 
 def test_pandas(sample_df):
