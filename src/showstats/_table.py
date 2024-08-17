@@ -296,16 +296,30 @@ class _Table:
             elif table_type == "cat":
                 print("No categorical columns found")
 
+    def print_header(self, type_):
+        if type_ == "time":
+            lhs = "-Date and datetime columns"
+        elif type_ == "cat":
+            lhs = "-Categorical columns"
+        elif type_ == "num":
+            lhs = "-Numerical columns"
+        rhs = "-" * (80 - len(lhs))
+        print(f"{lhs}{rhs}")
+
     def show(self):
         if self.type in ("num", "cat", "time"):
-            self.show_one_table(self.type)
+            if self.type not in self.stat_dfs:
+                if self.type == "num":
+                    print("No numerical columns found")
+                elif self.type == "cat":
+                    print("No categorical columns found")
+                else:
+                    print("No date or datetime columns found")
+            else:
+                self.print_header(self.type)
+                self.show_one_table(self.type)
         elif self.type == "all":
-            if "time" in self.stat_dfs:
-                print("#Time " + "#" * 74)
-                self.show_one_table("time")
-            if "num" in self.stat_dfs:
-                print("#Numeric " + "#" * 71)
-                self.show_one_table("num")
-            if "cat" in self.stat_dfs:
-                print("#Categorical " + "#" * 67)
-                self.show_one_table("cat")
+            for type_ in ["time", "num", "cat"]:
+                if type_ in self.stat_dfs:
+                    self.print_header(type_)
+                    self.show_one_table(type_)
