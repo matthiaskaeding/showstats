@@ -244,10 +244,10 @@ class _Table:
                 pl.col("Variable").alias(name_var),
                 pl.col("null_count").alias("NA%"),
                 pl.col("mean").alias("Avg"),
+                pl.col("std").alias("SD"),
                 pl.col("min").alias("Min"),
                 pl.col("max").alias("Max"),
                 pl.col("median").alias("Median"),
-                pl.col("std").alias("SD"),
             )
         elif table_type == "cat":
             stat_df = stat_df.rename({"Variable": name_var})
