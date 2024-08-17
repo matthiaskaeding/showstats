@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Iterable, Tuple, Union
 
 import polars as pl
 from polars import selectors as cs
+from showstats._utils import convert_df_scientific
 
 if TYPE_CHECKING:
     import pandas
@@ -47,10 +48,10 @@ def _get_cols_for_var_type(df, var_type):
         col_vt = pl.col(pl.Boolean)
     elif var_type == "cat":
         col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
-    elif var_type == "datetime":
-        col_vt = pl.col(pl.Datetime)
     elif var_type == "date":
         col_vt = pl.col(pl.Date)
+    elif var_type == "datetime":
+        col_vt = pl.col(pl.Datetime)
     elif var_type == "null":
         col_vt = pl.col(pl.Null)
     else:
@@ -64,10 +65,8 @@ def _get_funs_for_var_type(var_type) -> Tuple[str]:
         return ("null_count", "mean", "std", "median", "min", "max")
     elif var_type == "cat":
         return ("null_count", "n_unique")
-    elif var_type == "datetime":
-        return ("null_count", "mean", "median", "min", "max")
-    elif var_type == "date":
-        return ("null_count", "min", "max")
+    elif var_type == "date" or var_type == "datetime":
+        return ("null_count", "min", "median", "max")
     elif var_type == "null":
         return ("null_count",)
 
@@ -82,13 +81,15 @@ def _get_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
 
 def _map_table_type_to_var_types(table_type):
     if table_type == "all":
-        return ("num_float", "num_int", "num_bool", "datetime", "date", "null", "cat")
+        return ("num_float", "num_int", "num_bool", "date", "datetime", "null", "cat")
     elif table_type == "num":
-        return ("num_float", "num_int", "num_bool", "datetime", "date", "null")
+        return ("num_float", "num_int", "num_bool", "null")
+    elif table_type == "time":
+        return ("date", "datetime")
     elif table_type == "cat":
         return ("cat",)
     else:
-        raise ValueError("Type must be either 'all', 'num' or 'cat'")
+        raise ValueError("""Type must be either "all", "num" "time" or "cat" """)
 
 
 class _Table:
@@ -110,14 +111,12 @@ class _Table:
         vars_map = {}  # Maps var-type to columns in df
         funs_map = {}  # Maps var-type to functions
         stat_names_map = {}  # Maps var-type to names of computed statistics
-
         for var_type in _map_table_type_to_var_types(table_type):
             vars_vt, funs_vt = _get_cols_and_funs_for_var_type(df, var_type)
             if vars_vt:
                 vars_map[var_type] = vars_vt
                 funs_map[var_type] = funs_vt
                 stat_names_map[var_type] = []
-
         self.funs_map = funs_map
         expressions = []
         sep = "____"
@@ -167,94 +166,21 @@ class _Table:
 
         df = pl.LazyFrame(data)
         df = df.with_columns(
-            pl.col("null_count")
-            .truediv(self.num_rows)
-            .mul(100)
-            .round(2)
-            .alias("null_count")
-        ).with_columns(
-            # Group percentages. Because pl.cut is unstable, manually use pl.when
-            pl.when(pl.col("null_count").eq(0))
-            .then(pl.lit("0%"))
-            .when(pl.col("null_count") < 1)
-            .then(pl.lit("<1%"))
-            .when(pl.col("null_count") < 2)
-            .then(pl.lit("<2%"))
-            .when(pl.col("null_count") < 3)
-            .then(pl.lit("<3%"))
-            .when(pl.col("null_count") < 5)
-            .then(pl.lit("<5%"))
-            .when(pl.col("null_count") < 10)
-            .then(pl.lit("<10%"))
-            .when(pl.col("null_count") < 20)
-            .then(pl.lit("<20%"))
-            .when(pl.col("null_count") < 30)
-            .then(pl.lit("<30%"))
-            .when(pl.col("null_count") < 40)
-            .then(pl.lit("<40%"))
-            .when(pl.col("null_count") < 50)
-            .then(pl.lit("<50%"))
-            .when(pl.col("null_count") < 60)
-            .then(pl.lit("<60%"))
-            .when(pl.col("null_count") < 70)
-            .then(pl.lit("<70%"))
-            .when(pl.col("null_count") < 80)
-            .then(pl.lit("<80%"))
-            .when(pl.col("null_count") < 90)
-            .then(pl.lit("<90%"))
-            .when(pl.col("null_count") < 100)
-            .then(pl.lit("<100%"))
-            .when(pl.col("null_count") == 100)
-            .then(pl.lit("100%"))
-            .alias("null_count")
+            pl.col("null_count").truediv(self.num_rows).mul(100).ceil().cast(pl.Int16)
         )
 
         # Some special cases
         if var_type == "num_float":
-            df = df.with_columns(
-                pl.col("mean", "median", "min", "max", "std")
-                .round_sig_figs(2)
-                .cast(pl.String)
-            )
+            df = convert_df_scientific(df, ["mean", "median", "min", "max", "std"])
         elif var_type in ("num_int", "num_bool"):
-            df = df.with_columns(
-                pl.col("mean", "median", "std").round_sig_figs(2).cast(pl.String),
+            df = convert_df_scientific(df, ["mean", "median", "std"]).with_columns(
                 pl.col("min", "max").cast(pl.String),
             )
-        elif var_type == "datetime":
+        elif var_type == "date" or var_type == "datetime":
             df = df.select(
                 "Variable",
                 "null_count",
-                pl.format(
-                    "{}\n{}",
-                    pl.col("mean").dt.date(),
-                    pl.col("mean").dt.time(),
-                ).alias("mean"),
-                pl.lit("").alias("std"),
-                pl.format(
-                    "{}\n{}",
-                    pl.col("median").dt.date(),
-                    pl.col("median").dt.time(),
-                ).alias("median"),
-                pl.format(
-                    "{}\n{}",
-                    pl.col("min").dt.date(),
-                    pl.col("min").dt.time(),
-                ).alias("min"),
-                pl.format(
-                    "{}\n{}",
-                    pl.col("max").dt.date(),
-                    pl.col("max").dt.time(),
-                ).alias("max"),
-            )
-        elif var_type == "date":
-            df = df.select(
-                "Variable",
-                "null_count",
-                pl.lit("").alias("mean"),
-                pl.lit("").alias("std"),
-                pl.lit("").alias("median"),
-                pl.col("min", "max").cast(pl.String),
+                pl.col("median", "min", "max").cast(pl.String).str.slice(0, 19),
             )
         elif var_type == "null":
             df = df.with_columns(
@@ -277,7 +203,7 @@ class _Table:
                 data.append("\n".join(freq_vals))
             df = df.select(
                 "Variable",
-                pl.col("null_count").alias("Null%"),
+                pl.col("null_count").alias("NA%"),
                 pl.col("n_unique").alias("N distinct"),
                 pl.Series("Top values", data),
             )
@@ -290,20 +216,21 @@ class _Table:
         from decimal import Decimal
 
         if table_type == "all":
+            self.form_stat_df("time")
             self.form_stat_df("num")
             self.form_stat_df("cat")
             # Pad variable column so that it aligns
-            if "num" in self.stat_dfs and "cat" in self.stat_dfs:
-                a, b = self.stat_dfs["num"], self.stat_dfs["cat"]
-                col_0 = a.columns[0]
-                m_a = a.get_column(col_0).str.len_chars().max()
-                m_b = b.get_column(col_0).str.len_chars().max()
-                if m_a < m_b:
-                    a = a.with_columns(pl.col(col_0).str.pad_end(m_b, " "))
-                else:
-                    b = b.with_columns(pl.col(col_0).str.pad_end(m_a, " "))
-                self.stat_dfs["num"] = a
-                self.stat_dfs["cat"] = b
+            ms = []
+            if len(self.stat_dfs) > 1:
+                for tbl in self.stat_dfs.values():
+                    ms.append(tbl.get_column(tbl.columns[0]).str.len_chars().max())
+                m = max(ms)
+                for key in self.stat_dfs:
+                    tbl = self.stat_dfs[key]
+                    self.stat_dfs[key] = tbl.with_columns(
+                        pl.col(tbl.columns[0]).str.pad_end(m, " ")
+                    )
+
             return
 
         if self.num_rows < 100_000:
@@ -311,19 +238,19 @@ class _Table:
         else:
             name_var = f"Var. N={Decimal(self.num_rows):.2E}"
         subdfs = []
+
         for var_type in _map_table_type_to_var_types(table_type):
             if var_type in self.vars_map:
                 subdfs.append(self.make_dt(var_type))
 
         if len(subdfs) == 0:
             return
-
         stat_df = pl.concat(subdfs)
 
         if table_type == "num":
             stat_df = stat_df.select(
                 pl.col("Variable").alias(name_var),
-                pl.col("null_count").alias("Null%"),
+                pl.col("null_count").alias("NA%"),
                 pl.col("mean").alias("Avg"),
                 pl.col("std").alias("SD"),
                 pl.col("median").alias("Median"),
@@ -332,6 +259,14 @@ class _Table:
             )
         elif table_type == "cat":
             stat_df = stat_df.rename({"Variable": name_var})
+        elif table_type == "time":
+            stat_df = stat_df.select(
+                pl.col("Variable").alias(name_var),
+                pl.col("null_count").alias("NA%"),
+                pl.col("median"),
+                pl.col("min").alias("Min"),
+                pl.col("max").alias("Max"),
+            )
 
         if self.top_cols is not None:  # Put top_cols at front
             all_columns_in_order = []
@@ -356,6 +291,8 @@ class _Table:
                 fmt_str_lengths=100,
                 tbl_rows=-1,
                 tbl_cell_alignment="LEFT",
+                set_fmt_float="full",
+                set_tbl_width_chars=75,
             ):
                 print(self.stat_dfs[table_type])
         else:
@@ -365,8 +302,9 @@ class _Table:
                 print("No categorical columns found")
 
     def show(self):
-        if self.type == "num" or self.type == "cat":
+        if self.type in ("num", "cat", "time"):
             self.show_one_table(self.type)
         elif self.type == "all":
+            self.show_one_table("time")
             self.show_one_table("num")
             self.show_one_table("cat")
