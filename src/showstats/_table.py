@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     import pandas
 
 
+# Basic idea of these helper functions:
+#   table_type --> var_types --> functions
 def _check_input_maybe_try_transform(input):
     if isinstance(input, pl.DataFrame):
         if input.height == 0 or input.width == 0:
@@ -61,7 +63,7 @@ def _get_cols_for_var_type(df, var_type):
     return df.select(col_vt).columns
 
 
-def _get_funs_for_var_type(var_type) -> Tuple[str]:
+def _map_funs_to_var_type(var_type) -> Tuple[str]:
     if var_type in ("num_float", "num_int", "num_bool"):
         return ("null_count", "mean", "std", "median", "min", "max")
     elif var_type == "cat":
@@ -72,15 +74,16 @@ def _get_funs_for_var_type(var_type) -> Tuple[str]:
         return ("null_count",)
 
 
-def _get_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
+def _map_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
     cols = _get_cols_for_var_type(df, var_type)
     if len(cols) == 0:
         return None, None
 
-    return cols, _get_funs_for_var_type(var_type)
+    return cols, _map_funs_to_var_type(var_type)
 
 
 def _map_table_type_to_var_types(table_type):
+    """Maps table type to var types"""
     if table_type == "all":
         return ("num_float", "num_int", "num_bool", "date", "datetime", "null", "cat")
     elif table_type == "num":
@@ -113,7 +116,7 @@ class _Table:
         funs_map = {}  # Maps var-type to functions
         stat_names_map = {}  # Maps var-type to names of computed statistics
         for var_type in _map_table_type_to_var_types(table_type):
-            vars_vt, funs_vt = _get_cols_and_funs_for_var_type(df, var_type)
+            vars_vt, funs_vt = _map_cols_and_funs_for_var_type(df, var_type)
             if vars_vt:
                 vars_map[var_type] = vars_vt
                 funs_map[var_type] = funs_vt
