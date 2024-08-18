@@ -4,13 +4,13 @@ from showstats._table import _Table
 
 
 def test_make_dt_num(sample_df):
-    _table = _Table(sample_df, "num")
+    _table = _Table(sample_df, "all")
 
     df_num_float = _table.make_dt("num_float")
     df_num_int = _table.make_dt("num_int")
     df_num_bool = _table.make_dt("num_bool")
-    df_date = _table.make_dt("date")
     df_datetime = _table.make_dt("datetime")
+    df_date = _table.make_dt("date")
 
     assert isinstance(df_num_int, pl.LazyFrame)
     assert isinstance(df_num_float, pl.LazyFrame)
@@ -27,7 +27,15 @@ def test_make_dt_num(sample_df):
         "min",
         "max",
     ]
-    desired_dtypes = [pl.String for _ in desired_names]
+    desired_dtypes = [
+        pl.String,
+        pl.Int16,
+        pl.String,
+        pl.String,
+        pl.String,
+        pl.String,
+        pl.String,
+    ]
 
     df_num_float = df_num_float.collect()
     assert df_num_float.columns == desired_names
@@ -41,13 +49,9 @@ def test_make_dt_num(sample_df):
     assert df_num_bool.columns == desired_names
     assert df_num_bool.dtypes == desired_dtypes
 
-    df_date = df_date.collect()
-    assert df_date.columns == desired_names
-    assert df_date.dtypes == desired_dtypes
-
     df_datetime = df_datetime.collect()
-    assert df_datetime.columns == desired_names
-    assert df_datetime.dtypes == desired_dtypes
+    assert df_datetime.columns == ["Variable", "null_count", "median", "min", "max"]
+    assert df_datetime.dtypes == [pl.String, pl.Int16, pl.String, pl.String, pl.String]
 
 
 def test_make_dt_cat(sample_df):
@@ -59,11 +63,13 @@ def test_make_dt_cat(sample_df):
 
     desired_names = [
         "Variable",
-        "Null%",
-        "N distinct",
-        "Top values",
+        "NA%",
+        "Uniques",
+        "Top 1",
+        "Top 2",
+        "Top 3",
     ]
-    desired_dtypes = [pl.String, pl.String, pl.Int64, pl.String]
+    desired_dtypes = [pl.String, pl.Int16, pl.Int64, pl.String, pl.String, pl.String]
 
     df_cat = df_cat.collect()
     assert df_cat.columns == desired_names
@@ -109,7 +115,9 @@ def test_top_cols(sample_df):
     assert (
         table_no_top_cols.stat_dfs["num"].height
         == sample_df.select(
-            pl.selectors.exclude(pl.Enum, pl.String, pl.Categorical)
+            pl.selectors.exclude(
+                pl.Enum, pl.String, pl.Categorical, pl.Date, pl.Datetime
+            )
         ).width
     ), "Each row in table_no_top_cols-stat_df must be one column in sample_df"
 
@@ -122,7 +130,7 @@ def test_single_columns():
     assert mt.stat_dfs["num"].item(0, 0) == "null_col"
     assert mt.stat_dfs["num"].shape == desired_shape
     assert mt.stat_dfs["num"].item(0, 0) == "null_col"
-    assert mt.stat_dfs["num"].item(0, 1) == "100%"
+    assert mt.stat_dfs["num"].item(0, 1) == 100
 
     flt_df = pl.DataFrame({"flt_col": [1.3, 1.9]})
     flt_table = _Table(flt_df, "num")
@@ -130,7 +138,7 @@ def test_single_columns():
     assert flt_table.stat_dfs["num"].item(0, 0) == "flt_col"
     assert flt_table.stat_dfs["num"].shape == desired_shape
     assert flt_table.stat_dfs["num"].item(0, "Avg") == "1.6"
-    assert flt_table.stat_dfs["num"].item(0, 1) == "0%"
+    assert flt_table.stat_dfs["num"].item(0, 1) == 0
     assert flt_table.stat_dfs["num"].columns[0] == "Var. N=2"
 
 
@@ -152,18 +160,16 @@ def test_char_table():
     stat_df = _table.stat_dfs["cat"]
     col0 = pl.col(stat_df.columns[0])
 
-    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Null%") == "0%"
-    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "N distinct") == 1
-    assert (
-        _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Top values") == "A (100%)"
-    )
-    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "N distinct") == 3
-    assert (
-        _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top values")
-        == "A (92%)\nB (4%)\nC (4%)"
-    )
+    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "NA%") == 0
+    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Uniques") == 1
+    assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Top 1") == "A (100%)"
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Uniques") == 3
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top 1") == "A (92%)"
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top 2") == "B (4%)"
+    assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top 3") == "C (4%)"
+
     assert stat_df.get_column(stat_df.columns[0]).to_list() == list(data.keys())
-    assert stat_df.columns == ["Var. N=26", "Null%", "N distinct", "Top values"]
+    assert stat_df.columns == ["Var. N=26", "NA%", "Uniques", "Top 1", "Top 2", "Top 3"]
 
 
 def test_pandas(sample_df):

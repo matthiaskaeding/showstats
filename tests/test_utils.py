@@ -2,7 +2,7 @@ import polars as pl
 import pytest
 from showstats._table import (
     _check_input_maybe_try_transform,
-    _get_cols_and_funs_for_var_type,
+    _map_cols_and_funs_for_var_type,
 )
 
 
@@ -49,7 +49,7 @@ def test_mapping(sample_df):
         "date",
         "datetime",
     ):
-        res = _get_cols_and_funs_for_var_type(sample_df, var_type)
+        res = _map_cols_and_funs_for_var_type(sample_df, var_type)
         assert len(res[0]) > 0, f"{var_type} errs"
         assert len(res[1]) > 0, f"{var_type} errs"
         assert res_lag != res
