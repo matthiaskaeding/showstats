@@ -36,7 +36,7 @@ show_stats(df)
      categorical_col  0    2        Fara (57%)  Car (43%)                 
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
     -Variables with 100% nulls------------------------------------------------------
-     null_col
+     {null_col}
 
 ``` python
 # Only one type

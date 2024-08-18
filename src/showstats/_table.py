@@ -131,7 +131,10 @@ class _Table:
             start = "-Variables with 100% nulls"
             start += "-" * (80 - len(start))
             end = textwrap.fill(
-                ", ".join(null_cols), 75, initial_indent=" ", subsequent_indent=" "
+                f"""{{{", ".join(null_cols)}}}""",
+                70,
+                initial_indent=" ",
+                subsequent_indent="  ",
             )
             self.null_vars_str = f"{start}\n{end}"
         else:

@@ -22,7 +22,7 @@ fix:
 ## Time show_stats
 .PHONY: timing
 timing:
-	cd notebooks && jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True timing.ipynb
+	cd docs && jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True timing.ipynb
 
 docs: README.md timing
 
