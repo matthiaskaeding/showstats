@@ -49,7 +49,7 @@ show_stats(df, "cat")  # Other are num, time
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
 
 ``` python
-# Importing **statsshow** adds the stats_tbl namespace
+# Importing showstats adds the stats_tbl namespace
 df.select("U", "int_col").stats_tbl.show()
 ```
 

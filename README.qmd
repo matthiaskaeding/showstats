@@ -35,8 +35,8 @@ show_stats(df, "cat")  # Other are num, time
 
 
 ```{python}
-# Importing **statsshow** adds the stats_tbl namespace
-df.select("U", "int_col").stats_tbl.show()
+# Importing **statsshow** adds the stats namespace
+df.select("U", "int_col").stats.show()
 ```
 
 - Primarily built for polars data frames, **showstats** converts other inputs.

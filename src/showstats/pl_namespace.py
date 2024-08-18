@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     pass
 
 
-@pl.api.register_dataframe_namespace("stats_tbl")
+@pl.api.register_dataframe_namespace("stats")
 class StatsFrame:
     def __init__(self, df: pl.DataFrame):
         self._df = df

@@ -287,9 +287,6 @@ class _Table:
                 set_tbl_width_chars=80,
             ):
                 print(self.stat_dfs[table_type])
-                # s_split = s.split("\n")
-                # s_split = s_split[1:]
-                # print("\n".join(s_split))
         else:
             if table_type == "num":
                 print("No numerical columns found")
