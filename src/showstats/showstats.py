@@ -33,8 +33,8 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in ("num", "cat", "all"):
-        raise ValueError(f"type {type} not supported")
+    if table_type not in ("num", "cat", "all", "time"):
+        raise ValueError(f"table_type {table_type} not supported")
 
     _table = _Table(df, table_type, top_cols)
     _table.form_stat_df(table_type)
@@ -65,8 +65,8 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in ("num", "cat"):
-        raise ValueError(f"Type {type} not supported")
+    if table_type not in ("num", "cat", "all", "time"):
+        raise ValueError(f"Type {table_type} not supported")
     _table = _Table(df, table_type, top_cols)
     _table.form_stat_df(table_type)
     return _table.stat_dfs[table_type]

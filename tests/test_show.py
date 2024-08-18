@@ -1,4 +1,5 @@
 from showstats.showstats import show_stats
+import pytest
 
 
 def test_show(sample_df, capsys):
@@ -15,6 +16,16 @@ def test_show(sample_df, capsys):
     assert "str_col" in captured.out
     assert "enum_col" in captured.out
     assert "categorical_col" in captured.out
+    show_stats(sample_df, "time")
+    captured = capsys.readouterr()
+    assert "Var. N=500" in captured.out
+    assert "float_mean_2" not in captured.out
+    assert "float_min_-7" not in captured.out
+    assert "date_col" in captured.out
+    assert "datetime_col" in captured.out
+    assert "datetime_col_2" in captured.out
+    with pytest.raises(ValueError):
+        show_stats(sample_df, "NONSENSE")
 
 
 def test_namespace(sample_df, capsys):
