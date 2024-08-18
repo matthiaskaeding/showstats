@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, List, Union
 import polars as pl
 
 from showstats._table import _Table
+from showstats.constants import ALL_TABLES_TYPES
 
 if TYPE_CHECKING:
     import pandas
@@ -33,7 +34,7 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in ("num", "cat", "all", "time"):
+    if table_type not in ALL_TABLES_TYPES:
         raise ValueError(f"table_type {table_type} not supported")
 
     _table = _Table(df, table_type, top_cols)
@@ -65,7 +66,7 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in ("num", "cat", "all", "time"):
+    if table_type not in ALL_TABLES_TYPES:
         raise ValueError(f"Type {table_type} not supported")
     _table = _Table(df, table_type, top_cols)
     _table.form_stat_df(table_type)

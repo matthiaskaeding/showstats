@@ -51,6 +51,9 @@ def test_mapping(sample_df):
     ):
         res = _map_cols_and_funs_for_var_type(sample_df, var_type)
         assert len(res[0]) > 0, f"{var_type} errs"
-        assert len(res[1]) > 0, f"{var_type} errs"
+        if var_type != "null":
+            assert len(res[1]) > 0, f"{var_type} errs"
+        else:
+            assert len(res[1]) == 0, "null errs"
         assert res_lag != res
         res_lag = res

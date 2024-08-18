@@ -1,3 +1,4 @@
+import textwrap
 from typing import TYPE_CHECKING, Iterable, Tuple, Union
 
 import polars as pl
@@ -71,7 +72,8 @@ def _map_funs_to_var_type(var_type) -> Tuple[str]:
     elif var_type == "date" or var_type == "datetime":
         return ("null_count", "min", "median", "max")
     elif var_type == "null":
-        return ("null_count",)
+        # For null cols, there is nothing to do, we just need to look them up
+        return ()
 
 
 def _map_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
@@ -87,11 +89,13 @@ def _map_table_type_to_var_types(table_type):
     if table_type == "all":
         return ("num_float", "num_int", "num_bool", "date", "datetime", "null", "cat")
     elif table_type == "num":
-        return ("num_float", "num_int", "num_bool", "null")
+        return ("num_float", "num_int", "num_bool")
     elif table_type == "time":
         return ("date", "datetime")
     elif table_type == "cat":
         return ("cat",)
+    elif table_type == "null":
+        return ("null",)
     else:
         raise ValueError("""Type must be either "all", "num" "time" or "cat" """)
 
@@ -121,6 +125,17 @@ class _Table:
                 vars_map[var_type] = vars_vt
                 funs_map[var_type] = funs_vt
                 stat_names_map[var_type] = []
+        if "null" in vars_map:
+            # Build printable string
+            null_cols = vars_map["null"]
+            start = "-Variables with 100% nulls"
+            start += "-" * (80 - len(start))
+            end = textwrap.fill(
+                ", ".join(null_cols), 75, initial_indent=" ", subsequent_indent=" "
+            )
+            self.null_vars_str = f"{start}\n{end}"
+        else:
+            self.null_vars_str = None
         self.funs_map = funs_map
         expressions = []
         sep = "____"
@@ -186,15 +201,6 @@ class _Table:
                 "null_count",
                 pl.col("median", "min", "max").cast(pl.String).str.slice(0, 19),
             )
-        elif var_type == "null":
-            df = df.with_columns(
-                "null_count",
-                pl.lit("").alias("mean"),
-                pl.lit("").alias("std"),
-                pl.lit("").alias("median"),
-                pl.lit("").alias("min"),
-                pl.lit("").alias("max"),
-            )
         elif var_type == "cat":
             data = []
             for var_name in self.vars_map["cat"]:
@@ -223,9 +229,8 @@ class _Table:
         from decimal import Decimal
 
         if table_type == "all":
-            self.form_stat_df("time")
-            self.form_stat_df("num")
-            self.form_stat_df("cat")
+            for table_type in ("num", "cat", "time"):
+                self.form_stat_df(table_type)
             return
 
         if self.num_rows < 100_000:
@@ -295,6 +300,11 @@ class _Table:
                 print("No numerical columns found")
             elif table_type == "cat":
                 print("No categorical columns found")
+            elif table_type == "null":
+                if self.null_vars_str:
+                    print(self.null_vars_str)
+                else:
+                    print("No columns with 100% null found")
 
     def print_header(self, type_):
         if type_ == "time":
@@ -307,7 +317,7 @@ class _Table:
         print(f"{lhs}{rhs}")
 
     def show(self):
-        if self.type in ("num", "cat", "time"):
+        if self.type in ("num", "cat", "time", "null"):
             if self.type not in self.stat_dfs:
                 if self.type == "num":
                     print("No numerical columns found")
@@ -323,3 +333,5 @@ class _Table:
                 if type_ in self.stat_dfs:
                     self.print_header(type_)
                     self.show_one_table(type_)
+            if self.null_vars_str:
+                print(self.null_vars_str)

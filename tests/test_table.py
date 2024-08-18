@@ -116,7 +116,7 @@ def test_top_cols(sample_df):
         table_no_top_cols.stat_dfs["num"].height
         == sample_df.select(
             pl.selectors.exclude(
-                pl.Enum, pl.String, pl.Categorical, pl.Date, pl.Datetime
+                pl.Enum, pl.String, pl.Categorical, pl.Date, pl.Datetime, pl.Null
             )
         ).width
     ), "Each row in table_no_top_cols-stat_df must be one column in sample_df"
@@ -126,17 +126,13 @@ def test_single_columns():
     null_df = pl.DataFrame({"null_col": [None] * 10})
     mt = _Table(null_df, "num")
     mt.form_stat_df("num")
-    desired_shape = (1, 7)
-    assert mt.stat_dfs["num"].item(0, 0) == "null_col"
-    assert mt.stat_dfs["num"].shape == desired_shape
-    assert mt.stat_dfs["num"].item(0, 0) == "null_col"
-    assert mt.stat_dfs["num"].item(0, 1) == 100
+    assert mt.stat_dfs == {}
 
     flt_df = pl.DataFrame({"flt_col": [1.3, 1.9]})
     flt_table = _Table(flt_df, "num")
     flt_table.form_stat_df("num")
     assert flt_table.stat_dfs["num"].item(0, 0) == "flt_col"
-    assert flt_table.stat_dfs["num"].shape == desired_shape
+    assert flt_table.stat_dfs["num"].shape == (1, 7)
     assert flt_table.stat_dfs["num"].item(0, "Avg") == "1.6"
     assert flt_table.stat_dfs["num"].item(0, 1) == 0
     assert flt_table.stat_dfs["num"].columns[0] == "Var. N=2"
