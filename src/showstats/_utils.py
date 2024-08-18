@@ -1,3 +1,5 @@
+from typing import Iterable
+
 import polars as pl
 
 
@@ -22,20 +24,31 @@ def make_scientific(varname, thr):
     )
 
 
-def convert_df_scientific(df, varnames, thr=4):
+def convert_df_scientific(df: pl.LazyFrame, varnames: Iterable[str], thr: int = 4):
+    """
+    Converts a lazy dataframe to scientific notation.
+
+    Args:
+        varnames Iterable[str]: The names of the column to convert.
+        thr (int): The threshold exponent for using scientific notation, entries
+        white more decimals than 10 ^ thr are converted
+
+    Returns:
+        pl.DataFrame: new pl.DataFrame with entries converted
+    """
     exprs_ex = []
     exprs_scient = []
     name_exponents = []
     for varname in varnames:
         nan = float("nan")
-        var = pl.col(varname).fill_null(nan)
-
+        var = pl.col(varname).fill_null(nan)  # Somewhat hacky way to deal with nulls:
+        # Convert to nan, which have more methods defined. Otherwise the when - then
+        # function will fail
         name_exponent = f"____EXPONENT____{varname}"
         name_exponents.append(name_exponent)
         exp_ex = (
             pl.when(var.is_finite(), var.ne(0))
             .then(var.abs().log10().floor())
-            # .otherwise(nan)
             .alias(name_exponent)
         ).cast(pl.Int16)
         var_exponent = pl.col(name_exponent)
