@@ -30,12 +30,13 @@ show_stats(df)
      int_col            0    49.5    29.01  0       99      49.5   
      int_with_missings  5    48.32   28.8   0       99      49.0   
      bool_col           26   0.5     0.5    false   true    0.5    
-     null_col           100                                        
     -Categorical columns------------------------------------------------------------
      Var. N=100       NA%  Uniques  Top 1       Top 2        Top 3        
      str_col          48   5        foo (15%)   ABC (13%)    bar (12%)    
      categorical_col  0    2        Fara (57%)  Car (43%)                 
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
+    -Variables with 100% nulls------------------------------------------------------
+     null_col
 
 ``` python
 # Only one type
@@ -49,7 +50,7 @@ show_stats(df, "cat")  # Other are num, time
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
 
 ``` python
-# Importing showstats adds the stats namespace
+# Importing **statsshow** adds the stats namespace
 df.select("U", "int_col").stats.show()
 ```
 
@@ -71,4 +72,5 @@ df.select("U", "int_col").stats.show()
 - Numbers with many digits are automatically converted to scientific
   notation.
 
-- Because **showstats** leverages polars effective parallelism, it\`s fast: \<1s for a 1,000,000 × 1,000 data frame, on a M1 MacBook
+- Because **showstats** leverages polars efficiency, it\`s fast: \<1
+  second for a 1,000,000 × 1,000 data frame, running on a M1 MacBook.
