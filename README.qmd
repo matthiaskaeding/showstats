@@ -4,7 +4,7 @@ format: gfm
 jupyter: python3
 ---
 
-**showstats** produces summary statistic tables with vertical orientation.
+**showstats** quickly produces compact summary statistic tables with vertical orientation.
 
 ```{python}
 # | output: false
@@ -17,24 +17,34 @@ sys.path.append("tests/")
 from pathlib import Path
 from conftest import sample_df_
 import showstats
-from showstats import show_stats, show_cat_stats
+from showstats import show_stats
 
-df = sample_df_(1000_000)
+df = sample_df_(100)
 ```
 
 ```{python}
-from showstats import show_stats, show_cat_stats
+from showstats import show_stats
 
 show_stats(df)
 ```
 
 ```{python}
-show_cat_stats(df)
+# Only one type
+show_stats(df, "cat")  # Other are num, time
 ```
 
 
-Primarily built for polars data frames, **showstats** converts other inputs.
-For full compatibility with pandas.DataFrames install as ``pip install showstats[pandas]``.
+```{python}
+# Importing **statsshow** adds the stats namespace
+df.select("U", "int_col").stats.show()
+```
 
-Because **showstats** uses polars as backend, its really fast: <1 second for a 1,000,000 &times; 1,000 data frame, running on a M1 MacBook.
+- Primarily built for polars data frames, **showstats** converts other inputs.
+  - For full compatibility with pandas.DataFrames install via ``pip install showstats[pandas]``.
+
+- Heavily inspired by the great R-packages [skimr](https://github.com/ropensci/skimr) and [modelsummary](https://modelsummary.com/vignettes/datasummary.html). 
+
+- Numbers with many digits are automatically converted to scientific notation.
+
+- Because **showstats** uses polars as backend, its really fast: <1 second for a 1,000,000 &times; 1,000 data frame, running on a M1 MacBook.
  

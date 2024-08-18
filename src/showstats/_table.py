@@ -1,7 +1,99 @@
-from typing import Iterable, Union
+from typing import TYPE_CHECKING, Iterable, Tuple, Union
 
 import polars as pl
 from polars import selectors as cs
+
+from showstats._utils import convert_df_scientific
+
+if TYPE_CHECKING:
+    import pandas
+
+
+# Basic idea of these helper functions:
+#   table_type --> var_types --> functions
+def _check_input_maybe_try_transform(input):
+    if isinstance(input, pl.DataFrame):
+        if input.height == 0 or input.width == 0:
+            raise ValueError("Input data frame must have rows and columns")
+        else:
+            return input
+    else:
+        print("Attempting to convert input to polars.DataFrame")
+        try:
+            out = pl.DataFrame(input)
+        except Exception as e:
+            print(f"Error occurred during attempted conversion: {e}")
+    if out.height == 0 or out.width == 0:
+        raise ValueError("Input not compatible")
+    else:
+        return out
+
+
+def _get_cols_for_var_type(df, var_type):
+    if var_type == "num_float":
+        col_vt = pl.col(
+            pl.Decimal,
+            pl.Float32,
+            pl.Float64,
+        )
+    elif var_type == "num_int":
+        col_vt = pl.col(
+            pl.Int8,
+            pl.Int16,
+            pl.Int32,
+            pl.Int64,
+            pl.UInt8,
+            pl.UInt16,
+            pl.UInt32,
+            pl.UInt64,
+        )
+    elif var_type == "num_bool":
+        col_vt = pl.col(pl.Boolean)
+    elif var_type == "cat":
+        col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
+    elif var_type == "date":
+        col_vt = pl.col(pl.Date)
+    elif var_type == "datetime":
+        col_vt = pl.col(pl.Datetime)
+    elif var_type == "null":
+        col_vt = pl.col(pl.Null)
+    else:
+        raise ValueError(f"var_type {var_type} not supported")
+
+    return df.select(col_vt).columns
+
+
+def _map_funs_to_var_type(var_type) -> Tuple[str]:
+    if var_type in ("num_float", "num_int", "num_bool"):
+        return ("null_count", "mean", "std", "median", "min", "max")
+    elif var_type == "cat":
+        return ("null_count", "n_unique")
+    elif var_type == "date" or var_type == "datetime":
+        return ("null_count", "min", "median", "max")
+    elif var_type == "null":
+        return ("null_count",)
+
+
+def _map_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
+    cols = _get_cols_for_var_type(df, var_type)
+    if len(cols) == 0:
+        return None, None
+
+    return cols, _map_funs_to_var_type(var_type)
+
+
+def _map_table_type_to_var_types(table_type):
+    """Maps table type to var types"""
+    if table_type == "all":
+        return ("num_float", "num_int", "num_bool", "date", "datetime", "null", "cat")
+    elif table_type == "num":
+        return ("num_float", "num_int", "num_bool", "null")
+    elif table_type == "time":
+        return ("date", "datetime")
+    elif table_type == "cat":
+        return ("cat",)
+    else:
+        raise ValueError("""Type must be either "all", "num" "time" or "cat" """)
 
 
 class _Table:
@@ -9,69 +101,26 @@ class _Table:
 
     def __init__(
         self,
-        df: pl.DataFrame,
-        var_types: Union[Iterable, str] = ("num", "cat", "datetime", "date", "null"),
+        df: Union[pl.DataFrame, "pandas.DataFrame"],
+        table_type: str,
         top_cols: Iterable = None,
     ):
-        if isinstance(var_types, str):
-            var_types = (var_types,)
+        df = _check_input_maybe_try_transform(df)
         if isinstance(top_cols, str):
             top_cols = [top_cols]
-        if var_types == ("cat_special",):
-            self.special_case = "cat_special"
-        else:
-            self.special_case = None
+        self.type = table_type
+        self.stat_dfs = {}
         self.top_cols = top_cols
         self.num_rows = df.height
-        self.stat_df = None
-        base_functions = ("null_count", "min", "max")
         vars_map = {}  # Maps var-type to columns in df
         funs_map = {}  # Maps var-type to functions
         stat_names_map = {}  # Maps var-type to names of computed statistics
-
-        for var_type in var_types:
-            if var_type == "num":
-                col_vt = pl.col(
-                    pl.Decimal,
-                    pl.Float32,
-                    pl.Float64,
-                    pl.Int8,
-                    pl.Int16,
-                    pl.Int32,
-                    pl.Int64,
-                    pl.UInt8,
-                    pl.UInt16,
-                    pl.UInt32,
-                    pl.UInt64,
-                    pl.Boolean,
-                )
-                funs_vp = base_functions + ("mean", "median", "std")
-            elif var_type == "cat":
-                col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
-                funs_vp = base_functions
-            elif var_type == "cat_special":
-                col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
-                funs_vp = (
-                    "null_count",
-                    "n_unique",
-                )
-            elif var_type == "datetime":
-                col_vt = pl.col(pl.Datetime)
-                funs_vp = base_functions + ("mean", "median")
-            elif var_type == "date":
-                col_vt = pl.col(pl.Date)
-                funs_vp = base_functions
-            elif var_type == "null":
-                col_vt = pl.col(pl.Null)
-                funs_vp = ("null_count",)
-            else:
-                raise ValueError(f"var_type {var_type} not supported")
-            vars_vt = df.select(col_vt).columns
+        for var_type in _map_table_type_to_var_types(table_type):
+            vars_vt, funs_vt = _map_cols_and_funs_for_var_type(df, var_type)
             if vars_vt:
                 vars_map[var_type] = vars_vt
-                funs_map[var_type] = funs_vp
+                funs_map[var_type] = funs_vt
                 stat_names_map[var_type] = []
-
         self.funs_map = funs_map
         expressions = []
         sep = "____"
@@ -89,9 +138,12 @@ class _Table:
         # (1) Stats is a dict.
         # (2) Each value in stats is one summary statistic.
         # (3) Each list in stat_names_mp is sorted by variable name.
-        if self.special_case == "cat_special":
+        if len(expressions) == 0:
+            stats = {}
+        elif "cat" in vars_map:
             expr = (
-                cs.by_name(vars_map["cat_special"])
+                cs.by_name(vars_map["cat"])
+                .drop_nulls()
                 .value_counts(sort=True)
                 .head(3)
                 .implode()
@@ -100,29 +152,10 @@ class _Table:
             stats = df.select(*expressions, expr).row(0, named=True)
         else:
             stats = df.select(expressions).row(0, named=True)
-
         self.stat_names_map = stat_names_map
         self.stats = stats
         self.vars_map = vars_map
         self.sep = sep
-
-        # Columns of resultant table
-        if self.special_case is None:  # Common case
-            self.columns_stat_df = (
-                "Variable",
-                "null_count",
-                "mean",
-                "median",
-                "std",
-                "min",
-                "max",
-            )
-        elif self.special_case == "cat_special":  # Special case
-            self.columns_stat_df = (
-                "Variable",
-                "null_count",
-                "n_unique",
-            )
 
     def make_dt(self, var_type: str) -> pl.DataFrame:
         data = {}
@@ -136,98 +169,99 @@ class _Table:
             data[fun_name].append(stat_value)
 
         df = pl.LazyFrame(data)
-        if "null_count" in self.columns_stat_df:
-            df = df.with_columns(
-                pl.col("null_count")
-                .truediv(self.num_rows)
-                .mul(100)
-                .round(2)
-                .alias("null_count")
-            ).with_columns(
-                # Group percentages. Because pl.cut is unstable, manually use pl.when
-                pl.when(pl.col("null_count").eq(0))
-                .then(pl.lit("0%"))
-                .when(pl.col("null_count") < 1)
-                .then(pl.lit("<1%"))
-                .when(pl.col("null_count") < 2)
-                .then(pl.lit("<2%"))
-                .when(pl.col("null_count") < 3)
-                .then(pl.lit("<3%"))
-                .when(pl.col("null_count") < 5)
-                .then(pl.lit("<5%"))
-                .when(pl.col("null_count") < 10)
-                .then(pl.lit("<10%"))
-                .when(pl.col("null_count") < 20)
-                .then(pl.lit("<20%"))
-                .when(pl.col("null_count") < 30)
-                .then(pl.lit("<30%"))
-                .when(pl.col("null_count") < 40)
-                .then(pl.lit("<40%"))
-                .when(pl.col("null_count") < 50)
-                .then(pl.lit("<50%"))
-                .when(pl.col("null_count") < 60)
-                .then(pl.lit("<60%"))
-                .when(pl.col("null_count") < 70)
-                .then(pl.lit("<70%"))
-                .when(pl.col("null_count") < 80)
-                .then(pl.lit("<80%"))
-                .when(pl.col("null_count") < 90)
-                .then(pl.lit("<90%"))
-                .when(pl.col("null_count") < 100)
-                .then(pl.lit("<100%"))
-                .when(pl.col("null_count") == 100)
-                .then(pl.lit("100%"))
-                .alias("null_count")
-            )
+        df = df.with_columns(
+            pl.col("null_count").truediv(self.num_rows).mul(100).ceil().cast(pl.Int16)
+        )
 
         # Some special cases
-        if var_type == "num":
-            df = df.with_columns(
-                pl.col("mean", "median", "min", "max", "std").round_sig_figs(2)
+        if var_type == "num_float":
+            df = convert_df_scientific(df, ["mean", "median", "min", "max", "std"])
+        elif var_type in ("num_int", "num_bool"):
+            df = convert_df_scientific(df, ["mean", "median", "std"]).with_columns(
+                pl.col("min", "max").cast(pl.String),
             )
-        if var_type == "datetime":
-            df = df.with_columns(
-                pl.col("mean", "median", "min", "max").dt.to_string("%Y-%m-%d %H:%M:%S")
+        elif var_type == "date" or var_type == "datetime":
+            df = df.select(
+                "Variable",
+                "null_count",
+                pl.col("median", "min", "max").cast(pl.String).str.slice(0, 19),
             )
-        else:
-            df = df.with_columns(pl.col("*").cast(pl.String))
+        elif var_type == "null":
+            df = df.with_columns(
+                "null_count",
+                pl.lit("").alias("mean"),
+                pl.lit("").alias("std"),
+                pl.lit("").alias("median"),
+                pl.lit("").alias("min"),
+                pl.lit("").alias("max"),
+            )
+        elif var_type == "cat":
+            data = []
+            for var_name in self.vars_map["cat"]:
+                stat_name = f"top_3{self.sep}{var_name}"
+                freq_list = self.stats[stat_name]
+                row = {}
+                for i, dd in enumerate(freq_list):
+                    val, count = dd[var_name], dd["count"]
+                    row[f"Top {i+1}"] = f"{val} ({count / self.num_rows:.0%})"
+                data.append(row)
+            right = pl.DataFrame(data).fill_null("")
+            df = df.select(
+                "Variable",
+                pl.col("null_count").alias("NA%"),
+                pl.col("n_unique").alias("Uniques"),
+            )
+            for col_name in right.columns:
+                column = right.get_column(col_name)
+                df = df.with_columns(column)
+        return df
 
-        # Add missing columns as ""
-        exprs = [pl.lit("").alias(x) for x in self.columns_stat_df if x not in data]
-        df = df.with_columns(exprs)
-
-        return df.select(self.columns_stat_df)
-
-    def form_stat_df(self):
+    def form_stat_df(self, table_type):
         """
         Makes the final data frame
         """
         from decimal import Decimal
 
+        if table_type == "all":
+            self.form_stat_df("time")
+            self.form_stat_df("num")
+            self.form_stat_df("cat")
+            return
+
         if self.num_rows < 100_000:
             name_var = f"Var. N={self.num_rows}"
         else:
             name_var = f"Var. N={Decimal(self.num_rows):.2E}"
-        ll = [self.make_dt(var_type) for var_type in self.vars_map]
-        stat_df = pl.concat(ll)
-        if self.special_case is None:
-            rename_dict = {
-                "Variable": name_var,
-                "null_count": "Null %",
-                "mean": "Mean",
-                "median": "Median",
-                "std": "Std.",
-                "min": "Min",
-                "max": "Max",
-            }
-        elif self.special_case == "cat_special":
-            rename_dict = {
-                "Variable": name_var,
-                "null_count": "Null %",
-                "n_unique": "N uniq.",
-            }
+        subdfs = []
 
-        stat_df = stat_df.rename(rename_dict)
+        for var_type in _map_table_type_to_var_types(table_type):
+            if var_type in self.vars_map:
+                subdfs.append(self.make_dt(var_type))
+
+        if len(subdfs) == 0:
+            return
+        stat_df = pl.concat(subdfs)
+
+        if table_type == "num":
+            stat_df = stat_df.select(
+                pl.col("Variable").alias(name_var),
+                pl.col("null_count").alias("NA%"),
+                pl.col("mean").alias("Avg"),
+                pl.col("std").alias("SD"),
+                pl.col("min").alias("Min"),
+                pl.col("max").alias("Max"),
+                pl.col("median").alias("Median"),
+            )
+        elif table_type == "cat":
+            stat_df = stat_df.rename({"Variable": name_var})
+        elif table_type == "time":
+            stat_df = stat_df.select(
+                pl.col("Variable").alias(name_var),
+                pl.col("null_count").alias("NA%"),
+                pl.col("min").alias("Min"),
+                pl.col("max").alias("Max"),
+                pl.col("median").alias("Median"),
+            )
 
         if self.top_cols is not None:  # Put top_cols at front
             all_columns_in_order = []
@@ -240,36 +274,52 @@ class _Table:
                 pl.col(name_var).cast(pl.Enum(new_order))
             ).sort(name_var)
 
-        self.stat_df = stat_df.collect()
+        self.stat_dfs[table_type] = stat_df.collect()
 
-        if self.special_case == "cat_special":
-            data = []
-            for var_name in self.stat_df.get_column(name_var):
-                stat_name = f"top_3{self.sep}{var_name}"
-                freq_list = self.stats[stat_name]
-                freq_vals = []
-                for i, dd in enumerate(freq_list):
-                    val, count = dd[var_name], dd["count"]
-                    freq_vals.append(f"{val} ({count / self.num_rows:.0%})")
-                data.append("\n".join(freq_vals))
-            # sub_df = pl.DataFrame(
-            #     [self.stat_df.get_column(name_var), pl.Series("Top values", data)]
-            # )
+    def show_one_table(self, table_type):
+        if table_type in self.stat_dfs:
+            with pl.Config(
+                tbl_hide_dataframe_shape=True,
+                tbl_formatting="NOTHING",
+                tbl_hide_column_data_types=True,
+                float_precision=2,
+                fmt_str_lengths=100,
+                tbl_rows=-1,
+                tbl_cell_alignment="LEFT",
+                set_fmt_float="full",
+                set_tbl_width_chars=80,
+            ):
+                print(self.stat_dfs[table_type])
+        else:
+            if table_type == "num":
+                print("No numerical columns found")
+            elif table_type == "cat":
+                print("No categorical columns found")
 
-            self.stat_df = self.stat_df.with_columns(pl.Series("Top values", data))
+    def print_header(self, type_):
+        if type_ == "time":
+            lhs = "-Date and datetime columns"
+        elif type_ == "cat":
+            lhs = "-Categorical columns"
+        elif type_ == "num":
+            lhs = "-Numerical columns"
+        rhs = "-" * (80 - len(lhs))
+        print(f"{lhs}{rhs}")
 
     def show(self):
-        if self.stat_df is None:
-            self.form_stat_df()
-        cfg = pl.Config(
-            tbl_hide_dataframe_shape=True,
-            tbl_formatting="ASCII_MARKDOWN",
-            tbl_hide_column_data_types=True,
-            float_precision=2,
-            fmt_str_lengths=100,
-            tbl_rows=self.stat_df.height,
-            tbl_cell_alignment="LEFT",
-        )
-
-        with cfg:
-            print(self.stat_df)
+        if self.type in ("num", "cat", "time"):
+            if self.type not in self.stat_dfs:
+                if self.type == "num":
+                    print("No numerical columns found")
+                elif self.type == "cat":
+                    print("No categorical columns found")
+                else:
+                    print("No date or datetime columns found")
+            else:
+                self.print_header(self.type)
+                self.show_one_table(self.type)
+        elif self.type == "all":
+            for type_ in ["time", "num", "cat"]:
+                if type_ in self.stat_dfs:
+                    self.print_header(type_)
+                    self.show_one_table(type_)

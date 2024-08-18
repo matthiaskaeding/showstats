@@ -1,58 +1,75 @@
 # showstats: quick and compact summary statistics
 
 
-**showstats** produces summary statistic tables with vertical
-orientation.
+**showstats** quickly produces compact summary statistic tables with
+vertical orientation.
 
 ``` python
-from showstats import show_stats, show_cat_stats
+from showstats import show_stats
 
 show_stats(df)
 ```
 
-    | Var.          | Null % | Mean          | Median        | Std.     | Min           | Max          |
-    | N=1.00E+6     |        |               |               |          |               |              |
-    |---------------|--------|---------------|---------------|----------|---------------|--------------|
-    | float_mean_2  | 0%     | 2.0           | 2.0           | 1.0      | -2.6          | 6.6          |
-    | float_std_2   | 0%     | 0.0013        | 0.00024       | 2.0      | -9.3          | 9.3          |
-    | float_min_7   | 0%     | 12.0          | 12.0          | 1.0      | 7.0           | 16.0         |
-    | float_max_17  | 0%     | 12.0          | 12.0          | 1.0      | 7.7           | 17.0         |
-    | bool_col      | <40%   | 0.5           | 0.0           | 0.5      | 0.0           | 1.0          |
-    | int_col       | 0%     | 500000.0      | 500000.0      | 290000.0 | 0.0           | 1000000.0    |
-    | float_col     | 0%     | 5000.0        | 5000.0        | 2900.0   | 0.0           | 10000.0      |
-    | U             | 0%     | 0.5           | 0.5           | 0.29     | 5.1e-7        | 1.0          |
-    | int_with_miss | <20%   | 500000.0      | 500000.0      | 290000.0 | 1.0           | 1000000.0    |
-    | ings          |        |               |               |          |               |              |
-    | str_col       | <60%   |               |               |          | ABC           | foo          |
-    | categorical_c | 0%     |               |               |          | Fara          | Car          |
-    | ol            |        |               |               |          |               |              |
-    | enum_col      | 0%     |               |               |          | worst         | best         |
-    | datetime_col  | 0%     | 1750-01-30    | 1750-03-18    |          | 1500-01-01    | 1999-12-31   |
-    |               |        | 01:54:50      | 04:52:16      |          | 04:17:28      | 21:39:20     |
-    | datetime_col_ | 0%     | 1750-01-12    | 1750-01-22    |          | 1500-01-01    | 1999-12-31   |
-    | 2             |        | 23:02:09      | 06:33:24      |          | 06:19:48      | 17:41:57     |
-    | date_col      | 0%     |               |               |          | 1500-01-01    | 1999-12-31   |
-    | date_col_2    | 0%     |               |               |          | 1500-01-01    | 1999-12-31   |
-    | null_col      | 100%   |               |               |          |               |              |
+    -Date and datetime columns------------------------------------------------------
+     Var. N=100      NA%  Min         Max                     Median                
+     date_col        0    1501-01-20  1996-04-09              1755-07-20 00:00:00   
+     date_col_2      0    1511-12-06  1999-05-05              1776-03-03 00:00:00   
+     datetime_col    0    1501-01-20  1996-04-09 06:29:29     1755-07-20 10:10:59   
+                          14:37:46                                                  
+     datetime_col_2  0    1511-12-06  1999-05-05 14:12:20     1776-03-03 13:25:50   
+                          23:40:13                                                  
+    -Numerical columns--------------------------------------------------------------
+     Var. N=100         NA%  Avg      SD     Min      Max      Median  
+     float_mean_2       0    2.0      0.89   -0.36    4.12     2.0     
+     float_std_2        0    0.14     2.0    -5.17    4.91     0.14    
+     float_min_-7       0    -4.64    0.89   -7.0     -2.51    -4.63   
+     float_max_17       0    14.88    0.89   12.51    17.0     14.88   
+     float_big          0    1.235E6  0.89   1.235E6  1.235E6  1.235E6 
+     float_col          0    0.5      0.29   0.0      0.99     0.5     
+     U                  0    0.54     0.26   0.02     0.98     0.57    
+     int_col            0    49.5     29.01  0        99       49.5    
+     int_with_missings  5    48.32    28.8   0        99       49.0    
+     bool_col           26   0.5      0.5    false    true     0.5     
+     null_col           100                                            
+    -Categorical columns------------------------------------------------------------
+     Var. N=100       NA%  Uniques  Top 1       Top 2        Top 3        
+     str_col          48   5        foo (15%)   ABC (13%)    bar (12%)    
+     categorical_col  0    2        Fara (57%)  Car (43%)                 
+     enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
 
 ``` python
-show_cat_stats(df)
+# Only one type
+show_stats(df, "cat")  # Other are num, time
 ```
 
-    | Var. N=1.00E+6  | Null % | N uniq. | Top values   |
-    |-----------------|--------|---------|--------------|
-    | str_col         | <60%   | 5       | None (55%)   |
-    |                 |        |         | baz (11%)    |
-    |                 |        |         | ABC (11%)    |
-    | categorical_col | 0%     | 2       | Fara (50%)   |
-    |                 |        |         | Car (50%)    |
-    | enum_col        | 0%     | 3       | worst (33%)  |
-    |                 |        |         | medium (33%) |
-    |                 |        |         | best (33%)   |
+    -Categorical columns------------------------------------------------------------
+     Var. N=100       NA%  Uniques  Top 1       Top 2        Top 3        
+     str_col          48   5        foo (15%)   ABC (13%)    bar (12%)    
+     categorical_col  0    2        Fara (57%)  Car (43%)                 
+     enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
 
-Primarily built for polars data frames, **showstats** converts other
-inputs. For full compatibility with pandas.DataFrames install as
-`pip install showstats[pandas]`.
+``` python
+# Importing **statsshow** adds the stats namespace
+df.select("U", "int_col").stats.show()
+```
 
-Because **showstats** uses polars as backend, its really fast: \<1
-second for a 1,000,000 × 1,000 data frame, running on a M1 MacBook.
+    -Numerical columns--------------------------------------------------------------
+     Var. N=100  NA%  Avg   SD     Min   Max   Median 
+     U           0    0.54  0.26   0.02  0.98  0.57   
+     int_col     0    49.5  29.01  0     99    49.5   
+
+- Primarily built for polars data frames, **showstats** converts other
+  inputs.
+
+  - For full compatibility with pandas.DataFrames install via
+    `pip install showstats[pandas]`.
+
+- Heavily inspired by the great R-packages
+  [skimr](https://github.com/ropensci/skimr) and
+  [modelsummary](https://modelsummary.com/vignettes/datasummary.html).
+
+- Numbers with many digits are automatically converted to scientific
+  notation.
+
+- Because **showstats** uses polars as backend, its really fast: \<1
+  second for a 1,000,000 × 1,000 data frame, running on a M1 MacBook.
