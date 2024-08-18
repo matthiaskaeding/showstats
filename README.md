@@ -49,8 +49,8 @@ show_stats(df, "cat")  # Other are num, time
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
 
 ``` python
-# Importing showstats adds the stats_tbl namespace
-df.select("U", "int_col").stats_tbl.show()
+# Importing **statsshow** adds the stats namespace
+df.select("U", "int_col").stats.show()
 ```
 
     -Numerical columns--------------------------------------------------------------
@@ -61,7 +61,7 @@ df.select("U", "int_col").stats_tbl.show()
 - Primarily built for polars data frames, **showstats** converts other
   inputs.
 
-  - For full compatibility with pandas.DataFrames install as
+  - For full compatibility with pandas.DataFrames install via
     `pip install showstats[pandas]`.
 
 - Heavily inspired by the great R-packages
