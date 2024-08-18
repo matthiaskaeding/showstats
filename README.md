@@ -49,7 +49,7 @@ show_stats(df, "cat")  # Other are num, time
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
 
 ``` python
-# Importing **statsshow** adds the stats namespace
+# Importing showstats adds the stats namespace
 df.select("U", "int_col").stats.show()
 ```
 
@@ -71,5 +71,4 @@ df.select("U", "int_col").stats.show()
 - Numbers with many digits are automatically converted to scientific
   notation.
 
-- Because **showstats** leverages polars efficiency, it\`s fast: \<1
-  second for a 1,000,000 × 1,000 data frame, running on a M1 MacBook.
+- Because **showstats** leverages polars effective parallelism, it\`s fast: \<1s for a 1,000,000 × 1,000 data frame, on a M1 MacBook
