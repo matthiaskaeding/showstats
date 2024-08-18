@@ -59,12 +59,12 @@ def convert_df_scientific(df: pl.LazyFrame, varnames: Iterable[str], thr: int = 
             .then(var.cast(pl.String))
             .when(var.eq(0))
             .then(pl.lit("0.0"))
-            .when(var_exponent.le(pl.lit(thr)))
+            .when(var_exponent.le(thr))
             .then(var.round(2).cast(pl.String))
             .otherwise(
                 pl.format(
                     "{}E{}",
-                    var.truediv(pl.lit(10.0).pow(var_exponent)).round(3),
+                    var.truediv(pl.lit(10.0).pow(var_exponent)).round(2),
                     pl.col(name_exponent),
                 )
             )
