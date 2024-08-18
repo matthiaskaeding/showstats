@@ -27,19 +27,23 @@ def convert_df_scientific(df, varnames, thr=4):
     exprs_scient = []
     name_exponents = []
     for varname in varnames:
-        var = pl.col(varname)
+        nan = float("nan")
+        var = pl.col(varname).fill_null(nan)
+
         name_exponent = f"____EXPONENT____{varname}"
         name_exponents.append(name_exponent)
         exp_ex = (
-            pl.when(var.is_finite().and_(var.ne(0)))
+            pl.when(var.is_finite(), var.ne(0))
             .then(var.abs().log10().floor())
+            # .otherwise(nan)
             .alias(name_exponent)
         ).cast(pl.Int16)
-
         var_exponent = pl.col(name_exponent)
         exp_scient = (
-            pl.when(var.is_null().or_(var.is_infinite()).or_(var.is_nan()))
+            pl.when(var.is_nan())
             .then(pl.lit(""))
+            .when(var.is_infinite())
+            .then(var.cast(pl.String))
             .when(var.eq(0))
             .then(pl.lit("0.0"))
             .when(var_exponent.le(pl.lit(thr)))
