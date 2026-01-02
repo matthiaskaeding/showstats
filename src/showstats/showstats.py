@@ -68,4 +68,5 @@ def make_stats_tbl(
         raise ValueError(f"Type {table_type} not supported")
     _table = _Table(df, table_type, top_cols)
     _table.form_stat_df(table_type)
-    return _table.stat_dfs[table_type]
+    # Return None if no columns of this type were found
+    return _table.stat_dfs.get(table_type, None)
