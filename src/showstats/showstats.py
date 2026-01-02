@@ -1,16 +1,15 @@
 # Central functions for table making
-from typing import TYPE_CHECKING, List, Union
-
-import polars as pl
+from typing import TYPE_CHECKING, Any, List, Union
 
 from showstats._table import _Table
 
 if TYPE_CHECKING:
     import pandas
+    import polars as pl
 
 
 def show_stats(
-    df: Union[pl.DataFrame, "pandas.DataFrame"],
+    df: Any,
     table_type: str = "all",
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
@@ -19,7 +18,7 @@ def show_stats(
     for for optimal readability.
 
     Args:
-        df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
+        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
         top_cols (Union[List[str], str, None], optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
@@ -42,7 +41,7 @@ def show_stats(
 
 
 def make_stats_tbl(
-    df: Union[pl.DataFrame, "pandas.DataFrame"],
+    df: Any,
     table_type: str = "num",
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
@@ -51,7 +50,7 @@ def make_stats_tbl(
     for for optimal readability.
 
     Args:
-        df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
+        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
         top_cols (Union[List[str], str, None], optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"

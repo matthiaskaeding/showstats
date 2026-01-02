@@ -1,66 +1,55 @@
-from typing import TYPE_CHECKING, Iterable, Tuple, Union
+from typing import TYPE_CHECKING, Any, Iterable, Tuple
 
+import narwhals as nw
 import polars as pl
-from polars import selectors as cs
 
 from showstats._utils import convert_df_scientific
 
 if TYPE_CHECKING:
-    import pandas
+    pass
 
 
 # Basic idea of these helper functions:
 #   table_type --> var_types --> functions
 def _check_input_maybe_try_transform(input):
-    if isinstance(input, pl.DataFrame):
-        if input.height == 0 or input.width == 0:
-            raise ValueError("Input data frame must have rows and columns")
-        else:
-            return input
-    else:
-        print("Attempting to convert input to polars.DataFrame")
-        try:
-            out = pl.DataFrame(input)
-        except Exception as e:
-            print(f"Error occurred during attempted conversion: {e}")
-    if out.height == 0 or out.width == 0:
-        raise ValueError("Input not compatible")
-    else:
-        return out
+    df = nw.from_native(input, eager_only=True)
+    if df.shape[0] == 0 or df.shape[1] == 0:
+        raise ValueError("Input data frame must have rows and columns")
+    return df
 
 
 def _get_cols_for_var_type(df, var_type):
-    if var_type == "num_float":
-        col_vt = pl.col(
-            pl.Decimal,
-            pl.Float32,
-            pl.Float64,
-        )
-    elif var_type == "num_int":
-        col_vt = pl.col(
-            pl.Int8,
-            pl.Int16,
-            pl.Int32,
-            pl.Int64,
-            pl.UInt8,
-            pl.UInt16,
-            pl.UInt32,
-            pl.UInt64,
-        )
-    elif var_type == "num_bool":
-        col_vt = pl.col(pl.Boolean)
-    elif var_type == "cat":
-        col_vt = pl.col(pl.Enum, pl.String, pl.Categorical)
-    elif var_type == "date":
-        col_vt = pl.col(pl.Date)
-    elif var_type == "datetime":
-        col_vt = pl.col(pl.Datetime)
-    elif var_type == "null":
-        col_vt = pl.col(pl.Null)
-    else:
-        raise ValueError(f"var_type {var_type} not supported")
+    schema = df.schema
+    matching_cols = []
 
-    return df.select(col_vt).columns
+    for col_name, dtype in schema.items():
+        dtype_str = str(dtype)
+        if var_type == "num_float":
+            if dtype in (nw.Decimal, nw.Float32, nw.Float64):
+                matching_cols.append(col_name)
+        elif var_type == "num_int":
+            if dtype in (nw.Int8, nw.Int16, nw.Int32, nw.Int64,
+                        nw.UInt8, nw.UInt16, nw.UInt32, nw.UInt64):
+                matching_cols.append(col_name)
+        elif var_type == "num_bool":
+            if dtype == nw.Boolean:
+                matching_cols.append(col_name)
+        elif var_type == "cat":
+            if dtype in (nw.Enum, nw.String, nw.Categorical) or dtype_str.startswith("Enum"):
+                matching_cols.append(col_name)
+        elif var_type == "date":
+            if dtype == nw.Date:
+                matching_cols.append(col_name)
+        elif var_type == "datetime":
+            if dtype == nw.Datetime or dtype_str.startswith("Datetime"):
+                matching_cols.append(col_name)
+        elif var_type == "null":
+            if dtype_str == "Null" or dtype == nw.Unknown:
+                matching_cols.append(col_name)
+        else:
+            raise ValueError(f"var_type {var_type} not supported")
+
+    return matching_cols
 
 
 def _map_funs_to_var_type(var_type) -> Tuple[str]:
@@ -101,7 +90,7 @@ class _Table:
 
     def __init__(
         self,
-        df: Union[pl.DataFrame, "pandas.DataFrame"],
+        df: Any,
         table_type: str,
         top_cols: Iterable = None,
     ):
@@ -111,7 +100,7 @@ class _Table:
         self.type = table_type
         self.stat_dfs = {}
         self.top_cols = top_cols
-        self.num_rows = df.height
+        self.num_rows = df.shape[0]
         vars_map = {}  # Maps var-type to columns in df
         funs_map = {}  # Maps var-type to functions
         stat_names_map = {}  # Maps var-type to names of computed statistics
@@ -129,7 +118,7 @@ class _Table:
             for var in vars_map[vt]:
                 for function in functions_vt:
                     stat_name = f"{var}{sep}{function}"
-                    expr = getattr(pl.col(var), function)().alias(stat_name)
+                    expr = getattr(nw.col(var), function)().alias(stat_name)
                     expressions.append(expr)
                     stat_names_map[vt].append(stat_name)
         # Evaluate expressions
@@ -141,17 +130,49 @@ class _Table:
         if len(expressions) == 0:
             stats = {}
         elif "cat" in vars_map:
-            expr = (
-                cs.by_name(vars_map["cat"])
-                .drop_nulls()
-                .value_counts(sort=True)
-                .head(3)
-                .implode()
-                .name.prefix(f"top_3{sep}")
-            )
-            stats = df.select(*expressions, expr).row(0, named=True)
+            # For categorical columns, we need to use native backend for value_counts
+            # First, get the basic stats
+            stats_df = df.select(expressions)
+            native_stats = nw.to_native(stats_df)
+            if isinstance(native_stats, pl.DataFrame):
+                stats = native_stats.row(0, named=True)
+            else:
+                # For pandas
+                stats = dict(native_stats.iloc[0])
+
+            # Now handle categorical value_counts
+            native_df = nw.to_native(df)
+            if isinstance(native_df, pl.DataFrame):
+                from polars import selectors as cs
+                expr = (
+                    cs.by_name(vars_map["cat"])
+                    .drop_nulls()
+                    .value_counts(sort=True)
+                    .head(3)
+                    .implode()
+                    .name.prefix(f"top_3{sep}")
+                )
+                cat_stats_df = native_df.select(expr)
+                cat_stats = cat_stats_df.row(0, named=True)
+                stats.update(cat_stats)
+            else:
+                # For pandas, we handle value_counts differently
+                import pandas as pd
+                for var_name in vars_map["cat"]:
+                    stat_name = f"top_3{sep}{var_name}"
+                    value_counts = native_df[var_name].dropna().value_counts().head(3)
+                    freq_list = []
+                    for val, count in value_counts.items():
+                        freq_list.append({var_name: val, "count": count})
+                    stats[stat_name] = freq_list
         else:
-            stats = df.select(expressions).row(0, named=True)
+            stats_df = df.select(expressions)
+            native_stats = nw.to_native(stats_df)
+            if isinstance(native_stats, pl.DataFrame):
+                stats = native_stats.row(0, named=True)
+            else:
+                # For pandas
+                stats = dict(native_stats.iloc[0])
         self.stat_names_map = stat_names_map
         self.stats = stats
         self.vars_map = vars_map
