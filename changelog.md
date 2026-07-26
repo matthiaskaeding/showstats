@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking:** the `.stats` polars DataFrame namespace and the `StatsFrame`
+  class. `show_stats(df)` and `make_stats_tbl(df)` replace
+  `df.stats.show()` and `df.stats.make_tbl()`. The accessor was polars-only,
+  which does not fit the narwhals direction (#53)
+
 ### Added
 
 - `quantiles` argument on `show_stats`/`make_stats_tbl` to compute extra

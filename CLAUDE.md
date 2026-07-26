@@ -12,7 +12,10 @@ data frames. Core logic lives in `src/showstats/`:
   DataFrame.
 - `_utils.py` — scientific-notation formatting (`convert_df_scientific`).
 - `showstats.py` — public `show_stats` / `make_stats_tbl` functions.
-- `pl_namespace.py` — registers the `.stats` polars DataFrame namespace.
+
+`show_stats` and `make_stats_tbl` are the whole public API — there is no
+DataFrame accessor. A polars-only `.stats` namespace existed until #53 and
+was removed as incompatible with the narwhals direction.
 
 Input and statistic computation go through `narwhals`, so any
 narwhals-compatible frame (polars, pandas, pyarrow, ...) is accepted
