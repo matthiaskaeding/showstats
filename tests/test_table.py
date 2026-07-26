@@ -138,7 +138,7 @@ def test_single_columns():
     assert flt_table.stat_dfs["num"].shape == desired_shape
     assert flt_table.stat_dfs["num"].item(0, "Avg") == "1.6"
     assert flt_table.stat_dfs["num"].item(0, 1) == 0
-    assert flt_table.stat_dfs["num"].columns[0] == "Var. N=2"
+    assert flt_table.stat_dfs["num"].columns[0] == "Col (N=2)"
 
 
 def test_char_table():
@@ -168,7 +168,31 @@ def test_char_table():
     assert _table.stat_dfs["cat"].filter(col0 == "x3").item(0, "Top 3") == "C (4%)"
 
     assert stat_df.get_column(stat_df.columns[0]).to_list() == list(data.keys())
-    assert stat_df.columns == ["Var. N=26", "NA%", "Uniques", "Top 1", "Top 2", "Top 3"]
+    assert stat_df.columns == [
+        "Col (N=26)",
+        "NA%",
+        "Uniques",
+        "Top 1",
+        "Top 2",
+        "Top 3",
+    ]
+
+
+def test_long_variable_names_are_truncated():
+    long_name = "this_is_a_really_really_long_variable_name_that_goes_on_and_on"
+    df = pl.DataFrame({long_name: [1, 2, 3], "short": [1.0, 2.0, 3.0]})
+
+    _table = _Table(df, "num")
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    names = stat_df.get_column(stat_df.columns[0]).to_list()
+    assert "short" in names
+    assert long_name not in names
+    truncated = next(n for n in names if n != "short")
+    assert len(truncated) == 30
+    assert truncated.endswith("…")
+    assert truncated.startswith(long_name[:29])
 
 
 def test_pandas(sample_df):
@@ -184,8 +208,8 @@ def test_pandas(sample_df):
     # So we check shapes and most columns, but allow minor formatting differences
     assert _table_pandas.stat_dfs["num"].shape == _table_polars.stat_dfs["num"].shape
     assert (
-        _table_pandas.stat_dfs["num"]["Var. N=3"][0]
-        == _table_polars.stat_dfs["num"]["Var. N=3"][0]
+        _table_pandas.stat_dfs["num"]["Col (N=3)"][0]
+        == _table_polars.stat_dfs["num"]["Col (N=3)"][0]
     )
     assert (
         _table_pandas.stat_dfs["num"]["NA%"][0]

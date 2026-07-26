@@ -79,6 +79,22 @@ def _map_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
     return cols, _map_funs_to_var_type(var_type)
 
 
+_MAX_VAR_NAME_LEN = 30
+
+
+def _truncate_long_strings(expr: pl.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> pl.Expr:
+    """Truncates strings longer than max_len, marking the cut with an ellipsis.
+
+    Long variable names otherwise wrap onto a new, misaligned line when the
+    printed table exceeds its configured width.
+    """
+    return (
+        pl.when(expr.str.len_chars().gt(max_len))
+        .then(expr.str.slice(0, max_len - 1) + "…")
+        .otherwise(expr)
+    )
+
+
 def _map_table_type_to_var_types(table_type):
     """Maps table type to var types"""
     if table_type == "all":
@@ -258,9 +274,9 @@ class _Table:
             return
 
         if self.num_rows < 100_000:
-            name_var = f"Var. N={self.num_rows}"
+            name_var = f"Col (N={self.num_rows})"
         else:
-            name_var = f"Var. N={Decimal(self.num_rows):.2E}"
+            name_var = f"Col (N={Decimal(self.num_rows):.2E})"
         subdfs = []
 
         for var_type in _map_table_type_to_var_types(table_type):
@@ -302,6 +318,10 @@ class _Table:
             stat_df = stat_df.with_columns(
                 pl.col(name_var).cast(pl.Enum(new_order))
             ).sort(name_var)
+
+        stat_df = stat_df.with_columns(
+            _truncate_long_strings(pl.col(name_var).cast(pl.String)).alias(name_var)
+        )
 
         self.stat_dfs[table_type] = stat_df.collect()
 

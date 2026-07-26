@@ -73,7 +73,9 @@ def test_polars_vs_pandas_numeric_stats():
     assert result_polars.shape == result_pandas.shape
 
     # Variable names should be the same
-    assert result_polars["Var. N=10"].to_list() == result_pandas["Var. N=10"].to_list()
+    assert (
+        result_polars["Col (N=10)"].to_list() == result_pandas["Col (N=10)"].to_list()
+    )
 
     # NA% should be the same (both 0)
     assert result_polars["NA%"].to_list() == result_pandas["NA%"].to_list()
@@ -100,7 +102,9 @@ def test_polars_vs_pandas_categorical_stats():
     assert result_polars.shape == result_pandas.shape
 
     # Variable names should be the same
-    assert result_polars["Var. N=10"].to_list() == result_pandas["Var. N=10"].to_list()
+    assert (
+        result_polars["Col (N=10)"].to_list() == result_pandas["Col (N=10)"].to_list()
+    )
 
     # Number of uniques should be the same
     assert result_polars["Uniques"].to_list() == result_pandas["Uniques"].to_list()
@@ -118,10 +122,10 @@ def test_polars_backend_with_nulls():
     result = make_stats_tbl(df, "num")
 
     # col_with_nulls should have 20% NA (2 out of 10)
-    assert result.filter(pl.col("Var. N=10") == "col_with_nulls")["NA%"][0] == 20
+    assert result.filter(pl.col("Col (N=10)") == "col_with_nulls")["NA%"][0] == 20
 
     # col_no_nulls should have 0% NA
-    assert result.filter(pl.col("Var. N=10") == "col_no_nulls")["NA%"][0] == 0
+    assert result.filter(pl.col("Col (N=10)") == "col_no_nulls")["NA%"][0] == 0
 
 
 def test_pandas_backend_with_nulls():
@@ -136,11 +140,11 @@ def test_pandas_backend_with_nulls():
     result = make_stats_tbl(df, "num")
 
     # col_with_nulls should have 20% NA (2 out of 10)
-    col_with_nulls_row = result.filter(pl.col("Var. N=10") == "col_with_nulls")
+    col_with_nulls_row = result.filter(pl.col("Col (N=10)") == "col_with_nulls")
     assert col_with_nulls_row["NA%"][0] == 20
 
     # col_no_nulls should have 0% NA
-    col_no_nulls_row = result.filter(pl.col("Var. N=10") == "col_no_nulls")
+    col_no_nulls_row = result.filter(pl.col("Col (N=10)") == "col_no_nulls")
     assert col_no_nulls_row["NA%"][0] == 0
 
 
@@ -162,8 +166,8 @@ def test_polars_backend_datetime():
     # Should have 2 rows (date_col and datetime_col)
     assert result.shape[0] == 2
 
-    # Should have columns: Var. N=10, NA%, Min, Max, Median
-    assert "Var. N=10" in result.columns
+    # Should have columns: Col (N=10), NA%, Min, Max, Median
+    assert "Col (N=10)" in result.columns
     assert "NA%" in result.columns
     assert "Min" in result.columns
     assert "Max" in result.columns
@@ -203,7 +207,7 @@ def test_polars_backend_boolean():
     assert result.shape[0] == 2
 
     # bool_col should be included
-    assert "bool_col" in result["Var. N=10"].to_list()
+    assert "bool_col" in result["Col (N=10)"].to_list()
 
 
 def test_pandas_backend_boolean():
