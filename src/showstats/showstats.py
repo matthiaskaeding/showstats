@@ -10,6 +10,8 @@ def show_stats(
     df: IntoDataFrame,
     table_type: str = "all",
     top_cols: Union[List[str], str, None] = None,
+    quantiles: Union[List[float], None] = None,
+    fold_quantiles: bool = True,
 ) -> None:
     """
     Print a table of summary statistics for the given DataFrame, configured
@@ -20,8 +22,18 @@ def show_stats(
         top_cols (Union[List[str], str, None], optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
+        quantiles (Union[List[float], None], optional): Extra quantiles (values in
+            [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
+            columns. Defaults to None.
+        fold_quantiles (bool, optional): When quantiles are given, relabel Min,
+            Max and (if 0.5 is requested) Median as Q0, Q100 and Q50 and fold
+            them into the quantile sequence, rather than repeating the same
+            statistic under two names. Set to False to keep Min/Max/Median as
+            separate columns, which keeps the column names stable regardless of
+            which quantiles are requested. Defaults to True.
     Raises:
-        ValueError: If the input DataFrame has no rows or columns.
+        ValueError: If the input DataFrame has no rows or columns, or if a
+            requested quantile is outside [0, 1].
 
     Note:
         - The output is formatted as an ASCII Markdown table with left-aligned cells
@@ -33,7 +45,7 @@ def show_stats(
     if table_type not in ("num", "cat", "all", "time"):
         raise ValueError(f"table_type {table_type} not supported")
 
-    _table = _Table(df, table_type, top_cols)
+    _table = _Table(df, table_type, top_cols, quantiles, fold_quantiles)
     _table.form_stat_df(table_type)
     _table.show()
 
@@ -42,6 +54,8 @@ def make_stats_tbl(
     df: IntoDataFrame,
     table_type: str = "num",
     top_cols: Union[List[str], str, None] = None,
+    quantiles: Union[List[float], None] = None,
+    fold_quantiles: bool = True,
 ) -> None:
     """
     Builds table of summary statistics for the given DataFrame, configured
@@ -52,8 +66,18 @@ def make_stats_tbl(
         top_cols (Union[List[str], str, None], optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
+        quantiles (Union[List[float], None], optional): Extra quantiles (values in
+            [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
+            columns. Defaults to None.
+        fold_quantiles (bool, optional): When quantiles are given, relabel Min,
+            Max and (if 0.5 is requested) Median as Q0, Q100 and Q50 and fold
+            them into the quantile sequence, rather than repeating the same
+            statistic under two names. Set to False to keep Min/Max/Median as
+            separate columns, which keeps the column names stable regardless of
+            which quantiles are requested. Defaults to True.
     Raises:
-        ValueError: If the input DataFrame has no rows or columns.
+        ValueError: If the input DataFrame has no rows or columns, or if a
+            requested quantile is outside [0, 1].
 
     Note:
         - The output is formatted as an ASCII Markdown table with left-aligned cells
@@ -64,7 +88,7 @@ def make_stats_tbl(
     """
     if table_type not in ("num", "cat", "all", "time"):
         raise ValueError(f"Type {table_type} not supported")
-    _table = _Table(df, table_type, top_cols)
+    _table = _Table(df, table_type, top_cols, quantiles, fold_quantiles)
     _table.form_stat_df(table_type)
     # Return None if no columns of this type were found
     return _table.stat_dfs.get(table_type, None)

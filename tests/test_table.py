@@ -1,5 +1,16 @@
+import warnings
+
 import polars as pl
-from showstats._table import _Table
+import pytest
+from showstats._table import _WARNED_ONCE, _Table
+
+
+@pytest.fixture(autouse=True)
+def _reset_warning_registry():
+    """Advisory warnings fire once per session, so tests must start clean."""
+    _WARNED_ONCE.clear()
+    yield
+    _WARNED_ONCE.clear()
 
 
 def test_make_dt_num(sample_df):
@@ -193,6 +204,157 @@ def test_long_variable_names_are_truncated():
     assert len(truncated) == 30
     assert truncated.endswith("…")
     assert truncated.startswith(long_name[:29])
+
+
+def test_quantiles(sample_df):
+    _table = _Table(sample_df, "num", quantiles=[0.1, 0.9])
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    assert "Q10" in stat_df.columns
+    assert "Q90" in stat_df.columns
+
+    var_0 = pl.col(stat_df.columns[0])
+    q10 = float(stat_df.filter(var_0 == "int_col").item(0, "Q10"))
+    q90 = float(stat_df.filter(var_0 == "int_col").item(0, "Q90"))
+    assert q10 < q90
+
+    # Quantiles must also work for boolean columns, which have no native
+    # quantile support and are cast first.
+    bool_row = stat_df.filter(var_0 == "bool_col")
+    assert bool_row.item(0, "Q10") is not None
+
+
+def test_quantiles_fold_min_and_max():
+    """min/max are the 0th and 100th percentiles, so they get relabelled."""
+    df = pl.DataFrame({"x": [float(i) for i in range(1, 101)]})
+
+    default = _Table(df, "num")
+    default.form_stat_df("num")
+    assert default.stat_dfs["num"].columns == [
+        "Col (N=100)",
+        "NA%",
+        "Avg",
+        "SD",
+        "Min",
+        "Max",
+        "Median",
+    ], "the default table must be unchanged when no quantiles are asked for"
+
+    _table = _Table(df, "num", quantiles=[0.1, 0.9])
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    # Ascending sequence, with Min/Max folded in as the endpoints.
+    assert stat_df.columns == [
+        "Col (N=100)",
+        "NA%",
+        "Avg",
+        "SD",
+        "Median",
+        "Q0",
+        "Q10",
+        "Q90",
+        "Q100",
+    ]
+    assert "Min" not in stat_df.columns
+    assert "Max" not in stat_df.columns
+    assert float(stat_df.item(0, "Q0")) == 1.0
+    assert float(stat_df.item(0, "Q100")) == 100.0
+
+
+def test_quantiles_50_replaces_median():
+    """Q50 is the median, so asking for it drops the separate column."""
+    df = pl.DataFrame({"x": [float(i) for i in range(1, 101)]})
+
+    _table = _Table(df, "num", quantiles=[0.5])
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    assert "Median" not in stat_df.columns
+    assert "Q50" in stat_df.columns
+    # Interpolation is "linear" precisely so these agree.
+    assert float(stat_df.item(0, "Q50")) == 50.5
+
+    # Without an explicit 0.5 the Median column stays.
+    other = _Table(df, "num", quantiles=[0.1])
+    other.form_stat_df("num")
+    assert "Median" in other.stat_dfs["num"].columns
+
+
+def test_quantiles_0_and_1_warn_and_are_dropped():
+    df = pl.DataFrame({"x": [float(i) for i in range(1, 101)]})
+
+    with pytest.warns(UserWarning, match="always shown as Q0 and Q100"):
+        _table = _Table(df, "num", quantiles=[0, 0.5, 1])
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    # 0 and 1 are dropped as explicit quantiles, but still appear as the
+    # relabelled min/max endpoints — so no column is duplicated.
+    assert stat_df.columns == ["Col (N=100)", "NA%", "Avg", "SD", "Q0", "Q50", "Q100"]
+
+
+def test_quantiles_warning_is_emitted_once_per_session():
+    """showstats gets called repeatedly; repeating the advice is noise."""
+    df = pl.DataFrame({"x": [float(i) for i in range(1, 11)]})
+
+    with warnings.catch_warnings(record=True) as caught:
+        # "always" defeats Python's own dedup, so this tests our guard.
+        warnings.simplefilter("always")
+        for _ in range(3):
+            _Table(df, "num", quantiles=[0, 0.5, 1])
+        # A different redundant value is still the same advisory.
+        _Table(df, "num", quantiles=[1])
+
+    assert len(caught) == 1
+
+
+def test_fold_quantiles_false_keeps_named_columns():
+    """Opting out keeps column names stable whatever quantiles are asked for."""
+    df = pl.DataFrame({"x": [float(i) for i in range(1, 101)]})
+
+    _table = _Table(df, "num", quantiles=[0.1, 0.5], fold_quantiles=False)
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    # Named stats keep their names, and the quantiles are appended.
+    assert stat_df.columns == [
+        "Col (N=100)",
+        "NA%",
+        "Avg",
+        "SD",
+        "Min",
+        "Max",
+        "Median",
+        "Q10",
+        "Q50",
+    ]
+
+
+def test_fold_quantiles_false_honours_0_and_1_without_warning():
+    """0 and 1 are only redundant when folding puts them in as Q0/Q100."""
+    df = pl.DataFrame({"x": [float(i) for i in range(1, 101)]})
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _table = _Table(df, "num", quantiles=[0, 1], fold_quantiles=False)
+    assert caught == []
+
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+    assert "Q0" in stat_df.columns
+    assert "Q100" in stat_df.columns
+    assert "Min" in stat_df.columns
+    assert "Max" in stat_df.columns
+
+
+def test_quantiles_invalid_raises():
+    df = pl.DataFrame({"x": [1, 2, 3]})
+    with pytest.raises(ValueError):
+        _Table(df, "num", quantiles=[1.5])
+    with pytest.raises(ValueError):
+        _Table(df, "num", quantiles=[-0.1])
 
 
 def test_pandas(sample_df):

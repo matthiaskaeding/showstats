@@ -39,6 +39,11 @@ show_stats(df, "cat")  # Other are num, time
 df.select("U", "int_col").stats.show()
 ```
 
+```{python}
+# Add extra quantiles for numerical columns
+show_stats(df.select("U", "int_col"), "num", quantiles=[0.1, 0.9])
+```
+
 - **showstats** accepts any data frame supported by [narwhals](https://github.com/narwhals-dev/narwhals) — polars, pandas, pyarrow and others — and converts other inputs.
   - For full compatibility with pandas.DataFrames install via ``pip install showstats[pandas]``.
 

@@ -1,3 +1,4 @@
+import warnings
 from typing import Iterable, Tuple
 
 import narwhals as nw
@@ -5,6 +6,18 @@ import polars as pl
 from narwhals.typing import IntoDataFrame
 
 from showstats._utils import convert_df_scientific
+
+# Advisory warnings are emitted at most once per session. showstats is
+# typically called repeatedly — in a loop, or over and over in a notebook
+# cell — and repeating the same advice on every call is just noise.
+_WARNED_ONCE = set()
+
+
+def _warn_once(key: str, message: str) -> None:
+    if key in _WARNED_ONCE:
+        return
+    _WARNED_ONCE.add(key)
+    warnings.warn(message, stacklevel=3)
 
 
 # Basic idea of these helper functions:
@@ -60,9 +73,25 @@ def _get_cols_for_var_type(df, var_type):
     return matching_cols
 
 
-def _map_funs_to_var_type(var_type) -> Tuple[str]:
+QUANTILE_PREFIX = "quantile_"
+
+
+def _quantile_stat_name(q: float) -> str:
+    return f"{QUANTILE_PREFIX}{q}"
+
+
+def _quantile_label(q: float) -> str:
+    pct = q * 100
+    pct_str = f"{pct:g}"
+    return f"Q{pct_str}"
+
+
+def _map_funs_to_var_type(var_type, quantiles: Iterable = None) -> Tuple[str]:
     if var_type in ("num_float", "num_int", "num_bool"):
-        return ("null_count", "mean", "std", "median", "min", "max")
+        funs = ["null_count", "mean", "std", "median", "min", "max"]
+        if quantiles:
+            funs.extend(_quantile_stat_name(q) for q in quantiles)
+        return tuple(funs)
     elif var_type == "cat":
         return ("null_count", "n_unique")
     elif var_type == "date" or var_type == "datetime":
@@ -71,12 +100,14 @@ def _map_funs_to_var_type(var_type) -> Tuple[str]:
         return ("null_count",)
 
 
-def _map_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
+def _map_cols_and_funs_for_var_type(
+    df, var_type, quantiles: Iterable = None
+) -> Tuple[str]:
     cols = _get_cols_for_var_type(df, var_type)
     if len(cols) == 0:
         return None, None
 
-    return cols, _map_funs_to_var_type(var_type)
+    return cols, _map_funs_to_var_type(var_type, quantiles)
 
 
 _MAX_VAR_NAME_LEN = 30
@@ -117,19 +148,49 @@ class _Table:
         df: IntoDataFrame,
         table_type: str,
         top_cols: Iterable = None,
+        quantiles: Iterable = None,
+        fold_quantiles: bool = True,
     ):
         df = _check_input_maybe_try_transform(df)
         if isinstance(top_cols, str):
             top_cols = [top_cols]
+        # Min, max and median *are* the 0th, 100th and 50th percentiles, so by
+        # default they are relabelled and folded into the quantile sequence
+        # rather than sitting alongside it under a second name. Setting
+        # fold_quantiles=False keeps the column names stable regardless of
+        # which quantiles are asked for, which matters for callers of
+        # make_stats_tbl that index the result by column name.
+        quantile_framing = bool(quantiles) and fold_quantiles
+        if quantiles is not None:
+            quantiles = sorted(set(quantiles))
+            for q in quantiles:
+                if not (0 <= q <= 1):
+                    raise ValueError(f"quantiles must lie in [0, 1], got {q}")
+            # 0 and 1 are only redundant when folding is on — that is what
+            # makes them appear as Q0/Q100 already.
+            redundant = (
+                [q for q in quantiles if q in (0, 1)] if quantile_framing else []
+            )
+            if redundant:
+                _warn_once(
+                    "redundant_quantiles",
+                    f"quantiles {redundant} ignored: 0 and 1 are always shown "
+                    "as Q0 and Q100 (the min and max). Pass "
+                    "fold_quantiles=False to keep Min/Max/Median as separate "
+                    "columns instead.",
+                )
+                quantiles = [q for q in quantiles if q not in (0, 1)]
         self.type = table_type
         self.stat_dfs = {}
         self.top_cols = top_cols
+        self.quantiles = quantiles
+        self.quantile_framing = quantile_framing
         self.num_rows = df.shape[0]
         vars_map = {}  # Maps var-type to columns in df
         funs_map = {}  # Maps var-type to functions
         stat_names_map = {}  # Maps var-type to names of computed statistics
         for var_type in _map_table_type_to_var_types(table_type):
-            vars_vt, funs_vt = _map_cols_and_funs_for_var_type(df, var_type)
+            vars_vt, funs_vt = _map_cols_and_funs_for_var_type(df, var_type, quantiles)
             if vars_vt:
                 vars_map[var_type] = vars_vt
                 funs_map[var_type] = funs_vt
@@ -142,7 +203,19 @@ class _Table:
             for var in vars_map[vt]:
                 for function in functions_vt:
                     stat_name = f"{var}{sep}{function}"
-                    expr = getattr(nw.col(var), function)().alias(stat_name)
+                    if function.startswith(QUANTILE_PREFIX):
+                        q = float(function[len(QUANTILE_PREFIX) :])
+                        col = nw.col(var)
+                        if vt == "num_bool":
+                            # narwhals has no quantile for booleans
+                            col = col.cast(nw.Int8)
+                        # "linear" (numpy's and pandas' default) keeps the
+                        # sequence self-consistent: Q0 == min, Q50 == median,
+                        # Q100 == max. polars' own default of "nearest" would
+                        # make Q50 disagree with the Median column.
+                        expr = col.quantile(q, interpolation="linear").alias(stat_name)
+                    else:
+                        expr = getattr(nw.col(var), function)().alias(stat_name)
                     expressions.append(expr)
                     stat_names_map[vt].append(stat_name)
         # Evaluate expressions
@@ -201,6 +274,9 @@ class _Table:
         self.stats = stats
         self.vars_map = vars_map
         self.sep = sep
+        self.quantile_stat_names = (
+            [_quantile_stat_name(q) for q in quantiles] if quantiles else []
+        )
 
     def make_dt(self, var_type: str) -> pl.DataFrame:
         data = {}
@@ -220,9 +296,13 @@ class _Table:
 
         # Some special cases
         if var_type == "num_float":
-            df = convert_df_scientific(df, ["mean", "median", "min", "max", "std"])
+            df = convert_df_scientific(
+                df, ["mean", "median", "min", "max", "std"] + self.quantile_stat_names
+            )
         elif var_type in ("num_int", "num_bool"):
-            df = convert_df_scientific(df, ["mean", "median", "std"]).with_columns(
+            df = convert_df_scientific(
+                df, ["mean", "median", "std"] + self.quantile_stat_names
+            ).with_columns(
                 pl.col("min", "max").cast(pl.String),
             )
         elif var_type == "date" or var_type == "datetime":
@@ -239,6 +319,7 @@ class _Table:
                 pl.lit("").alias("median"),
                 pl.lit("").alias("min"),
                 pl.lit("").alias("max"),
+                *(pl.lit("").alias(name) for name in self.quantile_stat_names),
             )
         elif var_type == "cat":
             data = []
@@ -288,14 +369,41 @@ class _Table:
         stat_df = pl.concat(subdfs)
 
         if table_type == "num":
+            if self.quantile_framing:
+                # min/max become the endpoints of the quantile sequence, so
+                # the whole block reads in ascending order: Q0 … Q100. An
+                # explicit 0.5 replaces the Median column outright, since Q50
+                # is the same statistic under the same interpolation.
+                median_col = (
+                    [] if 0.5 in self.quantiles else [pl.col("median").alias("Median")]
+                )
+                tail_cols = [
+                    *median_col,
+                    pl.col("min").alias("Q0"),
+                    *(
+                        pl.col(_quantile_stat_name(q)).alias(_quantile_label(q))
+                        for q in self.quantiles
+                    ),
+                    pl.col("max").alias("Q100"),
+                ]
+            else:
+                # Named stats keep their names; any requested quantiles are
+                # appended alongside them.
+                tail_cols = [
+                    pl.col("min").alias("Min"),
+                    pl.col("max").alias("Max"),
+                    pl.col("median").alias("Median"),
+                    *(
+                        pl.col(_quantile_stat_name(q)).alias(_quantile_label(q))
+                        for q in (self.quantiles or [])
+                    ),
+                ]
             stat_df = stat_df.select(
                 pl.col("Variable").alias(name_var),
                 pl.col("null_count").alias("NA%"),
                 pl.col("mean").alias("Avg"),
                 pl.col("std").alias("SD"),
-                pl.col("min").alias("Min"),
-                pl.col("max").alias("Max"),
-                pl.col("median").alias("Median"),
+                *tail_cols,
             )
         elif table_type == "cat":
             stat_df = stat_df.rename({"Variable": name_var})

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `quantiles` argument on `show_stats`/`make_stats_tbl` to compute extra
+  quantile columns for numerical columns. When given, `Min` and `Max` are
+  relabelled `Q0`/`Q100` and folded into the quantile sequence, and an
+  explicit `0.5` replaces the `Median` column (#4)
+- `fold_quantiles` argument to turn that folding off, keeping
+  `Min`/`Max`/`Median` as separate columns so column names stay stable
+  whatever quantiles are requested (#4)
+
 ### Fixed
 
 - Long variable names no longer wrap onto a misaligned line; they are now
