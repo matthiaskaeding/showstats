@@ -12,10 +12,11 @@ on:
       - .github/workflows/readme.yaml
   workflow_dispatch:
 
-# Never let two renders race to push a commit.
+# Only the newest commit on main is worth rendering, so supersede any run
+# that is still working on an older one.
 concurrency:
   group: render-readme
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   render:
@@ -43,12 +44,31 @@ jobs:
 
       - name: Commit README.md if it changed
         run: |
-          if git diff --quiet -- README.md; then
-            echo "README.md already up to date."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          git commit -m "Re-render README.md from README.qmd"
-          git push
+
+          # main can advance while this job runs, which rejects the push. When
+          # that happens, re-render against the new tip rather than rebasing a
+          # render that may already be stale, then try again.
+          for attempt in 1 2 3; do
+            if git diff --quiet -- README.md; then
+              echo "README.md already up to date."
+              exit 0
+            fi
+
+            git add README.md
+            git commit -m "Re-render README.md from README.qmd"
+
+            if git push; then
+              echo "Pushed re-rendered README.md."
+              exit 0
+            fi
+
+            echo "Push rejected on attempt ${attempt}; re-rendering against the latest main."
+            git fetch origin main
+            git reset --hard origin/main
+            quarto render README.qmd
+          done
+
+          echo "::error::Could not push the re-rendered README.md after 3 attempts."
+          exit 1
