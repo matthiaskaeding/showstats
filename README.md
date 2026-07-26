@@ -56,12 +56,22 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
      temp_max      0    16.44  7.35  …  -1.6  7.2  26.7  35.6 
      wind          0    3.24   1.44  …  0.4   1.7  5.2   9.5  
 
-- **showstats** accepts any data frame supported by
-  [narwhals](https://github.com/narwhals-dev/narwhals) — polars, pandas,
-  pyarrow and others — and converts other inputs.
+``` python
+# pandas, pyarrow and other narwhals-supported frames work the same way
+import pandas as pd
 
-  - For full compatibility with pandas.DataFrames install via
-    `pip install showstats[pandas]`.
+show_stats(pd.read_csv("docs/data/seattle-weather.csv")[["temp_max", "wind"]])
+```
+
+    -Numerical columns--------------------------------------------------------------
+     Col (N=1461)  NA%  Avg    SD    Median  Min   Max  
+     temp_max      0    16.44  7.35  15.6    -1.6  35.6 
+     wind          0    3.24   1.44  3.0     0.4   9.5  
+
+- **showstats** works with any data frame
+  [narwhals](https://github.com/narwhals-dev/narwhals) supports —
+  polars, pandas, pyarrow and more. They all work directly, with no
+  extra installs or conversion step.
 
 - Heavily inspired by the great R-packages
   [skimr](https://github.com/ropensci/skimr) and
@@ -74,5 +84,5 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
   weather](https://github.com/vega/vega-datasets/blob/main/data/seattle-weather.csv)
   from vega-datasets (BSD-3-Clause).
 
-- Because **showstats** leverages polars effective parallelism, it\`s
-  fast: \<1s for a 1,000,000 × 1,000 data frame, on a M1 MacBook
+- Fast: under a second to summarise a 1,000,000 × 1,000 data frame on an
+  M1 MacBook.
