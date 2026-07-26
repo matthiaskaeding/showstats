@@ -1,7 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
-from .pl_namespace import StatsFrame
-from .showstats import show_stats
+from .showstats import make_stats_tbl, show_stats
 
 try:
     __version__ = version("showstats")
@@ -12,4 +11,4 @@ finally:
     del PackageNotFoundError
 
 
-__all__ = ["show_stats", "StatsFrame"]
+__all__ = ["show_stats", "make_stats_tbl"]

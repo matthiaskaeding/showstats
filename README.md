@@ -49,8 +49,8 @@ show_stats(df, "cat")  # Other are num, time
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
 
 ``` python
-# Importing showstats adds the stats namespace
-df.select("U", "int_col").stats.show()
+# Any subset of columns works
+show_stats(df.select("U", "int_col"))
 ```
 
     -Numerical columns--------------------------------------------------------------
