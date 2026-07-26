@@ -71,4 +71,5 @@ df.select("U", "int_col").stats.show()
 - Numbers with many digits are automatically converted to scientific
   notation.
 
-- Because **showstats** leverages polars effective parallelism, it\`s fast: \<1s for a 1,000,000 × 1,000 data frame, on a M1 MacBook
+- Because **showstats** leverages polars effective parallelism, it\`s
+  fast: \<1s for a 1,000,000 × 1,000 data frame, on a M1 MacBook
