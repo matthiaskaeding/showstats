@@ -1,4 +1,5 @@
 import polars as pl
+import pytest
 from polars.testing import assert_frame_equal
 from showstats._table import _Table
 
@@ -170,6 +171,50 @@ def test_char_table():
 
     assert stat_df.get_column(stat_df.columns[0]).to_list() == list(data.keys())
     assert stat_df.columns == ["Var. N=26", "NA%", "Uniques", "Top 1", "Top 2", "Top 3"]
+
+
+def test_long_variable_names_are_truncated():
+    long_name = "this_is_a_really_really_long_variable_name_that_goes_on_and_on"
+    df = pl.DataFrame({long_name: [1, 2, 3], "short": [1.0, 2.0, 3.0]})
+
+    _table = _Table(df, "num")
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    names = stat_df.get_column(stat_df.columns[0]).to_list()
+    assert "short" in names
+    assert long_name not in names
+    truncated = [n for n in names if n != "short"][0]
+    assert len(truncated) == 30
+    assert truncated.endswith("…")
+    assert truncated.startswith(long_name[:29])
+
+
+def test_quantiles(sample_df):
+    _table = _Table(sample_df, "num", quantiles=[0.1, 0.9])
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    assert "Q10" in stat_df.columns
+    assert "Q90" in stat_df.columns
+
+    var_0 = pl.col(stat_df.columns[0])
+    q10 = float(stat_df.filter(var_0 == "int_col").item(0, "Q10"))
+    q90 = float(stat_df.filter(var_0 == "int_col").item(0, "Q90"))
+    assert q10 < q90
+
+    # Quantiles must also work for boolean columns (no native quantile support
+    # in polars, requires casting first).
+    bool_row = stat_df.filter(var_0 == "bool_col")
+    assert bool_row.item(0, "Q10") is not None
+
+
+def test_quantiles_invalid_raises():
+    df = pl.DataFrame({"x": [1, 2, 3]})
+    with pytest.raises(ValueError):
+        _Table(df, "num", quantiles=[1.5])
+    with pytest.raises(ValueError):
+        _Table(df, "num", quantiles=[-0.1])
 
 
 def test_pandas(sample_df):

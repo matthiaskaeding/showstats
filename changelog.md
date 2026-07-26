@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `quantiles` argument on `show_stats`/`make_stats_tbl` to compute extra
+  quantile columns for numerical columns (#4)
+
+### Fixed
+
+- Off-by-one exponent in scientific notation formatting caused by
+  floating-point imprecision in `log10().floor()`, which could print e.g.
+  "10.0E5" instead of "1.0E6" (#27)
+- Long variable names no longer wrap onto a misaligned line; they are now
+  truncated with an ellipsis (#26)
+
+### Changed
+
+- Non-polars input is now converted via `narwhals`, giving dataframe-agnostic
+  support for any narwhals-compatible backend (pandas, pyarrow, etc.) instead
+  of relying on `pl.DataFrame`'s implicit pandas support (#34)
+
 ## [0.0.3]
 
 ### Changed

@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Iterable, Tuple, Union
 
+import narwhals as nw
 import polars as pl
 from polars import selectors as cs
 
@@ -13,20 +14,23 @@ if TYPE_CHECKING:
 #   table_type --> var_types --> functions
 def _check_input_maybe_try_transform(input):
     if isinstance(input, pl.DataFrame):
-        if input.height == 0 or input.width == 0:
-            raise ValueError("Input data frame must have rows and columns")
-        else:
-            return input
+        df = input
     else:
-        print("Attempting to convert input to polars.DataFrame")
+        # narwhals gives dataframe-agnostic conversion for any of its
+        # supported backends (pandas, pyarrow, modin, cuDF, ...). Plain
+        # Python literals (list, dict, ...) aren't narwhals-native
+        # dataframes, so fall back to letting polars try to build one.
         try:
-            out = pl.DataFrame(input)
-        except Exception as e:
-            print(f"Error occurred during attempted conversion: {e}")
-    if out.height == 0 or out.width == 0:
-        raise ValueError("Input not compatible")
-    else:
-        return out
+            df = nw.from_native(input, eager_only=True).to_polars()
+        except TypeError:
+            print("Attempting to convert input to polars.DataFrame")
+            try:
+                df = pl.DataFrame(input)
+            except Exception as e:
+                raise ValueError(f"Input not compatible: {e}") from e
+    if df.height == 0 or df.width == 0:
+        raise ValueError("Input data frame must have rows and columns")
+    return df
 
 
 def _get_cols_for_var_type(df, var_type):
@@ -63,9 +67,25 @@ def _get_cols_for_var_type(df, var_type):
     return df.select(col_vt).columns
 
 
-def _map_funs_to_var_type(var_type) -> Tuple[str]:
+QUANTILE_PREFIX = "quantile_"
+
+
+def _quantile_stat_name(q: float) -> str:
+    return f"{QUANTILE_PREFIX}{q}"
+
+
+def _quantile_label(q: float) -> str:
+    pct = q * 100
+    pct_str = f"{pct:g}"
+    return f"Q{pct_str}"
+
+
+def _map_funs_to_var_type(var_type, quantiles: Iterable = None) -> Tuple[str]:
     if var_type in ("num_float", "num_int", "num_bool"):
-        return ("null_count", "mean", "std", "median", "min", "max")
+        funs = ["null_count", "mean", "std", "median", "min", "max"]
+        if quantiles:
+            funs.extend(_quantile_stat_name(q) for q in quantiles)
+        return tuple(funs)
     elif var_type == "cat":
         return ("null_count", "n_unique")
     elif var_type == "date" or var_type == "datetime":
@@ -74,12 +94,30 @@ def _map_funs_to_var_type(var_type) -> Tuple[str]:
         return ("null_count",)
 
 
-def _map_cols_and_funs_for_var_type(df, var_type) -> Tuple[str]:
+def _map_cols_and_funs_for_var_type(
+    df, var_type, quantiles: Iterable = None
+) -> Tuple[str]:
     cols = _get_cols_for_var_type(df, var_type)
     if len(cols) == 0:
         return None, None
 
-    return cols, _map_funs_to_var_type(var_type)
+    return cols, _map_funs_to_var_type(var_type, quantiles)
+
+
+_MAX_VAR_NAME_LEN = 30
+
+
+def _truncate_long_strings(expr: pl.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> pl.Expr:
+    """Truncates strings longer than max_len, marking the cut with an ellipsis.
+
+    Long variable names otherwise wrap onto a new, misaligned line when the
+    printed table exceeds its configured width.
+    """
+    return (
+        pl.when(expr.str.len_chars().gt(max_len))
+        .then(expr.str.slice(0, max_len - 1) + "…")
+        .otherwise(expr)
+    )
 
 
 def _map_table_type_to_var_types(table_type):
@@ -104,19 +142,26 @@ class _Table:
         df: Union[pl.DataFrame, "pandas.DataFrame"],
         table_type: str,
         top_cols: Iterable = None,
+        quantiles: Iterable = None,
     ):
         df = _check_input_maybe_try_transform(df)
         if isinstance(top_cols, str):
             top_cols = [top_cols]
+        if quantiles is not None:
+            quantiles = sorted(set(quantiles))
+            for q in quantiles:
+                if not (0 <= q <= 1):
+                    raise ValueError(f"quantiles must lie in [0, 1], got {q}")
         self.type = table_type
         self.stat_dfs = {}
         self.top_cols = top_cols
+        self.quantiles = quantiles
         self.num_rows = df.height
         vars_map = {}  # Maps var-type to columns in df
         funs_map = {}  # Maps var-type to functions
         stat_names_map = {}  # Maps var-type to names of computed statistics
         for var_type in _map_table_type_to_var_types(table_type):
-            vars_vt, funs_vt = _map_cols_and_funs_for_var_type(df, var_type)
+            vars_vt, funs_vt = _map_cols_and_funs_for_var_type(df, var_type, quantiles)
             if vars_vt:
                 vars_map[var_type] = vars_vt
                 funs_map[var_type] = funs_vt
@@ -129,7 +174,14 @@ class _Table:
             for var in vars_map[vt]:
                 for function in functions_vt:
                     stat_name = f"{var}{sep}{function}"
-                    expr = getattr(pl.col(var), function)().alias(stat_name)
+                    if function.startswith(QUANTILE_PREFIX):
+                        q = float(function[len(QUANTILE_PREFIX) :])
+                        col = pl.col(var)
+                        if vt == "num_bool":
+                            col = col.cast(pl.Int8)
+                        expr = col.quantile(q).alias(stat_name)
+                    else:
+                        expr = getattr(pl.col(var), function)().alias(stat_name)
                     expressions.append(expr)
                     stat_names_map[vt].append(stat_name)
         # Evaluate expressions
@@ -156,6 +208,9 @@ class _Table:
         self.stats = stats
         self.vars_map = vars_map
         self.sep = sep
+        self.quantile_stat_names = (
+            [_quantile_stat_name(q) for q in quantiles] if quantiles else []
+        )
 
     def make_dt(self, var_type: str) -> pl.DataFrame:
         data = {}
@@ -175,9 +230,13 @@ class _Table:
 
         # Some special cases
         if var_type == "num_float":
-            df = convert_df_scientific(df, ["mean", "median", "min", "max", "std"])
+            df = convert_df_scientific(
+                df, ["mean", "median", "min", "max", "std"] + self.quantile_stat_names
+            )
         elif var_type in ("num_int", "num_bool"):
-            df = convert_df_scientific(df, ["mean", "median", "std"]).with_columns(
+            df = convert_df_scientific(
+                df, ["mean", "median", "std"] + self.quantile_stat_names
+            ).with_columns(
                 pl.col("min", "max").cast(pl.String),
             )
         elif var_type == "date" or var_type == "datetime":
@@ -194,6 +253,7 @@ class _Table:
                 pl.lit("").alias("median"),
                 pl.lit("").alias("min"),
                 pl.lit("").alias("max"),
+                *(pl.lit("").alias(name) for name in self.quantile_stat_names),
             )
         elif var_type == "cat":
             data = []
@@ -243,6 +303,10 @@ class _Table:
         stat_df = pl.concat(subdfs)
 
         if table_type == "num":
+            quantile_cols = [
+                pl.col(_quantile_stat_name(q)).alias(_quantile_label(q))
+                for q in (self.quantiles or [])
+            ]
             stat_df = stat_df.select(
                 pl.col("Variable").alias(name_var),
                 pl.col("null_count").alias("NA%"),
@@ -251,6 +315,7 @@ class _Table:
                 pl.col("min").alias("Min"),
                 pl.col("max").alias("Max"),
                 pl.col("median").alias("Median"),
+                *quantile_cols,
             )
         elif table_type == "cat":
             stat_df = stat_df.rename({"Variable": name_var})
@@ -273,6 +338,10 @@ class _Table:
             stat_df = stat_df.with_columns(
                 pl.col(name_var).cast(pl.Enum(new_order))
             ).sort(name_var)
+
+        stat_df = stat_df.with_columns(
+            _truncate_long_strings(pl.col(name_var).cast(pl.String)).alias(name_var)
+        )
 
         self.stat_dfs[table_type] = stat_df.collect()
 

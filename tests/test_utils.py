@@ -38,6 +38,16 @@ def test_input_check(sample_df):
     )
 
 
+def test_input_check_pyarrow():
+    import pyarrow as pa
+
+    tbl = pa.table({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    df = _check_input_maybe_try_transform(tbl)
+    assert isinstance(df, pl.DataFrame)
+    assert df.shape == (3, 2)
+    assert df.columns == ["a", "b"]
+
+
 def test_mapping(sample_df):
     res_lag = None
     for var_type in (

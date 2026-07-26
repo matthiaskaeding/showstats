@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-dependencies = ["polars >= 0.20.21"]
+dependencies = ["polars >= 0.20.21", "narwhals >= 1.0.0"]
 name = "showstats"
 description = "Vertical summary statistics for data frames"
 authors = [{ name = "Matthias Kaeding" }]

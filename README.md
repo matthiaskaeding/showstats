@@ -58,8 +58,19 @@ df.select("U", "int_col").stats.show()
      U           0    0.54  0.26   0.02  0.98  0.57   
      int_col     0    49.5  29.01  0     99    49.5   
 
+``` python
+# Add extra quantiles for numerical columns
+show_stats(df.select("U", "int_col"), "num", quantiles=[0.1, 0.9])
+```
+
+    -Numerical columns--------------------------------------------------------------
+     Var. N=100  NA%  Avg   SD     …  Max   Median  Q10   Q90  
+     U           0    0.54  0.26   …  0.98  0.57    0.18  0.87 
+     int_col     0    49.5  29.01  …  99    49.5    10.0  89.0 
+
 - Primarily built for polars data frames, **showstats** converts other
-  inputs.
+  inputs via [narwhals](https://github.com/narwhals-dev/narwhals), so
+  pandas, pyarrow and other narwhals-compatible data frames work directly.
 
   - For full compatibility with pandas.DataFrames install via
     `pip install showstats[pandas]`.

@@ -12,7 +12,11 @@ def lint(session):
 @nox.session(name="python_versions", python=["3.8", "3.9", "3.10", "3.11", "3.12"])
 def test(session):
     session.install(
-        "pytest>=8.3.2", "polars>=0.20.21", "pandas>=1.5.3", "pyarrow>=10.0.0"
+        "pytest>=8.3.2",
+        "polars>=0.20.21",
+        "pandas>=1.5.3",
+        "pyarrow>=10.0.0",
+        "narwhals>=1.0.0",
     )
 
     session.run("pytest", "tests/")
@@ -27,5 +31,6 @@ def test_polars_versions(session, polars_version, pandas_version):
         f"polars=={polars_version}",
         f"pandas>={pandas_version}",
         "pyarrow>=10.0.0",
+        "narwhals>=1.0.0",
     )
     session.run("pytest", "tests/")

@@ -39,7 +39,14 @@ show_stats(df, "cat")  # Other are num, time
 df.select("U", "int_col").stats.show()
 ```
 
-- Primarily built for polars data frames, **showstats** converts other inputs.
+```{python}
+# Add extra quantiles for numerical columns
+show_stats(df.select("U", "int_col"), "num", quantiles=[0.1, 0.9])
+```
+
+- Primarily built for polars data frames, **showstats** converts other inputs
+  via [narwhals](https://github.com/narwhals-dev/narwhals), so pandas,
+  pyarrow and other narwhals-compatible data frames work directly.
   - For full compatibility with pandas.DataFrames install via ``pip install showstats[pandas]``.
 
 - Heavily inspired by the great R-packages [skimr](https://github.com/ropensci/skimr) and [modelsummary](https://modelsummary.com/vignettes/datasummary.html). 
