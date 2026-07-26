@@ -236,10 +236,10 @@ def test_quantiles_fold_min_and_max():
         "NA%",
         "Avg",
         "SD",
+        "Median",
         "Min",
         "Max",
-        "Median",
-    ], "the default table must be unchanged when no quantiles are asked for"
+    ], "Min/Max come last; the central statistics lead"
 
     _table = _Table(df, "num", quantiles=[0.1, 0.9])
     _table.form_stat_df("num")
@@ -324,11 +324,11 @@ def test_fold_quantiles_false_keeps_named_columns():
         "NA%",
         "Avg",
         "SD",
-        "Min",
-        "Max",
         "Median",
         "Q10",
         "Q50",
+        "Min",
+        "Max",
     ]
 
 

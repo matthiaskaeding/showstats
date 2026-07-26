@@ -15,14 +15,14 @@ show_stats(df)
 ```
 
     -Date and datetime columns------------------------------------------------------
-     Col (N=1461)  NA%  Min         Max         Median              
-     date          0    2012-01-01  2015-12-31  2013-12-31 00:00:00 
+     Col (N=1461)  NA%  Median               Min         Max        
+     date          0    2013-12-31 00:00:00  2012-01-01  2015-12-31 
     -Numerical columns--------------------------------------------------------------
-     Col (N=1461)   NA%  Avg    SD    Min   Max   Median 
-     precipitation  0    3.03   6.68  0.0   55.9  0.0    
-     temp_max       0    16.44  7.35  -1.6  35.6  15.6   
-     temp_min       0    8.23   5.02  -7.1  18.3  8.3    
-     wind           0    3.24   1.44  0.4   9.5   3.0    
+     Col (N=1461)   NA%  Avg    SD    Median  Min   Max  
+     precipitation  0    3.03   6.68  0.0     0.0   55.9 
+     temp_max       0    16.44  7.35  15.6    -1.6  35.6 
+     temp_min       0    8.23   5.02  8.3     -7.1  18.3 
+     wind           0    3.24   1.44  3.0     0.4   9.5  
     -Categorical columns------------------------------------------------------------
      Col (N=1461)  NA%  Uniques  Top 1       Top 2      Top 3    
      weather       0    5        rain (44%)  sun (44%)  fog (7%) 
@@ -42,9 +42,9 @@ show_stats(df.select("temp_max", "wind"))
 ```
 
     -Numerical columns--------------------------------------------------------------
-     Col (N=1461)  NA%  Avg    SD    Min   Max   Median 
-     temp_max      0    16.44  7.35  -1.6  35.6  15.6   
-     wind          0    3.24   1.44  0.4   9.5   3.0    
+     Col (N=1461)  NA%  Avg    SD    Median  Min   Max  
+     temp_max      0    16.44  7.35  15.6    -1.6  35.6 
+     wind          0    3.24   1.44  3.0     0.4   9.5  
 
 ``` python
 # Add extra quantiles for numerical columns

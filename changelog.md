@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `df.stats.show()` and `df.stats.make_tbl()`. The accessor was polars-only,
   which does not fit the narwhals direction (#53)
 
+### Changed
+
+- `Min` and `Max` now come last in the numerical and time tables, after
+  `Median` and any quantile columns — the central statistics lead and the
+  extremes close (#35)
+
 ### Added
 
 - `quantiles` argument on `show_stats`/`make_stats_tbl` to compute extra
