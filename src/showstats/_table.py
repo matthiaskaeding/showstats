@@ -1,11 +1,15 @@
 import warnings
-from typing import Iterable, Tuple
+from typing import Iterable, Literal, Tuple
 
 import narwhals as nw
 import polars as pl
 from narwhals.typing import IntoDataFrame
 
 from showstats._utils import convert_df_scientific
+
+# The table types show_stats/make_stats_tbl accept. Runtime validation reads
+# the members off this alias via get_args, so the two cannot drift apart.
+TableType = Literal["all", "num", "cat", "time"]
 
 # Advisory warnings are emitted at most once per session. showstats is
 # typically called repeatedly — in a loop, or over and over in a notebook
@@ -146,7 +150,7 @@ class _Table:
     def __init__(
         self,
         df: IntoDataFrame,
-        table_type: str,
+        table_type: TableType,
         top_cols: Iterable = None,
         quantiles: Iterable = None,
         fold_quantiles: bool = True,

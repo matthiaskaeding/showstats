@@ -1,14 +1,14 @@
 # Central functions for table making
-from typing import List, Union
+from typing import List, Union, get_args
 
 from narwhals.typing import IntoDataFrame
 
-from showstats._table import _Table
+from showstats._table import TableType, _Table
 
 
 def show_stats(
     df: IntoDataFrame,
-    table_type: str = "all",
+    table_type: TableType = "all",
     top_cols: Union[List[str], str, None] = None,
     quantiles: Union[List[float], None] = None,
     fold_quantiles: bool = True,
@@ -42,8 +42,11 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in ("num", "cat", "all", "time"):
-        raise ValueError(f"table_type {table_type} not supported")
+    if table_type not in get_args(TableType):
+        raise ValueError(
+            f"table_type {table_type!r} not supported; "
+            f"expected one of {get_args(TableType)}"
+        )
 
     _table = _Table(df, table_type, top_cols, quantiles, fold_quantiles)
     _table.form_stat_df(table_type)
@@ -52,7 +55,7 @@ def show_stats(
 
 def make_stats_tbl(
     df: IntoDataFrame,
-    table_type: str = "num",
+    table_type: TableType = "num",
     top_cols: Union[List[str], str, None] = None,
     quantiles: Union[List[float], None] = None,
     fold_quantiles: bool = True,
@@ -86,8 +89,11 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in ("num", "cat", "all", "time"):
-        raise ValueError(f"Type {table_type} not supported")
+    if table_type not in get_args(TableType):
+        raise ValueError(
+            f"table_type {table_type!r} not supported; "
+            f"expected one of {get_args(TableType)}"
+        )
     _table = _Table(df, table_type, top_cols, quantiles, fold_quantiles)
     _table.form_stat_df(table_type)
     # Return None if no columns of this type were found
