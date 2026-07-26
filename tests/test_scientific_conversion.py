@@ -46,3 +46,19 @@ def test_convert_df_scientific_custom_threshold():
     result = convert_df_scientific(df, ["values"], thr=3).collect()
 
     assert result["values"].to_list() == ["0.1", "10.0", "1000.0", "1.0E4", "1.0E5"]
+
+
+def test_convert_df_scientific_power_of_ten_rounding():
+    # log10().floor() is imprecise near exact powers of ten (e.g. it can put
+    # 1_000_000.0 at exponent 5 instead of 6), which used to surface as a
+    # mantissa of 10 instead of 1, e.g. "10.0E5" instead of "1.0E6".
+    df = pl.DataFrame(
+        {"values": [10.0**k for k in range(-6, 13)] + [999999.999999, -999999.999999]}
+    ).lazy()
+
+    result = convert_df_scientific(df, ["values"]).collect()["values"].to_list()
+
+    for value in result:
+        if "E" in value:
+            mantissa = value.split("E")[0].lstrip("-")
+            assert 1.0 <= float(mantissa) < 10.0, f"mantissa out of range: {value}"

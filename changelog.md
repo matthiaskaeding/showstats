@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Long variable names no longer wrap onto a misaligned line; they are now
   truncated with an ellipsis (#26)
+- Off-by-one exponent in scientific notation formatting caused by
+  floating-point imprecision in `log10().floor()`, which could print e.g.
+  "10.0E5" instead of "1.0E6" (#27)
 
 ## [0.0.3]
 
