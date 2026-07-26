@@ -23,6 +23,14 @@ pandas = ["pandas>=1.5.3", "pyarrow>=10.0.0"]
 [tool.ruff]
 extend-include = ["*.ipynb"]
 
+[tool.ruff.lint]
+# TID252 flags relative imports, so the absolute-import rule is enforced by
+# the linter rather than relying on review to catch a `from .mod import x`.
+extend-select = ["TID252"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 
