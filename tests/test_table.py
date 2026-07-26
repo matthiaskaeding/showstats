@@ -171,6 +171,23 @@ def test_char_table():
     assert stat_df.columns == ["Var. N=26", "NA%", "Uniques", "Top 1", "Top 2", "Top 3"]
 
 
+def test_long_variable_names_are_truncated():
+    long_name = "this_is_a_really_really_long_variable_name_that_goes_on_and_on"
+    df = pl.DataFrame({long_name: [1, 2, 3], "short": [1.0, 2.0, 3.0]})
+
+    _table = _Table(df, "num")
+    _table.form_stat_df("num")
+    stat_df = _table.stat_dfs["num"]
+
+    names = stat_df.get_column(stat_df.columns[0]).to_list()
+    assert "short" in names
+    assert long_name not in names
+    truncated = next(n for n in names if n != "short")
+    assert len(truncated) == 30
+    assert truncated.endswith("…")
+    assert truncated.startswith(long_name[:29])
+
+
 def test_pandas(sample_df):
     tmp = pl.DataFrame({"a": [1, 2, 3], "b": ["A", "B", "C"]})
 
