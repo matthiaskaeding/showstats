@@ -392,15 +392,16 @@ class _Table:
                 ]
             else:
                 # Named stats keep their names; any requested quantiles are
-                # appended alongside them.
+                # appended alongside them. Min and Max sit last: they are the
+                # extremes, so the central statistics come first.
                 tail_cols = [
-                    pl.col("min").alias("Min"),
-                    pl.col("max").alias("Max"),
                     pl.col("median").alias("Median"),
                     *(
                         pl.col(_quantile_stat_name(q)).alias(_quantile_label(q))
                         for q in (self.quantiles or [])
                     ),
+                    pl.col("min").alias("Min"),
+                    pl.col("max").alias("Max"),
                 ]
             stat_df = stat_df.select(
                 pl.col("Variable").alias(name_var),
@@ -415,9 +416,9 @@ class _Table:
             stat_df = stat_df.select(
                 pl.col("Variable").alias(name_var),
                 pl.col("null_count").alias("NA%"),
+                pl.col("median").alias("Median"),
                 pl.col("min").alias("Min"),
                 pl.col("max").alias("Max"),
-                pl.col("median").alias("Median"),
             )
 
         if self.top_cols is not None:  # Put top_cols at front
