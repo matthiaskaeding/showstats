@@ -1,6 +1,7 @@
 """
 Tests to verify showstats works correctly with different dataframe backends.
 """
+
 import pandas as pd
 import polars as pl
 import pytest
@@ -10,11 +11,13 @@ from showstats.showstats import make_stats_tbl
 
 def test_polars_backend_basic():
     """Test basic functionality with polars DataFrame"""
-    df = pl.DataFrame({
-        "int_col": [1, 2, 3, 4, 5],
-        "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
-        "str_col": ["a", "b", "c", "d", "e"],
-    })
+    df = pl.DataFrame(
+        {
+            "int_col": [1, 2, 3, 4, 5],
+            "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
+            "str_col": ["a", "b", "c", "d", "e"],
+        }
+    )
 
     # Should not raise any errors
     show_stats(df)
@@ -31,11 +34,13 @@ def test_polars_backend_basic():
 
 def test_pandas_backend_basic():
     """Test basic functionality with pandas DataFrame"""
-    df = pd.DataFrame({
-        "int_col": [1, 2, 3, 4, 5],
-        "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
-        "str_col": ["a", "b", "c", "d", "e"],
-    })
+    df = pd.DataFrame(
+        {
+            "int_col": [1, 2, 3, 4, 5],
+            "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
+            "str_col": ["a", "b", "c", "d", "e"],
+        }
+    )
 
     # Should not raise any errors
     show_stats(df)
@@ -103,10 +108,12 @@ def test_polars_vs_pandas_categorical_stats():
 
 def test_polars_backend_with_nulls():
     """Test polars backend handles null values correctly"""
-    df = pl.DataFrame({
-        "col_with_nulls": [1, 2, None, 4, None, 6, 7, 8, 9, 10],
-        "col_no_nulls": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    })
+    df = pl.DataFrame(
+        {
+            "col_with_nulls": [1, 2, None, 4, None, 6, 7, 8, 9, 10],
+            "col_no_nulls": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        }
+    )
 
     result = make_stats_tbl(df, "num")
 
@@ -119,10 +126,12 @@ def test_polars_backend_with_nulls():
 
 def test_pandas_backend_with_nulls():
     """Test pandas backend handles null values correctly"""
-    df = pd.DataFrame({
-        "col_with_nulls": [1, 2, None, 4, None, 6, 7, 8, 9, 10],
-        "col_no_nulls": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    })
+    df = pd.DataFrame(
+        {
+            "col_with_nulls": [1, 2, None, 4, None, 6, 7, 8, 9, 10],
+            "col_no_nulls": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        }
+    )
 
     result = make_stats_tbl(df, "num")
 
@@ -137,20 +146,16 @@ def test_pandas_backend_with_nulls():
 
 def test_polars_backend_datetime():
     """Test polars backend with datetime columns"""
-    df = pl.DataFrame({
-        "date_col": pl.date_range(
-            pl.date(2020, 1, 1),
-            pl.date(2020, 1, 10),
-            "1d",
-            eager=True
-        ),
-        "datetime_col": pl.datetime_range(
-            pl.datetime(2020, 1, 1),
-            pl.datetime(2020, 1, 10),
-            "1d",
-            eager=True
-        ),
-    })
+    df = pl.DataFrame(
+        {
+            "date_col": pl.date_range(
+                pl.date(2020, 1, 1), pl.date(2020, 1, 10), "1d", eager=True
+            ),
+            "datetime_col": pl.datetime_range(
+                pl.datetime(2020, 1, 1), pl.datetime(2020, 1, 10), "1d", eager=True
+            ),
+        }
+    )
 
     result = make_stats_tbl(df, "time")
 
@@ -167,10 +172,6 @@ def test_polars_backend_datetime():
 
 def test_pandas_backend_datetime():
     """Test pandas backend with datetime columns"""
-    df = pd.DataFrame({
-        "datetime_col": pd.date_range("2020-01-01", periods=10, freq="D"),
-    })
-
     # Note: pandas datetime median is not supported in current narwhals version
     # Skip this test for now
     pytest.skip("Pandas datetime median not supported in narwhals")
@@ -178,10 +179,23 @@ def test_pandas_backend_datetime():
 
 def test_polars_backend_boolean():
     """Test polars backend with boolean columns"""
-    df = pl.DataFrame({
-        "bool_col": [True, False, True, False, True, False, True, False, True, False],
-        "int_col": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    })
+    df = pl.DataFrame(
+        {
+            "bool_col": [
+                True,
+                False,
+                True,
+                False,
+                True,
+                False,
+                True,
+                False,
+                True,
+                False,
+            ],
+            "int_col": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        }
+    )
 
     result = make_stats_tbl(df, "num")
 
@@ -194,10 +208,23 @@ def test_polars_backend_boolean():
 
 def test_pandas_backend_boolean():
     """Test pandas backend with boolean columns"""
-    df = pd.DataFrame({
-        "bool_col": [True, False, True, False, True, False, True, False, True, False],
-        "int_col": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    })
+    df = pd.DataFrame(
+        {
+            "bool_col": [
+                True,
+                False,
+                True,
+                False,
+                True,
+                False,
+                True,
+                False,
+                True,
+                False,
+            ],
+            "int_col": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        }
+    )
 
     # Note: pandas boolean median may have compatibility issues in narwhals
     # Just test that it doesn't crash
@@ -211,13 +238,17 @@ def test_pandas_backend_boolean():
 
 def test_polars_backend_all_types():
     """Test polars backend with all table types"""
-    df = pl.DataFrame({
-        "int_col": [1, 2, 3, 4, 5],
-        "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
-        "str_col": ["a", "b", "c", "d", "e"],
-        "date_col": pl.date_range(pl.date(2020, 1, 1), pl.date(2020, 1, 5), "1d", eager=True),
-        "bool_col": [True, False, True, False, True],
-    })
+    df = pl.DataFrame(
+        {
+            "int_col": [1, 2, 3, 4, 5],
+            "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
+            "str_col": ["a", "b", "c", "d", "e"],
+            "date_col": pl.date_range(
+                pl.date(2020, 1, 1), pl.date(2020, 1, 5), "1d", eager=True
+            ),
+            "bool_col": [True, False, True, False, True],
+        }
+    )
 
     # Should not raise any errors
     show_stats(df, "all")
@@ -225,13 +256,15 @@ def test_polars_backend_all_types():
 
 def test_pandas_backend_all_types():
     """Test pandas backend with all table types"""
-    df = pd.DataFrame({
-        "int_col": [1, 2, 3, 4, 5],
-        "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
-        "str_col": ["a", "b", "c", "d", "e"],
-        "datetime_col": pd.date_range("2020-01-01", periods=5, freq="D"),
-        "bool_col": [True, False, True, False, True],
-    })
+    df = pd.DataFrame(
+        {
+            "int_col": [1, 2, 3, 4, 5],
+            "float_col": [1.1, 2.2, 3.3, 4.4, 5.5],
+            "str_col": ["a", "b", "c", "d", "e"],
+            "datetime_col": pd.date_range("2020-01-01", periods=5, freq="D"),
+            "bool_col": [True, False, True, False, True],
+        }
+    )
 
     # Should not raise any errors
     # Note: Some type detection may differ slightly between backends
@@ -245,18 +278,22 @@ def test_pandas_backend_all_types():
 def test_backend_with_empty_categorical():
     """Test that both backends handle dataframes with no categorical columns"""
     # Polars
-    df_polars = pl.DataFrame({
-        "int_col": [1, 2, 3],
-        "float_col": [1.1, 2.2, 3.3],
-    })
+    df_polars = pl.DataFrame(
+        {
+            "int_col": [1, 2, 3],
+            "float_col": [1.1, 2.2, 3.3],
+        }
+    )
     result_polars = make_stats_tbl(df_polars, "cat")
     assert result_polars is None
 
     # Pandas
-    df_pandas = pd.DataFrame({
-        "int_col": [1, 2, 3],
-        "float_col": [1.1, 2.2, 3.3],
-    })
+    df_pandas = pd.DataFrame(
+        {
+            "int_col": [1, 2, 3],
+            "float_col": [1.1, 2.2, 3.3],
+        }
+    )
     result_pandas = make_stats_tbl(df_pandas, "cat")
     assert result_pandas is None
 
@@ -264,25 +301,31 @@ def test_backend_with_empty_categorical():
 def test_backend_with_empty_numeric():
     """Test that both backends handle dataframes with no numeric columns"""
     # Polars
-    df_polars = pl.DataFrame({
-        "str_col": ["a", "b", "c"],
-    })
+    df_polars = pl.DataFrame(
+        {
+            "str_col": ["a", "b", "c"],
+        }
+    )
     result_polars = make_stats_tbl(df_polars, "num")
     assert result_polars is None
 
     # Pandas
-    df_pandas = pd.DataFrame({
-        "str_col": ["a", "b", "c"],
-    })
+    df_pandas = pd.DataFrame(
+        {
+            "str_col": ["a", "b", "c"],
+        }
+    )
     result_pandas = make_stats_tbl(df_pandas, "num")
     assert result_pandas is None
 
 
 def test_polars_backend_categorical_top_values():
     """Test that polars backend correctly computes top categorical values"""
-    df = pl.DataFrame({
-        "cat_col": ["A"] * 5 + ["B"] * 3 + ["C"] * 2,
-    })
+    df = pl.DataFrame(
+        {
+            "cat_col": ["A"] * 5 + ["B"] * 3 + ["C"] * 2,
+        }
+    )
 
     result = make_stats_tbl(df, "cat")
 
@@ -297,9 +340,11 @@ def test_polars_backend_categorical_top_values():
 
 def test_pandas_backend_categorical_top_values():
     """Test that pandas backend correctly computes top categorical values"""
-    df = pd.DataFrame({
-        "cat_col": ["A"] * 5 + ["B"] * 3 + ["C"] * 2,
-    })
+    df = pd.DataFrame(
+        {
+            "cat_col": ["A"] * 5 + ["B"] * 3 + ["C"] * 2,
+        }
+    )
 
     result = make_stats_tbl(df, "cat")
 

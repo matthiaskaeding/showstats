@@ -33,12 +33,22 @@ def test_input_check(sample_df):
 
     # Check the values are the same by converting both to narwhals and comparing
     import pandas as pd
+
     native_from_pandas = nw.to_native(sample_df_from_pandas)
     if isinstance(native_from_pandas, pd.DataFrame):
         # pandas backend - use pandas methods
-        assert sample_df.get_column("float_mean_2").to_list() == native_from_pandas["float_mean_2"].tolist()
-        assert sample_df.get_column("float_std_2").to_list() == native_from_pandas["float_std_2"].tolist()
-        assert sample_df.get_column("bool_col").to_list() == native_from_pandas["bool_col"].tolist()
+        assert (
+            sample_df.get_column("float_mean_2").to_list()
+            == native_from_pandas["float_mean_2"].tolist()
+        )
+        assert (
+            sample_df.get_column("float_std_2").to_list()
+            == native_from_pandas["float_std_2"].tolist()
+        )
+        assert (
+            sample_df.get_column("bool_col").to_list()
+            == native_from_pandas["bool_col"].tolist()
+        )
     else:
         # polars backend - use polars methods
         assert sample_df.get_column("float_mean_2").equals(

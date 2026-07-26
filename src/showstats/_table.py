@@ -1,12 +1,9 @@
-from typing import TYPE_CHECKING, Any, Iterable, Tuple
+from typing import Any, Iterable, Tuple
 
 import narwhals as nw
 import polars as pl
 
 from showstats._utils import convert_df_scientific
-
-if TYPE_CHECKING:
-    pass
 
 
 # Basic idea of these helper functions:
@@ -28,14 +25,24 @@ def _get_cols_for_var_type(df, var_type):
             if dtype in (nw.Decimal, nw.Float32, nw.Float64):
                 matching_cols.append(col_name)
         elif var_type == "num_int":
-            if dtype in (nw.Int8, nw.Int16, nw.Int32, nw.Int64,
-                        nw.UInt8, nw.UInt16, nw.UInt32, nw.UInt64):
+            if dtype in (
+                nw.Int8,
+                nw.Int16,
+                nw.Int32,
+                nw.Int64,
+                nw.UInt8,
+                nw.UInt16,
+                nw.UInt32,
+                nw.UInt64,
+            ):
                 matching_cols.append(col_name)
         elif var_type == "num_bool":
             if dtype == nw.Boolean:
                 matching_cols.append(col_name)
         elif var_type == "cat":
-            if dtype in (nw.Enum, nw.String, nw.Categorical) or dtype_str.startswith("Enum"):
+            if dtype in (nw.Enum, nw.String, nw.Categorical) or dtype_str.startswith(
+                "Enum"
+            ):
                 matching_cols.append(col_name)
         elif var_type == "date":
             if dtype == nw.Date:
@@ -144,6 +151,7 @@ class _Table:
             native_df = nw.to_native(df)
             if isinstance(native_df, pl.DataFrame):
                 from polars import selectors as cs
+
                 expr = (
                     cs.by_name(vars_map["cat"])
                     .drop_nulls()
@@ -157,7 +165,6 @@ class _Table:
                 stats.update(cat_stats)
             else:
                 # For pandas, we handle value_counts differently
-                import pandas as pd
                 for var_name in vars_map["cat"]:
                     stat_name = f"top_3{sep}{var_name}"
                     value_counts = native_df[var_name].dropna().value_counts().head(3)

@@ -1,11 +1,7 @@
 # Central functions for table making
-from typing import TYPE_CHECKING, Any, List, Union
+from typing import Any, List, Union
 
 from showstats._table import _Table
-
-if TYPE_CHECKING:
-    import pandas
-    import polars as pl
 
 
 def show_stats(
