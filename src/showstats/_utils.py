@@ -37,7 +37,6 @@ def convert_df_scientific(df: pl.LazyFrame, varnames: Iterable[str], thr: int = 
         pl.DataFrame: new pl.DataFrame with entries converted
     """
     exprs_ex = []
-    exprs_scient = []
     name_exponents = []
     for varname in varnames:
         nan = float("nan")
@@ -51,6 +50,37 @@ def convert_df_scientific(df: pl.LazyFrame, varnames: Iterable[str], thr: int = 
             .then(var.abs().log10().floor())
             .alias(name_exponent)
         ).cast(pl.Int16)
+        exprs_ex.append(exp_ex)
+    df = df.with_columns(exprs_ex)
+
+    # log10().floor() can land one off near exact powers of ten because of
+    # floating-point error, which pushes the mantissa out of [1, 10) and
+    # prints e.g. "10.0E5" instead of "1.0E6". Nudge the exponent back in
+    # range based on the rounded mantissa it actually produces.
+    exprs_correct = []
+    for varname, name_exponent in zip(varnames, name_exponents):
+        nan = float("nan")
+        var = pl.col(varname).fill_null(nan)
+        var_exponent = pl.col(name_exponent)
+        mantissa = var.abs().truediv(pl.lit(10.0).pow(var_exponent)).round(2)
+        corrected = (
+            (
+                pl.when(mantissa.ge(10))
+                .then(var_exponent + 1)
+                .when(mantissa.lt(1) & var.ne(0))
+                .then(var_exponent - 1)
+                .otherwise(var_exponent)
+            )
+            .cast(pl.Int16)
+            .alias(name_exponent)
+        )
+        exprs_correct.append(corrected)
+    df = df.with_columns(exprs_correct)
+
+    exprs_scient = []
+    for varname, name_exponent in zip(varnames, name_exponents):
+        nan = float("nan")
+        var = pl.col(varname).fill_null(nan)
         var_exponent = pl.col(name_exponent)
         exp_scient = (
             pl.when(var.is_nan())
@@ -65,11 +95,10 @@ def convert_df_scientific(df: pl.LazyFrame, varnames: Iterable[str], thr: int = 
                 pl.format(
                     "{}E{}",
                     var.truediv(pl.lit(10.0).pow(var_exponent)).round(2),
-                    pl.col(name_exponent),
+                    var_exponent,
                 )
             )
         ).alias(varname)
-        exprs_ex.append(exp_ex)
         exprs_scient.append(exp_scient)
 
-    return df.with_columns(exprs_ex).with_columns(exprs_scient).drop(name_exponents)
+    return df.with_columns(exprs_scient).drop(name_exponents)
