@@ -274,9 +274,9 @@ class _Table:
             return
 
         if self.num_rows < 100_000:
-            name_var = f"Var. N={self.num_rows}"
+            name_var = f"Col (N={self.num_rows})"
         else:
-            name_var = f"Var. N={Decimal(self.num_rows):.2E}"
+            name_var = f"Col (N={Decimal(self.num_rows):.2E})"
         subdfs = []
 
         for var_type in _map_table_type_to_var_types(table_type):

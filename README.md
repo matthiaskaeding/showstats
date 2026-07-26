@@ -11,7 +11,7 @@ show_stats(df)
 ```
 
     -Date and datetime columns------------------------------------------------------
-     Var. N=100      NA%  Min         Max                     Median                
+     Col (N=100)      NA%  Min         Max                     Median                
      date_col        0    1501-01-20  1996-04-09              1755-07-20 00:00:00   
      date_col_2      0    1511-12-06  1999-05-05              1776-03-03 00:00:00   
      datetime_col    0    1501-01-20  1996-04-09 06:29:29     1755-07-20 10:10:59   
@@ -19,7 +19,7 @@ show_stats(df)
      datetime_col_2  0    1511-12-06  1999-05-05 14:12:20     1776-03-03 13:25:50   
                           23:40:13                                                  
     -Numerical columns--------------------------------------------------------------
-     Var. N=100         NA%  Avg     SD     Min     Max     Median 
+     Col (N=100)         NA%  Avg     SD     Min     Max     Median 
      float_mean_2       0    2.0     0.89   -0.36   4.12    2.0    
      float_std_2        0    0.14    2.0    -5.17   4.91    0.14   
      float_min_-7       0    -4.64   0.89   -7.0    -2.51   -4.63  
@@ -32,7 +32,7 @@ show_stats(df)
      bool_col           26   0.5     0.5    false   true    0.5    
      null_col           100                                        
     -Categorical columns------------------------------------------------------------
-     Var. N=100       NA%  Uniques  Top 1       Top 2        Top 3        
+     Col (N=100)       NA%  Uniques  Top 1       Top 2        Top 3        
      str_col          48   5        foo (15%)   ABC (13%)    bar (12%)    
      categorical_col  0    2        Fara (57%)  Car (43%)                 
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
@@ -43,7 +43,7 @@ show_stats(df, "cat")  # Other are num, time
 ```
 
     -Categorical columns------------------------------------------------------------
-     Var. N=100       NA%  Uniques  Top 1       Top 2        Top 3        
+     Col (N=100)       NA%  Uniques  Top 1       Top 2        Top 3        
      str_col          48   5        foo (15%)   ABC (13%)    bar (12%)    
      categorical_col  0    2        Fara (57%)  Car (43%)                 
      enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
@@ -54,7 +54,7 @@ df.select("U", "int_col").stats.show()
 ```
 
     -Numerical columns--------------------------------------------------------------
-     Var. N=100  NA%  Avg   SD     Min   Max   Median 
+     Col (N=100)  NA%  Avg   SD     Min   Max   Median 
      U           0    0.54  0.26   0.02  0.98  0.57   
      int_col     0    49.5  29.01  0     99    49.5   
 
