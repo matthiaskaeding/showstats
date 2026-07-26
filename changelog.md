@@ -22,9 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Non-polars input is now converted via `narwhals`, giving dataframe-agnostic
-  support for any narwhals-compatible backend (pandas, pyarrow, etc.) instead
-  of relying on `pl.DataFrame`'s implicit pandas support (#34)
+- Input handling and statistic computation now go through `narwhals`, so any
+  narwhals-compatible data frame (polars, pandas, pyarrow, ...) is accepted
+  directly rather than relying on `pl.DataFrame`'s implicit pandas support
+  (#33, #34). Formatting and rendering are still polars-internal; see #37 for
+  the remaining steps.
 
 ## [0.0.3]
 

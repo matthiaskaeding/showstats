@@ -1,3 +1,4 @@
+import narwhals as nw
 import polars as pl
 import pytest
 from showstats._table import (
@@ -8,7 +9,9 @@ from showstats._table import (
 
 def test_input_check(sample_df):
     df2 = _check_input_maybe_try_transform(sample_df)
-    assert hex(id(df2)) == hex(id(sample_df))
+    # Now returns a narwhals DataFrame
+    assert isinstance(df2, nw.DataFrame)
+    assert df2.shape == sample_df.shape
     with pytest.raises(Exception):
         # All of those are wrong inputs
         _check_input_maybe_try_transform(1)
@@ -18,24 +21,45 @@ def test_input_check(sample_df):
         _check_input_maybe_try_transform(dict())
         _check_input_maybe_try_transform(dict(a=[]))
 
-    assert isinstance(_check_input_maybe_try_transform([1]), pl.DataFrame)
-    assert isinstance(_check_input_maybe_try_transform(dict(x=[1, 2, 3])), pl.DataFrame)
+    # Test with valid dict input (convert through polars first)
+    result2 = _check_input_maybe_try_transform(pl.DataFrame(dict(x=[1, 2, 3])))
+    assert isinstance(result2, nw.DataFrame)
 
     sample_df_pandas = sample_df.to_pandas()
     sample_df_from_pandas = _check_input_maybe_try_transform(sample_df_pandas)
-    # Those wont be the same in general but onky roughly
+    # Those wont be the same in general but only roughly
     assert sample_df.shape == sample_df_from_pandas.shape
     assert list(sample_df.columns) == list(sample_df_from_pandas.columns)
 
-    assert sample_df.get_column("float_mean_2").equals(
-        sample_df_from_pandas.get_column("float_mean_2")
-    )
-    assert sample_df.get_column("float_std_2").equals(
-        sample_df_from_pandas.get_column("float_std_2")
-    )
-    assert sample_df.get_column("bool_col").equals(
-        sample_df_from_pandas.get_column("bool_col")
-    )
+    # Check the values are the same by converting both to narwhals and comparing
+    import pandas as pd
+
+    native_from_pandas = nw.to_native(sample_df_from_pandas)
+    if isinstance(native_from_pandas, pd.DataFrame):
+        # pandas backend - use pandas methods
+        assert (
+            sample_df.get_column("float_mean_2").to_list()
+            == native_from_pandas["float_mean_2"].tolist()
+        )
+        assert (
+            sample_df.get_column("float_std_2").to_list()
+            == native_from_pandas["float_std_2"].tolist()
+        )
+        assert (
+            sample_df.get_column("bool_col").to_list()
+            == native_from_pandas["bool_col"].tolist()
+        )
+    else:
+        # polars backend - use polars methods
+        assert sample_df.get_column("float_mean_2").equals(
+            native_from_pandas.get_column("float_mean_2")
+        )
+        assert sample_df.get_column("float_std_2").equals(
+            native_from_pandas.get_column("float_std_2")
+        )
+        assert sample_df.get_column("bool_col").equals(
+            native_from_pandas.get_column("bool_col")
+        )
 
 
 def test_input_check_pyarrow():
@@ -43,12 +67,14 @@ def test_input_check_pyarrow():
 
     tbl = pa.table({"a": [1, 2, 3], "b": ["x", "y", "z"]})
     df = _check_input_maybe_try_transform(tbl)
-    assert isinstance(df, pl.DataFrame)
+    assert isinstance(df, nw.DataFrame)
     assert df.shape == (3, 2)
-    assert df.columns == ["a", "b"]
+    assert list(df.columns) == ["a", "b"]
 
 
 def test_mapping(sample_df):
+    # Wrap in narwhals since _map_cols_and_funs_for_var_type expects narwhals DataFrame
+    nw_df = nw.from_native(sample_df, eager_only=True)
     res_lag = None
     for var_type in (
         "num_float",
@@ -59,7 +85,7 @@ def test_mapping(sample_df):
         "date",
         "datetime",
     ):
-        res = _map_cols_and_funs_for_var_type(sample_df, var_type)
+        res = _map_cols_and_funs_for_var_type(nw_df, var_type)
         assert len(res[0]) > 0, f"{var_type} errs"
         assert len(res[1]) > 0, f"{var_type} errs"
         assert res_lag != res

@@ -1,16 +1,13 @@
 # Central functions for table making
-from typing import TYPE_CHECKING, List, Union
+from typing import List, Union
 
-import polars as pl
+from narwhals.typing import IntoDataFrame
 
 from showstats._table import _Table
 
-if TYPE_CHECKING:
-    import pandas
-
 
 def show_stats(
-    df: Union[pl.DataFrame, "pandas.DataFrame"],
+    df: IntoDataFrame,
     table_type: str = "all",
     top_cols: Union[List[str], str, None] = None,
     quantiles: Union[List[float], None] = None,
@@ -20,7 +17,7 @@ def show_stats(
     for for optimal readability.
 
     Args:
-        df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
+        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
         top_cols (Union[List[str], str, None], optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
@@ -47,7 +44,7 @@ def show_stats(
 
 
 def make_stats_tbl(
-    df: Union[pl.DataFrame, "pandas.DataFrame"],
+    df: IntoDataFrame,
     table_type: str = "num",
     top_cols: Union[List[str], str, None] = None,
     quantiles: Union[List[float], None] = None,
@@ -57,7 +54,7 @@ def make_stats_tbl(
     for for optimal readability.
 
     Args:
-        df (Union[pl.DataFrame, pandas.DataFrame]): The input DataFrame.
+        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
         top_cols (Union[List[str], str, None], optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
@@ -79,4 +76,5 @@ def make_stats_tbl(
         raise ValueError(f"Type {table_type} not supported")
     _table = _Table(df, table_type, top_cols, quantiles)
     _table.form_stat_df(table_type)
-    return _table.stat_dfs[table_type]
+    # Return None if no columns of this type were found
+    return _table.stat_dfs.get(table_type, None)
