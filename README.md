@@ -58,8 +58,9 @@ df.select("U", "int_col").stats.show()
      U           0    0.54  0.26   0.02  0.98  0.57   
      int_col     0    49.5  29.01  0     99    49.5   
 
-- Primarily built for polars data frames, **showstats** converts other
-  inputs.
+- **showstats** accepts any data frame supported by
+  [narwhals](https://github.com/narwhals-dev/narwhals) — polars, pandas,
+  pyarrow and others — and converts other inputs.
 
   - For full compatibility with pandas.DataFrames install via
     `pip install showstats[pandas]`.

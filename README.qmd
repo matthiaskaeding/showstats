@@ -39,7 +39,7 @@ show_stats(df, "cat")  # Other are num, time
 df.select("U", "int_col").stats.show()
 ```
 
-- Primarily built for polars data frames, **showstats** converts other inputs.
+- **showstats** accepts any data frame supported by [narwhals](https://github.com/narwhals-dev/narwhals) — polars, pandas, pyarrow and others — and converts other inputs.
   - For full compatibility with pandas.DataFrames install via ``pip install showstats[pandas]``.
 
 - Heavily inspired by the great R-packages [skimr](https://github.com/ropensci/skimr) and [modelsummary](https://modelsummary.com/vignettes/datasummary.html). 
