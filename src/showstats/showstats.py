@@ -1,11 +1,13 @@
 # Central functions for table making
-from typing import Any, List, Union
+from typing import List, Union
+
+from narwhals.typing import IntoDataFrame
 
 from showstats._table import _Table
 
 
 def show_stats(
-    df: Any,
+    df: IntoDataFrame,
     table_type: str = "all",
     top_cols: Union[List[str], str, None] = None,
 ) -> None:
@@ -37,7 +39,7 @@ def show_stats(
 
 
 def make_stats_tbl(
-    df: Any,
+    df: IntoDataFrame,
     table_type: str = "num",
     top_cols: Union[List[str], str, None] = None,
 ) -> None:

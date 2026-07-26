@@ -1,14 +1,15 @@
-from typing import Any, Iterable, Tuple
+from typing import Iterable, Tuple
 
 import narwhals as nw
 import polars as pl
+from narwhals.typing import IntoDataFrame
 
 from showstats._utils import convert_df_scientific
 
 
 # Basic idea of these helper functions:
 #   table_type --> var_types --> functions
-def _check_input_maybe_try_transform(input):
+def _check_input_maybe_try_transform(input: IntoDataFrame) -> nw.DataFrame:
     df = nw.from_native(input, eager_only=True)
     if df.shape[0] == 0 or df.shape[1] == 0:
         raise ValueError("Input data frame must have rows and columns")
@@ -97,7 +98,7 @@ class _Table:
 
     def __init__(
         self,
-        df: Any,
+        df: IntoDataFrame,
         table_type: str,
         top_cols: Iterable = None,
     ):
