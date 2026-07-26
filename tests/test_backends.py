@@ -4,7 +4,6 @@ Tests to verify showstats works correctly with different dataframe backends.
 
 import pandas as pd
 import polars as pl
-import pytest
 from showstats import show_stats
 from showstats.showstats import make_stats_tbl
 
@@ -176,9 +175,20 @@ def test_polars_backend_datetime():
 
 def test_pandas_backend_datetime():
     """Test pandas backend with datetime columns"""
-    # Note: pandas datetime median is not supported in current narwhals version
-    # Skip this test for now
-    pytest.skip("Pandas datetime median not supported in narwhals")
+    df = pd.DataFrame(
+        {"datetime_col": pd.date_range("2020-01-01", periods=10, freq="D")}
+    )
+
+    result = make_stats_tbl(df, "time")
+
+    assert result is not None
+    assert "Median" in result.columns
+    # The median of ten consecutive days is midday on the fifth. Getting this
+    # right is what the Int64 round-trip in _median_expr is for: a wrong time
+    # unit would silently land in 1970.
+    assert result.item(0, "Median").startswith("2020-01-05 12:00:00")
+    assert result.item(0, "Min").startswith("2020-01-01")
+    assert result.item(0, "Max").startswith("2020-01-10")
 
 
 def test_polars_backend_boolean():
@@ -230,14 +240,14 @@ def test_pandas_backend_boolean():
         }
     )
 
-    # Note: pandas boolean median may have compatibility issues in narwhals
-    # Just test that it doesn't crash
-    try:
-        result = make_stats_tbl(df, "num")
-        assert result is not None
-        assert result.shape[0] >= 1
-    except Exception:
-        pytest.skip("Pandas boolean type compatibility issue")
+    result = make_stats_tbl(df, "num")
+
+    assert result is not None
+    assert result.shape[0] >= 1
+    # Five True out of ten, so the median of the boolean column is 0.5 —
+    # the same value polars reports for median() on a boolean.
+    bool_row = result.filter(pl.col(result.columns[0]) == "bool_col")
+    assert bool_row.item(0, "Median") == "0.5"
 
 
 def test_polars_backend_all_types():
@@ -270,13 +280,9 @@ def test_pandas_backend_all_types():
         }
     )
 
-    # Should not raise any errors
-    # Note: Some type detection may differ slightly between backends
-    try:
-        show_stats(df, "all")
-    except Exception as e:
-        # If it fails, it should be a known compatibility issue
-        pytest.skip(f"Pandas compatibility issue: {e}")
+    # Must not raise: this mixes the two dtypes whose median used to fail on
+    # non-polars backends (datetime and boolean) with the ones that never did.
+    show_stats(df, "all")
 
 
 def test_backend_with_empty_categorical():

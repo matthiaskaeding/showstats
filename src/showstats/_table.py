@@ -130,6 +130,24 @@ def _truncate_long_strings(expr: pl.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> p
     )
 
 
+def _median_expr(var: str, dtype) -> "nw.Expr":
+    """Median of a column, for dtypes some backends refuse to take it on.
+
+    polars computes median() directly for booleans and datetimes, but the
+    pandas backend raises `median operation not supported for non-numeric
+    input type`. Casting to an integer, taking the median there and casting
+    back produces the same answer on every backend — for datetimes the cast
+    goes through the column's own dtype, so the time unit round-trips
+    correctly rather than being assumed.
+    """
+    col = nw.col(var)
+    if dtype == nw.Boolean:
+        return col.cast(nw.Int8).median()
+    if dtype == nw.Date or dtype == nw.Datetime or str(dtype).startswith("Datetime"):
+        return col.cast(nw.Int64).median().cast(dtype)
+    return col.median()
+
+
 def _map_table_type_to_var_types(table_type):
     """Maps table type to var types"""
     if table_type == "all":
@@ -200,6 +218,7 @@ class _Table:
                 funs_map[var_type] = funs_vt
                 stat_names_map[var_type] = []
         self.funs_map = funs_map
+        schema = df.schema
         expressions = []
         sep = "____"
         for vt in vars_map:
@@ -218,6 +237,8 @@ class _Table:
                         # Q100 == max. polars' own default of "nearest" would
                         # make Q50 disagree with the Median column.
                         expr = col.quantile(q, interpolation="linear").alias(stat_name)
+                    elif function == "median":
+                        expr = _median_expr(var, schema[var]).alias(stat_name)
                     else:
                         expr = getattr(nw.col(var), function)().alias(stat_name)
                     expressions.append(expr)
