@@ -5,37 +5,27 @@
 vertical orientation.
 
 ``` python
+import polars as pl
 from showstats import show_stats
+
+# Daily weather in Seattle, 2012-2015
+df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
 
 show_stats(df)
 ```
 
     -Date and datetime columns------------------------------------------------------
-     Col (N=100)     NA%  Min         Max                     Median                
-     date_col        0    1501-01-20  1996-04-09              1755-07-20 00:00:00   
-     date_col_2      0    1511-12-06  1999-05-05              1776-03-03 00:00:00   
-     datetime_col    0    1501-01-20  1996-04-09 06:29:29     1755-07-20 10:10:59   
-                          14:37:46                                                  
-     datetime_col_2  0    1511-12-06  1999-05-05 14:12:20     1776-03-03 13:25:50   
-                          23:40:13                                                  
+     Col (N=1461)  NA%  Min         Max         Median              
+     date          0    2012-01-01  2015-12-31  2013-12-31 00:00:00 
     -Numerical columns--------------------------------------------------------------
-     Col (N=100)        NA%  Avg     SD     Min     Max     Median 
-     float_mean_2       0    2.0     0.89   -0.36   4.12    2.0    
-     float_std_2        0    0.14    2.0    -5.17   4.91    0.14   
-     float_min_-7       0    -4.64   0.89   -7.0    -2.51   -4.63  
-     float_max_17       0    14.88   0.89   12.51   17.0    14.88  
-     float_big          0    1.23E6  0.89   1.23E6  1.23E6  1.23E6 
-     float_col          0    0.5     0.29   0.0     0.99    0.5    
-     U                  0    0.54    0.26   0.02    0.98    0.57   
-     int_col            0    49.5    29.01  0       99      49.5   
-     int_with_missings  5    48.32   28.8   0       99      49.0   
-     bool_col           26   0.5     0.5    false   true    0.5    
-     null_col           100                                        
+     Col (N=1461)   NA%  Avg    SD    Min   Max   Median 
+     precipitation  0    3.03   6.68  0.0   55.9  0.0    
+     temp_max       0    16.44  7.35  -1.6  35.6  15.6   
+     temp_min       0    8.23   5.02  -7.1  18.3  8.3    
+     wind           0    3.24   1.44  0.4   9.5   3.0    
     -Categorical columns------------------------------------------------------------
-     Col (N=100)      NA%  Uniques  Top 1       Top 2        Top 3        
-     str_col          48   5        foo (15%)   ABC (13%)    bar (12%)    
-     categorical_col  0    2        Fara (57%)  Car (43%)                 
-     enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
+     Col (N=1461)  NA%  Uniques  Top 1       Top 2      Top 3    
+     weather       0    5        rain (44%)  sun (44%)  fog (7%) 
 
 ``` python
 # Only one type
@@ -43,30 +33,28 @@ show_stats(df, "cat")  # Other are num, time
 ```
 
     -Categorical columns------------------------------------------------------------
-     Col (N=100)      NA%  Uniques  Top 1       Top 2        Top 3        
-     str_col          48   5        foo (15%)   ABC (13%)    bar (12%)    
-     categorical_col  0    2        Fara (57%)  Car (43%)                 
-     enum_col         0    3        best (36%)  worst (35%)  medium (29%) 
+     Col (N=1461)  NA%  Uniques  Top 1       Top 2      Top 3    
+     weather       0    5        rain (44%)  sun (44%)  fog (7%) 
 
 ``` python
 # Any subset of columns works
-show_stats(df.select("U", "int_col"))
+show_stats(df.select("temp_max", "wind"))
 ```
 
     -Numerical columns--------------------------------------------------------------
-     Col (N=100)  NA%  Avg   SD     Min   Max   Median 
-     U            0    0.54  0.26   0.02  0.98  0.57   
-     int_col      0    49.5  29.01  0     99    49.5   
+     Col (N=1461)  NA%  Avg    SD    Min   Max   Median 
+     temp_max      0    16.44  7.35  -1.6  35.6  15.6   
+     wind          0    3.24   1.44  0.4   9.5   3.0    
 
 ``` python
 # Add extra quantiles for numerical columns
-show_stats(df.select("U", "int_col"), "num", quantiles=[0.1, 0.9])
+show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
 ```
 
     -Numerical columns--------------------------------------------------------------
-     Col (N=100)  NA%  Avg   SD     …  Q0    Q10   Q90   Q100 
-     U            0    0.54  0.26   …  0.02  0.18  0.87  0.98 
-     int_col      0    49.5  29.01  …  0     9.9   89.1  99   
+     Col (N=1461)  NA%  Avg    SD    …  Q0    Q10  Q90   Q100 
+     temp_max      0    16.44  7.35  …  -1.6  7.2  26.7  35.6 
+     wind          0    3.24   1.44  …  0.4   1.7  5.2   9.5  
 
 - **showstats** accepts any data frame supported by
   [narwhals](https://github.com/narwhals-dev/narwhals) — polars, pandas,
@@ -81,6 +69,10 @@ show_stats(df.select("U", "int_col"), "num", quantiles=[0.1, 0.9])
 
 - Numbers with many digits are automatically converted to scientific
   notation.
+
+- The example above uses [Seattle daily
+  weather](https://github.com/vega/vega-datasets/blob/main/data/seattle-weather.csv)
+  from vega-datasets (BSD-3-Clause).
 
 - Because **showstats** leverages polars effective parallelism, it\`s
   fast: \<1s for a 1,000,000 × 1,000 data frame, on a M1 MacBook

@@ -9,21 +9,17 @@ jupyter: python3
 ```{python}
 # | output: false
 # | echo: false
-import polars as pl
 import sys
 
 sys.path.append("src/")
-sys.path.append("tests/")
-from pathlib import Path
-from conftest import sample_df_
-import showstats
-from showstats import show_stats
-
-df = sample_df_(100)
 ```
 
 ```{python}
+import polars as pl
 from showstats import show_stats
+
+# Daily weather in Seattle, 2012-2015
+df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
 
 show_stats(df)
 ```
@@ -36,12 +32,12 @@ show_stats(df, "cat")  # Other are num, time
 
 ```{python}
 # Any subset of columns works
-show_stats(df.select("U", "int_col"))
+show_stats(df.select("temp_max", "wind"))
 ```
 
 ```{python}
 # Add extra quantiles for numerical columns
-show_stats(df.select("U", "int_col"), "num", quantiles=[0.1, 0.9])
+show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
 ```
 
 - **showstats** accepts any data frame supported by [narwhals](https://github.com/narwhals-dev/narwhals) — polars, pandas, pyarrow and others — and converts other inputs.
@@ -50,6 +46,8 @@ show_stats(df.select("U", "int_col"), "num", quantiles=[0.1, 0.9])
 - Heavily inspired by the great R-packages [skimr](https://github.com/ropensci/skimr) and [modelsummary](https://modelsummary.com/vignettes/datasummary.html). 
 
 - Numbers with many digits are automatically converted to scientific notation.
+
+- The example above uses [Seattle daily weather](https://github.com/vega/vega-datasets/blob/main/data/seattle-weather.csv) from vega-datasets (BSD-3-Clause).
 
 - Because **showstats** leverages polars effective parallelism, it`s fast: <1s for a 1,000,000 &times; 1,000 data frame, on a M1 MacBook
  
