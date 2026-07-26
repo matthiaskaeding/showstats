@@ -15,8 +15,8 @@ show_stats(df)
 ```
 
     -Date and datetime columns------------------------------------------------------
-     Col (N=1461)  NA%  Median               Min         Max        
-     date          0    2013-12-31 00:00:00  2012-01-01  2015-12-31 
+     Col (N=1461)  NA%  Median      Min         Max        
+     date          0    2013-12-31  2012-01-01  2015-12-31 
     -Numerical columns--------------------------------------------------------------
      Col (N=1461)   NA%  Avg    SD    Median  Min   Max  
      precipitation  0    3.03   6.68  0.0     0.0   55.9 
