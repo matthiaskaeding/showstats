@@ -1,4 +1,5 @@
 import polars as pl
+
 from showstats._utils import convert_df_scientific
 
 
