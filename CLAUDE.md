@@ -69,6 +69,15 @@ uv build             # sdist + wheel
   overwritten.
 - Update `changelog.md` (Keep a Changelog format) for user-facing changes.
 
+## Rewrite in progress (#37)
+
+Tests for not-yet-migrated behaviour are marked
+`@pytest.mark.rewrite` + `@pytest.mark.xfail(strict=True, reason="#37: ...")`.
+`xfail_strict = true`, so an unexpected pass fails the build — remove both
+markers in the PR that implements the behaviour, never separately.
+`make burndown` counts what's left. Full plan and the `make_stats_tbl`
+return-type decision: issue #37.
+
 ## Issue work — always open a PR
 
 When asked to work an issue (or issues) from this repo's GitHub tracker:
