@@ -7,6 +7,7 @@ import polars as pl
 
 from showstats import show_stats
 from showstats.showstats import make_stats_tbl
+from tests.helpers import cell, row_for, stats_frame
 
 
 def test_polars_backend_basic():
@@ -29,7 +30,7 @@ def test_polars_backend_basic():
     # Test make_stats_tbl
     result = make_stats_tbl(df, "num")
     assert result is not None
-    assert result.shape[0] == 2  # int_col and float_col
+    assert stats_frame(result).shape[0] == 2  # int_col and float_col
 
 
 def test_pandas_backend_basic():
@@ -52,7 +53,7 @@ def test_pandas_backend_basic():
     # Test make_stats_tbl
     result = make_stats_tbl(df, "num")
     assert result is not None
-    assert result.shape[0] == 2  # int_col and float_col
+    assert stats_frame(result).shape[0] == 2  # int_col and float_col
 
 
 def test_polars_vs_pandas_numeric_stats():
@@ -70,7 +71,7 @@ def test_polars_vs_pandas_numeric_stats():
     result_pandas = make_stats_tbl(df_pandas, "num")
 
     # Both should have same shape
-    assert result_polars.shape == result_pandas.shape
+    assert stats_frame(result_polars).shape == stats_frame(result_pandas).shape
 
     # Variable names should be the same
     assert (
@@ -99,7 +100,7 @@ def test_polars_vs_pandas_categorical_stats():
     result_pandas = make_stats_tbl(df_pandas, "cat")
 
     # Both should have same shape
-    assert result_polars.shape == result_pandas.shape
+    assert stats_frame(result_polars).shape == stats_frame(result_pandas).shape
 
     # Variable names should be the same
     assert (
@@ -122,10 +123,10 @@ def test_polars_backend_with_nulls():
     result = make_stats_tbl(df, "num")
 
     # col_with_nulls should have 20% NA (2 out of 10)
-    assert result.filter(pl.col("Col (N=10)") == "col_with_nulls")["NA%"][0] == 20
+    assert row_for(result, "col_with_nulls")["NA%"][0] == 20
 
     # col_no_nulls should have 0% NA
-    assert result.filter(pl.col("Col (N=10)") == "col_no_nulls")["NA%"][0] == 0
+    assert row_for(result, "col_no_nulls")["NA%"][0] == 0
 
 
 def test_pandas_backend_with_nulls():
@@ -140,12 +141,10 @@ def test_pandas_backend_with_nulls():
     result = make_stats_tbl(df, "num")
 
     # col_with_nulls should have 20% NA (2 out of 10)
-    col_with_nulls_row = result.filter(pl.col("Col (N=10)") == "col_with_nulls")
-    assert col_with_nulls_row["NA%"][0] == 20
+    assert row_for(result, "col_with_nulls")["NA%"][0] == 20
 
     # col_no_nulls should have 0% NA
-    col_no_nulls_row = result.filter(pl.col("Col (N=10)") == "col_no_nulls")
-    assert col_no_nulls_row["NA%"][0] == 0
+    assert row_for(result, "col_no_nulls")["NA%"][0] == 0
 
 
 def test_polars_backend_datetime():
@@ -164,14 +163,14 @@ def test_polars_backend_datetime():
     result = make_stats_tbl(df, "time")
 
     # Should have 2 rows (date_col and datetime_col)
-    assert result.shape[0] == 2
+    assert stats_frame(result).shape[0] == 2
 
     # Should have columns: Col (N=10), NA%, Min, Max, Median
-    assert "Col (N=10)" in result.columns
-    assert "NA%" in result.columns
-    assert "Min" in result.columns
-    assert "Max" in result.columns
-    assert "Median" in result.columns
+    assert "Col (N=10)" in stats_frame(result).columns
+    assert "NA%" in stats_frame(result).columns
+    assert "Min" in stats_frame(result).columns
+    assert "Max" in stats_frame(result).columns
+    assert "Median" in stats_frame(result).columns
 
 
 def test_pandas_backend_datetime():
@@ -183,13 +182,13 @@ def test_pandas_backend_datetime():
     result = make_stats_tbl(df, "time")
 
     assert result is not None
-    assert "Median" in result.columns
+    assert "Median" in stats_frame(result).columns
     # The median of ten consecutive days is midday on the fifth. Getting this
     # right is what the Int64 round-trip in _median_expr is for: a wrong time
     # unit would silently land in 1970.
-    assert result.item(0, "Median").startswith("2020-01-05 12:00:00")
-    assert result.item(0, "Min").startswith("2020-01-01")
-    assert result.item(0, "Max").startswith("2020-01-10")
+    assert cell(result, 0, "Median").startswith("2020-01-05 12:00:00")
+    assert cell(result, 0, "Min").startswith("2020-01-01")
+    assert cell(result, 0, "Max").startswith("2020-01-10")
 
 
 def test_polars_backend_boolean():
@@ -215,7 +214,7 @@ def test_polars_backend_boolean():
     result = make_stats_tbl(df, "num")
 
     # Should have 2 rows (bool_col and int_col)
-    assert result.shape[0] == 2
+    assert stats_frame(result).shape[0] == 2
 
     # bool_col should be included
     assert "bool_col" in result["Col (N=10)"].to_list()
@@ -244,11 +243,10 @@ def test_pandas_backend_boolean():
     result = make_stats_tbl(df, "num")
 
     assert result is not None
-    assert result.shape[0] >= 1
+    assert stats_frame(result).shape[0] >= 1
     # Five True out of ten, so the median of the boolean column is 0.5 —
     # the same value polars reports for median() on a boolean.
-    bool_row = result.filter(pl.col(result.columns[0]) == "bool_col")
-    assert bool_row.item(0, "Median") == "0.5"
+    assert row_for(result, "bool_col")["Median"][0] == "0.5"
 
 
 def test_polars_backend_all_types():
@@ -341,9 +339,9 @@ def test_polars_backend_categorical_top_values():
     result = make_stats_tbl(df, "cat")
 
     # Should have Top 1, Top 2, Top 3 columns
-    assert "Top 1" in result.columns
-    assert "Top 2" in result.columns
-    assert "Top 3" in result.columns
+    assert "Top 1" in stats_frame(result).columns
+    assert "Top 2" in stats_frame(result).columns
+    assert "Top 3" in stats_frame(result).columns
 
     # Top 1 should be A with 50%
     assert "A (50%)" in result["Top 1"][0]
@@ -360,9 +358,9 @@ def test_pandas_backend_categorical_top_values():
     result = make_stats_tbl(df, "cat")
 
     # Should have Top 1, Top 2, Top 3 columns
-    assert "Top 1" in result.columns
-    assert "Top 2" in result.columns
-    assert "Top 3" in result.columns
+    assert "Top 1" in stats_frame(result).columns
+    assert "Top 2" in stats_frame(result).columns
+    assert "Top 3" in stats_frame(result).columns
 
     # Top 1 should be A with 50%
     assert "A (50%)" in result["Top 1"][0]
