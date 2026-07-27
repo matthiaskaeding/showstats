@@ -3,7 +3,7 @@
 ## Install Python Dependencies
 .PHONY: reqs
 reqs:
-	uv pip install -r dev-requirements.txt
+	uv sync --group dev
 
 ## Delete all compiled Python files
 .PHONY: clean
@@ -15,21 +15,21 @@ clean:
 ## Fix code using ruff
 .PHONY: fix
 fix:
-	ruff check --select I --fix
-	ruff check --fix
-	ruff format
+	uv run ruff check --select I --fix
+	uv run ruff check --fix
+	uv run ruff format
 
 ## Time show_stats
 .PHONY: timing
 timing:
-	cd notebooks && jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True timing.ipynb
+	cd notebooks && uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True timing.ipynb
 
 docs: README.md timing
 
 ## Run pytests
 .PHONY: test
 test:
-	pytest
+	uv run pytest
 
 test2: reqs test
 
@@ -37,27 +37,27 @@ test2: reqs test
 ## Make README 
 .PHONY: README.md
 README.md: README.qmd src/showstats/showstats.py
-	quarto render README.qmd
+	uv run quarto render README.qmd
 
 ## Run nox
 .PHONY: nox
 nox: 
-	nox
+	uv run nox
 
 ## Build package
 .PHONY: build
 build: 
-	python3 -m build
+	uv build
 
 ## Upload to pypi
 .PHONY: upload-pypi
 upload-pypi: 
-	python3 -m twine upload --repository pypi dist/*
+	uv run twine upload --repository pypi dist/*
 
 ## Upload to test-pypi
 .PHONY: upload-testpypi
 upload-testpypi: 
-	python3 -m twine upload --repository testpypi dist/*
+	uv run twine upload --repository testpypi dist/*
 
 
 ## Test install

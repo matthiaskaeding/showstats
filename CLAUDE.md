@@ -30,21 +30,38 @@ issue #37 for the tracked plan to finish the migration.
 
 ## Dev workflow
 
-- Dependencies for local dev/test are pinned in `dev-requirements.txt`
-  (**not** `pyproject.toml`, which only lists the runtime deps) — CI
-  installs from there. If you add a runtime dependency, update both
-  `pyproject.toml` and `dev-requirements.txt`, plus `noxfile.py`'s
-  `session.install(...)` calls.
-- Run tests: `pytest tests/` (pythonpath is set to `src` via
-  `pyproject.toml`).
-- Lint/format: use the pinned `ruff==0.5.6` from `dev-requirements.txt`
-  specifically — a newer ruff enables extra rules (e.g. `RUF013`,
-  `FA100`) that aren't part of this project's actual lint gate and will
-  produce false positives. `ruff check .` and `ruff format` mirror
-  `.github/workflows/lint.yaml` and `.pre-commit-config.yaml`.
-- `README.md` is generated from `README.qmd` via Quarto; when editing one,
-  keep the other in sync (render with `quarto render README.qmd` if
-  Quarto/Jupyter are available, otherwise hand-edit `README.md` to match).
+**Always use `uv`.** Never `pip install`, `python -m build`, or a bare
+`pytest`/`ruff` — those pick up whatever happens to be on `PATH` rather
+than the project environment.
+
+```
+uv sync              # create/refresh .venv from pyproject.toml
+uv run pytest        # tests (pythonpath is set to `src` via pyproject.toml)
+uv run ruff check .  # lint
+uv run ruff format   # format
+uv build             # sdist + wheel
+```
+
+- Dependencies live in `pyproject.toml` only: runtime deps under
+  `[project.dependencies]`, dev/test deps in the `dev` group under
+  `[dependency-groups]` (PEP 735). There is no `dev-requirements.txt` —
+  it was removed in #69. A runtime dependency that tests also need does
+  **not** have to be repeated in the dev group; `uv sync` installs the
+  project itself.
+- `uv.lock` is committed, so CI and local dev resolve identically. Run
+  `uv sync` after changing dependencies and commit the updated lock.
+- `.python-version` pins the interpreter (3.11.9) so CI does not silently
+  drift to a newer Python; `uv` provisions it automatically.
+- Lint/format uses `ruff==0.5.6`, pinned in the dev group — a newer ruff
+  enables extra rules (e.g. `RUF013`, `FA100`) that aren't part of this
+  project's lint gate and will produce false positives. Running it through
+  `uv run` is what guarantees you get the pinned one.
+- `README.md` is generated from `README.qmd` via Quarto: `uv run quarto
+  render README.qmd`. `uv run` matters here — it puts the project
+  environment on `PATH` so Quarto's jupyter engine uses the synced
+  interpreter. CI re-renders on every push to `main` that touches
+  `README.qmd` or `src/**`, so hand-editing `README.md` will be
+  overwritten.
 - Update `changelog.md` (Keep a Changelog format) for user-facing changes.
 
 ## Issue work — always open a PR

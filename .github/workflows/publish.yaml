@@ -17,14 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11.9"
+          enable-cache: true
 
       - name: Tag must match the version in pyproject.toml
         if: github.event_name == 'release'
         run: |
-          project_version=$(python -c "
+          project_version=$(uv run python -c "
           import tomllib, pathlib
           print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])
           ")
@@ -42,19 +42,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11.9"
+          enable-cache: true
 
       - name: Build sdist and wheel
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
+        run: uv build
 
       - name: Check metadata renders on PyPI
         run: |
-          python -m pip install twine
-          python -m twine check dist/*
+          uv sync --group dev
+          uv run twine check dist/*
 
       - uses: actions/upload-artifact@v4
         with:

@@ -31,16 +31,17 @@ jobs:
         with:
           version: "1.6.39"
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11.9"
-          cache: "pip"
+          enable-cache: true
 
       - name: Install dependencies
-        run: pip install -r dev-requirements.txt
+        run: uv sync --group dev
 
+      # `uv run` puts the project environment on PATH, so quarto's jupyter
+      # engine picks up the synced interpreter rather than the runner's.
       - name: Render README.qmd
-        run: quarto render README.qmd
+        run: uv run quarto render README.qmd
 
       - name: Commit README.md if it changed
         run: |
@@ -67,7 +68,7 @@ jobs:
             echo "Push rejected on attempt ${attempt}; re-rendering against the latest main."
             git fetch origin main
             git reset --hard origin/main
-            quarto render README.qmd
+            uv run quarto render README.qmd
           done
 
           echo "::error::Could not push the re-rendered README.md after 3 attempts."

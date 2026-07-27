@@ -182,4 +182,5 @@ references/figures/*
 .vscode/settings.json
 
 src/experiments.py
-.python-version
+# .python-version is uv's interpreter pin: project config, so it is committed
+
