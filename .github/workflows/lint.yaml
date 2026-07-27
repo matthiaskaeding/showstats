@@ -13,16 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v6
+      # ruff is a standalone tool, not a project dependency, so this job does
+      # not sync the dev environment just to lint. The version is pinned here
+      # and also asserted by `required-version` in pyproject.toml, so the two
+      # cannot drift apart quietly — a mismatch fails the run rather than
+      # silently linting under different rules.
+      - name: Lint
+        uses: astral-sh/ruff-action@v3
         with:
-          enable-cache: true
+          version: "0.16.0"
 
-      # ruff's version comes from the dev group in pyproject.toml, so it is
-      # pinned in exactly one place rather than repeated here.
-      - name: Install dependencies
-        run: uv sync --group dev
-
-      - name: Run Ruff
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
+      - name: Check formatting
+        uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.16.0"
+          args: "format --check"

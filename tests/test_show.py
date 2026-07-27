@@ -1,5 +1,6 @@
 import polars as pl
 import pytest
+
 from showstats.showstats import show_stats
 
 

@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import warnings
-from typing import Iterable, Literal, Tuple
+from typing import Iterable, Literal
 
 import narwhals as nw
 import polars as pl
@@ -90,7 +92,7 @@ def _quantile_label(q: float) -> str:
     return f"Q{pct_str}"
 
 
-def _map_funs_to_var_type(var_type, quantiles: Iterable = None) -> Tuple[str]:
+def _map_funs_to_var_type(var_type, quantiles: Iterable | None = None) -> tuple[str]:
     if var_type in ("num_float", "num_int", "num_bool"):
         funs = ["null_count", "mean", "std", "median", "min", "max"]
         if quantiles:
@@ -105,8 +107,8 @@ def _map_funs_to_var_type(var_type, quantiles: Iterable = None) -> Tuple[str]:
 
 
 def _map_cols_and_funs_for_var_type(
-    df, var_type, quantiles: Iterable = None
-) -> Tuple[str]:
+    df, var_type, quantiles: Iterable | None = None
+) -> tuple[str]:
     cols = _get_cols_for_var_type(df, var_type)
     if len(cols) == 0:
         return None, None
@@ -130,7 +132,7 @@ def _truncate_long_strings(expr: pl.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> p
     )
 
 
-def _median_expr(var: str, dtype) -> "nw.Expr":
+def _median_expr(var: str, dtype) -> nw.Expr:
     """Median of a column, for dtypes some backends refuse to take it on.
 
     polars computes median() directly for booleans and datetimes, but the
@@ -169,8 +171,8 @@ class _Table:
         self,
         df: IntoDataFrame,
         table_type: TableType,
-        top_cols: Iterable = None,
-        quantiles: Iterable = None,
+        top_cols: Iterable | None = None,
+        quantiles: Iterable | None = None,
         fold_quantiles: bool = True,
     ):
         df = _check_input_maybe_try_transform(df)
@@ -221,9 +223,9 @@ class _Table:
         schema = df.schema
         expressions = []
         sep = "____"
-        for vt in vars_map:
+        for vt, vars_vt in vars_map.items():
             functions_vt = funs_map[vt]
-            for var in vars_map[vt]:
+            for var in vars_vt:
                 for function in functions_vt:
                     stat_name = f"{var}{sep}{function}"
                     if function.startswith(QUANTILE_PREFIX):
@@ -354,7 +356,7 @@ class _Table:
                 row = {}
                 for i, dd in enumerate(freq_list):
                     val, count = dd[var_name], dd["count"]
-                    row[f"Top {i+1}"] = f"{val} ({count / self.num_rows:.0%})"
+                    row[f"Top {i + 1}"] = f"{val} ({count / self.num_rows:.0%})"
                 data.append(row)
             right = pl.DataFrame(data).fill_null("")
             df = df.select(

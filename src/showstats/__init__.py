@@ -11,4 +11,4 @@ finally:
     del PackageNotFoundError
 
 
-__all__ = ["show_stats", "make_stats_tbl"]
+__all__ = ["make_stats_tbl", "show_stats"]

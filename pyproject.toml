@@ -36,11 +36,16 @@ dev = [
   "polars>=0.20.23",
   "pyarrow>=17.0.0",
   "pytest==8.3.2",
-  "ruff==0.5.6",
+  "ruff==0.16.0",
   "twine>=5.1.1",
 ]
 
 [tool.ruff]
+# Ruff refuses to run under any other version. Its default rule set grows
+# between releases, so a mismatch — from CI, a pre-commit hook or a stray
+# global install — would lint under different rules than the project is
+# configured for. Failing loudly beats findings nobody can reproduce.
+required-version = "==0.16.0"
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
