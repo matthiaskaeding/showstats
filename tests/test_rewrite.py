@@ -27,7 +27,6 @@ import polars as pl
 import pyarrow as pa
 import pytest
 
-from showstats._utils import convert_df_scientific
 from showstats.showstats import make_stats_tbl, show_stats
 from tests import _golden
 
@@ -86,35 +85,9 @@ def run_without_polars(body: str) -> subprocess.CompletedProcess:
 # pass, so they have moved to test_backends.py, where they belong as
 # ordinary regression tests rather than as a to-do list.
 
-# --------------------------------------------------------------------------
-# Slice 2 — _utils.convert_df_scientific
-#
-# A pure polars expression pipeline today. It is internal, so the target is
-# only that it stops caring which backend it is handed: same frame kind in,
-# same frame kind out. The existing polars assertions in
-# test_scientific_conversion.py stay as they are and go on passing.
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(
-    strict=True, reason="#37: convert_df_scientific builds polars expressions"
-)
-def test_convert_df_scientific_accepts_pandas():
-    df = pd.DataFrame({"values": [0.1, 10.0, 1000.0, 10000.0, 100000.0]})
-    result = convert_df_scientific(df, ["values"])
-    assert isinstance(result, pd.DataFrame)
-    assert result["values"].tolist() == ["0.1", "10.0", "1000.0", "10000.0", "1.0E5"]
-
-
-@pytest.mark.xfail(
-    strict=True, reason="#37: convert_df_scientific builds polars expressions"
-)
-def test_convert_df_scientific_accepts_narwhals():
-    df = nw.from_native(pl.DataFrame({"values": [0.1, 1e5]}), eager_only=True)
-    result = convert_df_scientific(df, ["values"])
-    assert isinstance(result, nw.DataFrame)
-    assert result["values"].to_list() == ["0.1", "1.0E5"]
-
+# Slice 2 — _utils.convert_df_scientific — is done. Its tests now pass, so
+# they have moved to test_scientific_conversion.py alongside the polars
+# assertions they were written against.
 
 # --------------------------------------------------------------------------
 # Slice 3 — _Table.make_dt
