@@ -2,6 +2,7 @@ import warnings
 
 import polars as pl
 import pytest
+
 from showstats._table import _WARNED_ONCE, _Table
 
 
@@ -95,9 +96,6 @@ def test_that_statistics_are_correct(sample_df):
     assert stat_df.filter(var_0 == "float_std_2").item(0, "SD") == "2.0"
     assert stat_df.filter(var_0 == "float_min_-7").item(0, "Min") == "-7.0"
     assert stat_df.filter(var_0 == "float_max_17").item(0, "Max") == "17.0"
-
-
-1
 
 
 def test_top_cols(sample_df):

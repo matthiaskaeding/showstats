@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 
 import polars as pl
@@ -8,10 +10,10 @@ from numpy import random as np_random
 def sample_series(
     seed: int = 1,
     n: int = 100,
-    min: float = None,
-    max: float = None,
-    std: float = None,
-    mean: float = None,
+    min: float | None = None,
+    max: float | None = None,
+    std: float | None = None,
+    mean: float | None = None,
 ) -> pl.Series:
     """
     Samples a pl.Series with known moments.
@@ -73,9 +75,13 @@ def sample_datetimes(
     return (
         pl.DataFrame(pl.Series("random_seconds", random_seconds))
         .select(
-            pl.lit(datetime(start_date.year, start_date.month, start_date.day)).alias(
-                name
-            )
+            # naive on purpose: a tz-aware literal would change the column's
+            # dtype and so what the tests are asserting about
+            pl.lit(
+                datetime(  # noqa: DTZ001
+                    start_date.year, start_date.month, start_date.day
+                )
+            ).alias(name)
             + pl.duration(seconds=pl.col("random_seconds"))
         )
         .get_column(name)

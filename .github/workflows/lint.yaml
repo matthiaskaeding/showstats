@@ -21,10 +21,10 @@ jobs:
       - name: Lint
         uses: astral-sh/ruff-action@v3
         with:
-          version: "0.5.6"
+          version: "0.16.0"
 
       - name: Check formatting
         uses: astral-sh/ruff-action@v3
         with:
-          version: "0.5.6"
+          version: "0.16.0"
           args: "format --check"

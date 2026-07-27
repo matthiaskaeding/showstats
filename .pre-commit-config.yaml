@@ -1,7 +1,7 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Must match required-version in pyproject.toml, or ruff refuses to run.
-    rev: v0.5.6
+    rev: v0.16.0
     hooks:
       - id: ruff
         types_or: [python, pyi, jupyter]

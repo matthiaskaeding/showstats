@@ -4,6 +4,7 @@ Tests to verify showstats works correctly with different dataframe backends.
 
 import pandas as pd
 import polars as pl
+
 from showstats import show_stats
 from showstats.showstats import make_stats_tbl
 

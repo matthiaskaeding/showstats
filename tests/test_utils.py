@@ -1,10 +1,22 @@
 import narwhals as nw
 import polars as pl
 import pytest
+
 from showstats._table import (
     _check_input_maybe_try_transform,
     _map_cols_and_funs_for_var_type,
 )
+
+
+@pytest.mark.parametrize("bad", [1, 1.0, None, [], {}, {"a": []}])
+def test_input_check_rejects_non_frames(bad):
+    """Each of these must raise — none is a narwhals-native frame.
+
+    These used to sit in a single `pytest.raises(Exception)` block, where only
+    the first line ever ran: the rest were unreachable once it raised.
+    """
+    with pytest.raises(TypeError):
+        _check_input_maybe_try_transform(bad)
 
 
 def test_input_check(sample_df):
@@ -12,17 +24,8 @@ def test_input_check(sample_df):
     # Now returns a narwhals DataFrame
     assert isinstance(df2, nw.DataFrame)
     assert df2.shape == sample_df.shape
-    with pytest.raises(Exception):
-        # All of those are wrong inputs
-        _check_input_maybe_try_transform(1)
-        _check_input_maybe_try_transform(1.0)
-        _check_input_maybe_try_transform(None)
-        _check_input_maybe_try_transform([])
-        _check_input_maybe_try_transform(dict())
-        _check_input_maybe_try_transform(dict(a=[]))
-
     # Test with valid dict input (convert through polars first)
-    result2 = _check_input_maybe_try_transform(pl.DataFrame(dict(x=[1, 2, 3])))
+    result2 = _check_input_maybe_try_transform(pl.DataFrame({"x": [1, 2, 3]}))
     assert isinstance(result2, nw.DataFrame)
 
     sample_df_pandas = sample_df.to_pandas()

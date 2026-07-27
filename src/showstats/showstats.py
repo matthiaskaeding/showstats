@@ -1,5 +1,7 @@
 # Central functions for table making
-from typing import List, Union, get_args
+from __future__ import annotations
+
+from typing import get_args
 
 from narwhals.typing import IntoDataFrame
 
@@ -9,8 +11,8 @@ from showstats._table import TableType, _Table
 def show_stats(
     df: IntoDataFrame,
     table_type: TableType = "all",
-    top_cols: Union[List[str], str, None] = None,
-    quantiles: Union[List[float], None] = None,
+    top_cols: list[str] | str | None = None,
+    quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
 ) -> None:
     """
@@ -19,10 +21,10 @@ def show_stats(
 
     Args:
         df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
-        top_cols (Union[List[str], str, None], optional): Column or list of columns
+        top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
-        quantiles (Union[List[float], None], optional): Extra quantiles (values in
+        quantiles (list[float] | None, optional): Extra quantiles (values in
             [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
             columns. Defaults to None.
         fold_quantiles (bool, optional): When quantiles are given, relabel Min,
@@ -56,8 +58,8 @@ def show_stats(
 def make_stats_tbl(
     df: IntoDataFrame,
     table_type: TableType = "num",
-    top_cols: Union[List[str], str, None] = None,
-    quantiles: Union[List[float], None] = None,
+    top_cols: list[str] | str | None = None,
+    quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
 ) -> None:
     """
@@ -66,10 +68,10 @@ def make_stats_tbl(
 
     Args:
         df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
-        top_cols (Union[List[str], str, None], optional): Column or list of columns
+        top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
-        quantiles (Union[List[float], None], optional): Extra quantiles (values in
+        quantiles (list[float] | None, optional): Extra quantiles (values in
             [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
             columns. Defaults to None.
         fold_quantiles (bool, optional): When quantiles are given, relabel Min,

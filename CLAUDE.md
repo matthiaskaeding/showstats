@@ -52,12 +52,13 @@ uv build             # sdist + wheel
   `uv sync` after changing dependencies and commit the updated lock.
 - `.python-version` pins the interpreter (3.11.9) so CI does not silently
   drift to a newer Python; `uv` provisions it automatically.
-- Lint/format uses `ruff==0.5.6`. A newer ruff enables extra rules (e.g.
-  `RUF013`, `FA100`) that aren't part of this project's lint gate and would
-  produce false positives, so `required-version = "==0.5.6"` in
-  `[tool.ruff]` makes ruff refuse to run under any other version — however
-  it's invoked. If you bump it, update all three: `required-version`, the
-  dev group, and `rev:` in `.pre-commit-config.yaml`. CI lints via
+- Lint/format uses `ruff==0.16.0`. `required-version = "==0.16.0"` in
+  `[tool.ruff]` makes ruff refuse to run under any other version, however
+  it's invoked — ruff's default rule set grows between releases, so a
+  mismatch lints under different rules than CI enforces. Bumping it means
+  updating **four** places: `required-version`, the `dev` group, `rev:` in
+  `.pre-commit-config.yaml`, and `version:` in `.github/workflows/lint.yaml`
+  — and then fixing whatever the new defaults flag. CI lints via
   `astral-sh/ruff-action` rather than syncing the dev environment, since
   ruff is a standalone tool.
 - `README.md` is generated from `README.qmd` via Quarto: `uv run quarto
