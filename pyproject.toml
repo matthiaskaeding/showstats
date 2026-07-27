@@ -41,6 +41,11 @@ dev = [
 ]
 
 [tool.ruff]
+# Ruff refuses to run under any other version. A newer ruff enables extra
+# rules this project is not configured for, so a version mismatch — from CI,
+# a pre-commit hook or a stray global install — fails loudly instead of
+# producing findings that do not reflect the project's lint gate.
+required-version = "==0.5.6"
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
