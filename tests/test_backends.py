@@ -4,10 +4,25 @@ Tests to verify showstats works correctly with different dataframe backends.
 
 import pandas as pd
 import polars as pl
+import pytest
 
 from showstats import show_stats
 from showstats.showstats import make_stats_tbl
 from tests.helpers import cell, row_for, stats_frame
+
+# The same data in three backends, converted through polars so the dtypes
+# correspond: a hand-built pandas frame would differ in ways that have
+# nothing to do with showstats (int64 vs float64 for a column with nulls,
+# say), and the comparisons below would then be measuring the conversion.
+MIXED_PL = pl.DataFrame(
+    {
+        "int_col": [1, 2, 3, 4, 5],
+        "float_col": [1.5, 2.5, 3.5, 4.5, 5.5],
+        "str_col": ["a", "b", "c", "a", "b"],
+    }
+)
+MIXED_PD = MIXED_PL.to_pandas()
+MIXED_PA = MIXED_PL.to_arrow()
 
 
 def test_polars_backend_basic():
@@ -54,6 +69,49 @@ def test_pandas_backend_basic():
     result = make_stats_tbl(df, "num")
     assert result is not None
     assert stats_frame(result).shape[0] == 2  # int_col and float_col
+
+
+def test_pyarrow_backend_basic():
+    """pyarrow input, which used to be accepted at the door and then die.
+
+    `_check_input_maybe_try_transform` has always taken pyarrow tables
+    (test_utils.py::test_input_check_pyarrow), but `_Table.__init__` read
+    the aggregate row with `.iloc[0]` whenever the frame was not polars —
+    treating "not polars" as "pandas". Every pyarrow table therefore
+    raised AttributeError.
+    """
+    result = make_stats_tbl(MIXED_PA, "num")
+    assert stats_frame(result).shape[0] == 2
+
+
+def test_pyarrow_backend_categorical_top_values():
+    result = make_stats_tbl(MIXED_PA, "cat")
+    frame = stats_frame(result)
+    assert "Top 1" in frame.columns
+    assert frame["Top 1"][0] == "a (40%)"
+
+
+def test_pyarrow_backend_all_types(capsys):
+    show_stats(MIXED_PA, "all")
+    assert "int_col" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "df",
+    [pytest.param(MIXED_PD, id="pandas"), pytest.param(MIXED_PA, id="pyarrow")],
+)
+def test_rendering_does_not_depend_on_the_input_backend(capsys, df):
+    """Identical data must print identically whatever frame carries it.
+
+    It did not: pandas input printed int Min/Max as `1.0` and Uniques as
+    `3.00`. Not a rendering bug — reading the aggregate row through pandas'
+    `.iloc[0]` produced a Series of one dtype, so the integer statistics
+    came back as floats before rendering ever saw them.
+    """
+    show_stats(df, "all")
+    from_backend = capsys.readouterr().out
+    show_stats(MIXED_PL, "all")
+    assert from_backend == capsys.readouterr().out
 
 
 def test_polars_vs_pandas_numeric_stats():
