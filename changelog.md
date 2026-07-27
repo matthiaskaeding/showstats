@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - unreleased
+## [Unreleased]
+
+### Fixed
+
+- pyarrow tables raised `AttributeError: 'pyarrow.lib.Table' object has no
+  attribute 'iloc'`. They were accepted as input and then summarised through
+  a pandas-only code path, so no pyarrow frame worked (#37)
+- Integer statistics from a pandas frame were printed as floats — `Min` as
+  `1.0` rather than `1`, `Uniques` as `3.00` rather than `3`. The same data
+  now prints identically whatever backend carries it (#37)
+
+## [0.1.0] - 2026-07-27
 
 ### Removed
 

@@ -245,58 +245,32 @@ class _Table:
                         expr = getattr(nw.col(var), function)().alias(stat_name)
                     expressions.append(expr)
                     stat_names_map[vt].append(stat_name)
-        # Evaluate expressions
-        # Cover special cases.
+        # Evaluate expressions.
         # Those conditions must always hold:
         # (1) Stats is a dict.
         # (2) Each value in stats is one summary statistic.
         # (3) Each list in stat_names_mp is sorted by variable name.
+        #
+        # One path for every backend: narwhals' rows() reads the single
+        # aggregate row as a dict of Python values whatever the frame is
+        # made of. This used to branch on isinstance(native, pl.DataFrame)
+        # and fall back to pandas' .iloc[0] — a fallback that treated
+        # "not polars" as "pandas", so pyarrow input reached .iloc and
+        # raised AttributeError despite being accepted at the door.
         if len(expressions) == 0:
             stats = {}
-        elif "cat" in vars_map:
-            # For categorical columns, we need to use native backend for value_counts
-            # First, get the basic stats
-            stats_df = df.select(expressions)
-            native_stats = nw.to_native(stats_df)
-            if isinstance(native_stats, pl.DataFrame):
-                stats = native_stats.row(0, named=True)
-            else:
-                # For pandas
-                stats = dict(native_stats.iloc[0])
-
-            # Now handle categorical value_counts
-            native_df = nw.to_native(df)
-            if isinstance(native_df, pl.DataFrame):
-                from polars import selectors as cs
-
-                expr = (
-                    cs.by_name(vars_map["cat"])
-                    .drop_nulls()
-                    .value_counts(sort=True)
-                    .head(3)
-                    .implode()
-                    .name.prefix(f"top_3{sep}")
-                )
-                cat_stats_df = native_df.select(expr)
-                cat_stats = cat_stats_df.row(0, named=True)
-                stats.update(cat_stats)
-            else:
-                # For pandas, we handle value_counts differently
-                for var_name in vars_map["cat"]:
-                    stat_name = f"top_3{sep}{var_name}"
-                    value_counts = native_df[var_name].dropna().value_counts().head(3)
-                    freq_list = []
-                    for val, count in value_counts.items():
-                        freq_list.append({var_name: val, "count": count})
-                    stats[stat_name] = freq_list
         else:
-            stats_df = df.select(expressions)
-            native_stats = nw.to_native(stats_df)
-            if isinstance(native_stats, pl.DataFrame):
-                stats = native_stats.row(0, named=True)
-            else:
-                # For pandas
-                stats = dict(native_stats.iloc[0])
+            stats = df.select(expressions).rows(named=True)[0]
+
+        if "cat" in vars_map:
+            # Top-3 counts likewise: one Series.value_counts per column,
+            # replacing a polars-selector expression and a hand-rolled
+            # pandas loop that had to agree with each other by inspection.
+            # The frames it yields are already named [<column>, "count"],
+            # which is the shape make_dt reads.
+            for var in vars_map["cat"]:
+                counts = df[var].drop_nulls().value_counts(sort=True)
+                stats[f"top_3{sep}{var}"] = counts.rows(named=True)[:3]
         self.stat_names_map = stat_names_map
         self.stats = stats
         self.vars_map = vars_map
