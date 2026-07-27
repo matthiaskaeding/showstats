@@ -58,6 +58,13 @@ ban-relative-imports = "all"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+# A test that unexpectedly passes fails the build, so a rewrite marker cannot
+# be left behind after the behaviour it describes has been implemented.
+xfail_strict = true
+markers = [
+  "rewrite: behaviour targeted by the narwhals rewrite (#37), xfail until implemented",
+  "integration: slower end-to-end test, deselected in CI",
+]
 
 [project.urls]
 Homepage = "https://github.com/matthiaskaeding/showstats"

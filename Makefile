@@ -33,6 +33,11 @@ test:
 
 test2: reqs test
 
+## Count remaining rewrite xfails
+.PHONY: burndown
+burndown:
+	@uv run pytest -m rewrite --collect-only -q | tail -n 1
+
 
 ## Make README 
 .PHONY: README.md
