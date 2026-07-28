@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integer statistics from a pandas frame were printed as floats — `Min` as
   `1.0` rather than `1`, `Uniques` as `3.00` rather than `3`. The same data
   now prints identically whatever backend carries it (#37)
+- pyarrow tables with a boolean column raised `ArrowNotImplementedError:
+  Function 'stddev' has no kernel matching input types (bool)` (#37)
+- Booleans printed as `True`/`False` from a pandas frame and `true`/`false`
+  from polars and pyarrow; floats ending in `.0` lost the decimal from a
+  pyarrow table. Both now follow the polars rendering (#37)
 
 ## [0.1.0] - 2026-07-27
 

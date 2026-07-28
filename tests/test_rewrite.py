@@ -21,7 +21,6 @@ import subprocess
 import sys
 import textwrap
 
-import narwhals as nw
 import pandas as pd
 import polars as pl
 import pyarrow as pa
@@ -89,30 +88,8 @@ def run_without_polars(body: str) -> subprocess.CompletedProcess:
 # they have moved to test_scientific_conversion.py alongside the polars
 # assertions they were written against.
 
-# --------------------------------------------------------------------------
-# Slice 3 — _Table.make_dt
-#
-# Builds a pl.LazyFrame per var-type regardless of what came in, which is
-# where the polars dependency re-enters after the stats have been computed
-# through narwhals.
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(strict=True, reason="#37: make_dt always builds a pl.LazyFrame")
-@pytest.mark.parametrize(
-    ("df", "native_type"),
-    [
-        pytest.param(MIXED_PD, pd.DataFrame, id="pandas"),
-        pytest.param(MIXED_PA, pa.Table, id="pyarrow"),
-    ],
-)
-def test_make_dt_follows_the_input_backend(df, native_type):
-    from showstats._table import _Table
-
-    table = _Table(df, "num")
-    result = table.make_dt("num_int")
-    assert isinstance(nw.to_native(nw.from_native(result)), native_type)
-
+# Slice 3 — _Table.make_dt — is done. Its tests now pass, so they have
+# moved to test_table.py, next to the other make_dt assertions.
 
 # --------------------------------------------------------------------------
 # Slice 4 — _Table.form_stat_df and the return type
