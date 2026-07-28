@@ -18,6 +18,8 @@ MIXED_PL = pl.DataFrame(
     {
         "int_col": [1, 2, 3, 4, 5],
         "float_col": [1.5, 2.5, 3.5, 4.5, 5.5],
+        "big_col": [1e-7, 1.0, 12345.0, 9.87e9, 3.0],
+        "bool_col": [True, False, True, False, True],
         "str_col": ["a", "b", "c", "a", "b"],
     }
 )
@@ -81,7 +83,8 @@ def test_pyarrow_backend_basic():
     raised AttributeError.
     """
     result = make_stats_tbl(MIXED_PA, "num")
-    assert stats_frame(result).shape[0] == 2
+    # int_col, float_col, big_col, bool_col — str_col is not numerical
+    assert stats_frame(result).shape[0] == 4
 
 
 def test_pyarrow_backend_categorical_top_values():
@@ -100,17 +103,43 @@ def test_pyarrow_backend_all_types(capsys):
     "df",
     [pytest.param(MIXED_PD, id="pandas"), pytest.param(MIXED_PA, id="pyarrow")],
 )
-def test_rendering_does_not_depend_on_the_input_backend(capsys, df):
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param({"table_type": "all"}, id="all"),
+        pytest.param({"table_type": "num"}, id="num"),
+        pytest.param({"table_type": "cat"}, id="cat"),
+        pytest.param({"table_type": "num", "quantiles": [0.25, 0.75]}, id="quantiles"),
+        pytest.param(
+            {"table_type": "num", "quantiles": [0.5], "fold_quantiles": False},
+            id="unfolded",
+        ),
+    ],
+)
+def test_rendering_does_not_depend_on_the_input_backend(capsys, df, kwargs):
     """Identical data must print identically whatever frame carries it.
 
-    It did not: pandas input printed int Min/Max as `1.0` and Uniques as
-    `3.00`. Not a rendering bug — reading the aggregate row through pandas'
-    `.iloc[0]` produced a Series of one dtype, so the integer statistics
-    came back as floats before rendering ever saw them.
+    Four separate ways it did not, each caught here rather than by
+    inspection, and each traceable to one backend's idea of how a value
+    becomes text:
+
+    - pandas printed int Min/Max as `1.0` and Uniques as `3.00`, because
+      reading the aggregate row through `.iloc[0]` gave a Series, which
+      has a single dtype.
+    - pyarrow's double-to-string cast drops a trailing `.0`, so `3.0`
+      printed as `3`.
+    - pandas renders a boolean as `True` where polars and pyarrow give
+      `true`.
+    - pyarrow has no `add` kernel for two strings, so building `"1.0E5"`
+      by concatenation raised instead of printing anything at all.
+
+    polars is the reference, since README.md is generated from it — hence
+    comparing against the polars rendering rather than merely checking the
+    two agree with each other.
     """
-    show_stats(df, "all")
+    show_stats(df, **kwargs)
     from_backend = capsys.readouterr().out
-    show_stats(MIXED_PL, "all")
+    show_stats(MIXED_PL, **kwargs)
     assert from_backend == capsys.readouterr().out
 
 

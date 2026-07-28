@@ -26,6 +26,30 @@ def _floor(expr: nw.Expr) -> nw.Expr:
     return expr // 1
 
 
+def _float_as_string(expr: nw.Expr) -> nw.Expr:
+    """String form of a float, with the trailing ".0" kept.
+
+    Arrow's double-to-string cast drops it — 3.0 becomes "3" where polars
+    and pandas give "3.0" — so without this the printed table would depend
+    on which backend happened to hold the number. polars is the reference,
+    because README.md is generated from it.
+
+    Only meaningful for finite values. Infinities and NaN reach a "no
+    decimal point" verdict here too, but every caller resolves those in an
+    earlier branch, so the "inf.0" this would produce is never selected.
+    """
+    text = expr.cast(nw.String)
+    return _branch(
+        (text.str.contains(".", literal=True), text),
+        otherwise=nw.concat_str([text, nw.lit(".0")]),
+    )
+
+
+def _ceil(expr: nw.Expr) -> nw.Expr:
+    """Ceiling, via `_floor`, for the same version reason."""
+    return -((-expr) // 1)
+
+
 def _branch(*cases, otherwise: nw.Expr) -> nw.Expr:
     """A when/then/otherwise chain, written as nesting.
 
@@ -122,11 +146,16 @@ def convert_df_scientific(df, varnames: Iterable[str], thr: int = 4):
             (var.is_nan(), nw.lit("")),
             (~var.is_finite(), _as_string(var)),
             (var == 0, nw.lit("0.0")),
-            (var_exponent <= thr, _as_string(var.round(2))),
-            otherwise=(
-                _as_string((var / (nw.lit(10.0) ** var_exponent)).round(2))
-                + nw.lit("E")
-                + _as_string(var_exponent)
+            (var_exponent <= thr, _float_as_string(var.round(2))),
+            # concat_str rather than `a + "E" + b`: pyarrow has no `add`
+            # kernel for two strings, so the operator form raised
+            # ArrowNotImplementedError there.
+            otherwise=nw.concat_str(
+                [
+                    _float_as_string((var / (nw.lit(10.0) ** var_exponent)).round(2)),
+                    nw.lit("E"),
+                    _as_string(var_exponent),
+                ]
             ),
         ).alias(varname)
         exprs_scient.append(exp_scient)
