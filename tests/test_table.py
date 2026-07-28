@@ -1,9 +1,17 @@
 import warnings
 
+import narwhals as nw
+import pandas as pd
 import polars as pl
+import pyarrow as pa
 import pytest
 
 from showstats._table import _WARNED_ONCE, _Table
+
+
+def as_native(frame):
+    """The backend object behind whatever make_dt returned."""
+    return nw.to_native(nw.from_native(frame))
 
 
 @pytest.fixture(autouse=True)
@@ -17,17 +25,10 @@ def _reset_warning_registry():
 def test_make_dt_num(sample_df):
     _table = _Table(sample_df, "all")
 
-    df_num_float = _table.make_dt("num_float")
-    df_num_int = _table.make_dt("num_int")
-    df_num_bool = _table.make_dt("num_bool")
-    df_datetime = _table.make_dt("datetime")
-    df_date = _table.make_dt("date")
-
-    assert isinstance(df_num_int, pl.LazyFrame)
-    assert isinstance(df_num_float, pl.LazyFrame)
-    assert isinstance(df_num_bool, pl.LazyFrame)
-    assert isinstance(df_date, pl.LazyFrame)
-    assert isinstance(df_datetime, pl.LazyFrame)
+    frames = {
+        var_type: nw.from_native(_table.make_dt(var_type))
+        for var_type in ("num_float", "num_int", "num_bool", "date", "datetime")
+    }
 
     desired_names = [
         "Variable",
@@ -39,40 +40,38 @@ def test_make_dt_num(sample_df):
         "max",
     ]
     desired_dtypes = [
-        pl.String,
-        pl.Int16,
-        pl.String,
-        pl.String,
-        pl.String,
-        pl.String,
-        pl.String,
+        nw.String,
+        nw.Int16,
+        nw.String,
+        nw.String,
+        nw.String,
+        nw.String,
+        nw.String,
     ]
 
-    df_num_float = df_num_float.collect()
-    assert df_num_float.columns == desired_names
-    assert df_num_float.dtypes == desired_dtypes
+    for var_type in ("num_float", "num_int", "num_bool"):
+        frame = frames[var_type]
+        assert frame.columns == desired_names, var_type
+        assert list(frame.schema.values()) == desired_dtypes, var_type
 
-    df_num_int = df_num_int.collect()
-    assert df_num_int.columns == desired_names
-    assert df_num_int.dtypes == desired_dtypes
-
-    df_num_bool = df_num_bool.collect()
-    assert df_num_bool.columns == desired_names
-    assert df_num_bool.dtypes == desired_dtypes
-
-    df_datetime = df_datetime.collect()
-    assert df_datetime.columns == ["Variable", "null_count", "median", "min", "max"]
-    assert df_datetime.dtypes == [pl.String, pl.Int16, pl.String, pl.String, pl.String]
+    for var_type in ("date", "datetime"):
+        frame = frames[var_type]
+        assert frame.columns == ["Variable", "null_count", "median", "min", "max"]
+        assert list(frame.schema.values()) == [
+            nw.String,
+            nw.Int16,
+            nw.String,
+            nw.String,
+            nw.String,
+        ]
 
 
 def test_make_dt_cat(sample_df):
     _table = _Table(sample_df, "cat")
 
-    df_cat = _table.make_dt("cat")
+    df_cat = nw.from_native(_table.make_dt("cat"))
 
-    assert isinstance(df_cat, pl.LazyFrame)
-
-    desired_names = [
+    assert df_cat.columns == [
         "Variable",
         "NA%",
         "Uniques",
@@ -80,11 +79,36 @@ def test_make_dt_cat(sample_df):
         "Top 2",
         "Top 3",
     ]
-    desired_dtypes = [pl.String, pl.Int16, pl.Int64, pl.String, pl.String, pl.String]
+    assert list(df_cat.schema.values()) == [
+        nw.String,
+        nw.Int16,
+        nw.Int64,
+        nw.String,
+        nw.String,
+        nw.String,
+    ]
 
-    df_cat = df_cat.collect()
-    assert df_cat.columns == desired_names
-    assert df_cat.dtypes == desired_dtypes
+
+@pytest.mark.parametrize(
+    ("frame", "native_type"),
+    [
+        pytest.param(pl.DataFrame, pl.DataFrame, id="polars"),
+        pytest.param(pd.DataFrame, pd.DataFrame, id="pandas"),
+        pytest.param(pa.table, pa.Table, id="pyarrow"),
+    ],
+)
+def test_make_dt_follows_the_input_backend(frame, native_type):
+    """The formatted frame is built in the caller's own backend.
+
+    It used to be a `pl.LazyFrame` regardless — the statistics have been
+    plain Python values since `__init__` read them out, so rebuilding them
+    in polars was gratuitous, and it was the last thing forcing polars on
+    a pandas or pyarrow user before rendering.
+    """
+    data = {"int_col": [1, 2, 3, 4, 5], "float_col": [1.5, 2.5, 3.5, 4.5, 5.5]}
+    table = _Table(frame(data), "num")
+    assert isinstance(as_native(table.make_dt("num_int")), native_type)
+    assert isinstance(as_native(table.make_dt("num_float")), native_type)
 
 
 def test_that_statistics_are_correct(sample_df):
