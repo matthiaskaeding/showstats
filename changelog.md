@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Tables are printed by showstats itself rather than by polars' dataframe
+  formatter. The layout is unchanged; two of polars' display behaviours are
+  not reproduced, both listed under Fixed below (#37)
 - **Breaking:** `make_stats_tbl` now returns a frame of the same kind as its
   input — pandas in, pandas out; pyarrow in, pyarrow out — instead of always
   returning a polars DataFrame. Code that called polars methods on the
@@ -30,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Booleans printed as `True`/`False` from a pandas frame and `true`/`false`
   from polars and pyarrow; floats ending in `.0` lost the decimal from a
   pyarrow table. Both now follow the polars rendering (#37)
+- Tables with more than eight columns silently dropped one and printed `…`
+  in its place — so `quantiles=[0.25, 0.5, 0.75]` lost the `Q0` column, and
+  the quantiles example in the README lost `Median`. Every column is now
+  shown (#37)
+- A value wider than the table wrapped onto a second, unaligned line, which
+  is how a datetime median printed. Columns are now sized to their contents,
+  so a wide table is wide rather than misaligned (#37)
 
 ## [0.1.0] - 2026-07-27
 
