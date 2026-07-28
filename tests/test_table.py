@@ -115,7 +115,7 @@ def test_that_statistics_are_correct(sample_df):
     table = _Table(sample_df, "num")
     table.form_stat_df("num")
     stat_df = table.stat_dfs["num"]
-    var_0 = pl.col(stat_df.columns[0])
+    var_0 = nw.col(stat_df.columns[0])
     assert stat_df.filter(var_0 == "float_mean_2").item(0, "Avg") == "2.0"
     assert stat_df.filter(var_0 == "float_std_2").item(0, "SD") == "2.0"
     assert stat_df.filter(var_0 == "float_min_-7").item(0, "Min") == "-7.0"
@@ -141,11 +141,11 @@ def test_top_cols(sample_df):
     name_col_0 = table_top_cols.stat_dfs["num"].columns[0]
     col_0_top_cols = table_top_cols.stat_dfs["num"].get_column(name_col_0)
     col_0_no_top_cols = table_no_top_cols.stat_dfs["num"].get_column(name_col_0)
-    assert col_0_top_cols.equals(col_0_no_top_cols) is False
+    assert col_0_top_cols.to_list() != col_0_no_top_cols.to_list()
     assert sorted(col_0_top_cols.to_list()) == sorted(col_0_no_top_cols.to_list())
 
     assert (
-        table_no_top_cols.stat_dfs["num"].height
+        table_no_top_cols.stat_dfs["num"].shape[0]
         == sample_df.select(
             pl.selectors.exclude(
                 pl.Enum, pl.String, pl.Categorical, pl.Date, pl.Datetime
@@ -190,7 +190,7 @@ def test_char_table():
     _table = _Table(df, "cat")
     _table.form_stat_df("cat")
     stat_df = _table.stat_dfs["cat"]
-    col0 = pl.col(stat_df.columns[0])
+    col0 = nw.col(stat_df.columns[0])
 
     assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "NA%") == 0
     assert _table.stat_dfs["cat"].filter(col0 == "x1").item(0, "Uniques") == 1
@@ -236,7 +236,7 @@ def test_quantiles(sample_df):
     assert "Q10" in stat_df.columns
     assert "Q90" in stat_df.columns
 
-    var_0 = pl.col(stat_df.columns[0])
+    var_0 = nw.col(stat_df.columns[0])
     q10 = float(stat_df.filter(var_0 == "int_col").item(0, "Q10"))
     q90 = float(stat_df.filter(var_0 == "int_col").item(0, "Q90"))
     assert q10 < q90
