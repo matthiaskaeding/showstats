@@ -1,10 +1,60 @@
 from __future__ import annotations
 
+import math
 from typing import Iterable
 
 import narwhals as nw
 
 NAN = float("nan")
+
+TABLE_WIDTH = 80
+
+
+def _cell_text(value) -> str:
+    """One cell as it should print.
+
+    Missing shows as blank rather than "None" or "nan" — which of those a
+    null turns into depends on the backend, and neither belongs in a
+    summary table.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, float) and math.isnan(value):
+        return ""
+    return str(value)
+
+
+def render_table(frame: nw.DataFrame) -> str:
+    """Render a frame as the fixed-width, left-aligned table showstats prints.
+
+    This replaces printing through `pl.Config`, which is what tied the
+    output to polars. The layout it produces is the one the goldens in
+    tests/test_golden_output.py captured from that renderer: a leading
+    space, cells padded to the widest entry in their column, two spaces
+    between columns, one trailing space.
+
+    Two of polars' behaviours are deliberately not reproduced, because
+    both lose information:
+
+    - polars prints at most 8 columns and replaces the rest with "…",
+      whatever the width. Nine columns is `quantiles=[0.25, 0.5, 0.75]`,
+      so asking for a few quantiles silently dropped the Q0 column.
+    - polars wraps a cell wider than the table onto a second, unaligned
+      line. Every column is shown in full here instead; a table wider
+      than 80 characters is wider than 80 characters.
+    """
+    columns = frame.columns
+    rows = [[_cell_text(value) for value in row] for row in frame.rows()]
+    widths = [
+        max(len(name), *(len(row[i]) for row in rows)) if rows else len(name)
+        for i, name in enumerate(columns)
+    ]
+
+    def line(cells) -> str:
+        padded = "  ".join(cell.ljust(width) for cell, width in zip(cells, widths))
+        return f" {padded} "
+
+    return "\n".join([line(columns), *(line(row) for row in rows)]) + "\n"
 
 
 def _as_string(expr: nw.Expr) -> nw.Expr:
