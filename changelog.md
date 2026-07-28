@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** `make_stats_tbl` now returns a frame of the same kind as its
+  input — pandas in, pandas out; pyarrow in, pyarrow out — instead of always
+  returning a polars DataFrame. Code that called polars methods on the
+  result of a non-polars input needs updating (#37)
 - Minimum `narwhals` raised from 1.0.0 to 1.40.0, which is where
   `Expr.log` arrived. The old floor was never checked against anything —
   see #78, the suite in fact needs 2.0.0 for the pandas backend (#37)
