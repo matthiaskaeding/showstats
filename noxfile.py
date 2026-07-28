@@ -16,7 +16,7 @@ def test(session):
         "polars>=0.20.21",
         "pandas>=1.5.3",
         "pyarrow>=10.0.0",
-        "narwhals>=1.0.0",
+        "narwhals>=1.40.0",
     )
 
     session.run("pytest", "tests/")
@@ -31,6 +31,6 @@ def test_polars_versions(session, polars_version, pandas_version):
         f"polars=={polars_version}",
         f"pandas>={pandas_version}",
         "pyarrow>=10.0.0",
-        "narwhals>=1.0.0",
+        "narwhals>=1.40.0",
     )
     session.run("pytest", "tests/")

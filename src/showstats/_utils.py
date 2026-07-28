@@ -96,8 +96,13 @@ def _float_as_string(expr: nw.Expr) -> nw.Expr:
 
 
 def _ceil(expr: nw.Expr) -> nw.Expr:
-    """Ceiling, via `_floor`, for the same version reason."""
-    return -((-expr) // 1)
+    """Ceiling, as `-floor(-x)`, for the same version reason as `_floor`.
+
+    Written with `* -1` rather than unary `-`: narwhals only gave `Expr` a
+    `__neg__` recently, and on Python 3.9 the newest resolvable narwhals
+    does not have it (#78).
+    """
+    return ((expr * -1) // 1) * -1
 
 
 def _branch(*cases, otherwise: nw.Expr) -> nw.Expr:

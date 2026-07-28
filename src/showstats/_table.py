@@ -468,6 +468,7 @@ class _Table:
                 nw.col("max").alias("Max"),
             )
 
+        row_order = None
         if self.top_cols is not None:  # Put top_cols at front
             all_columns_in_order = []
             for vt in self.vars_map:
@@ -475,24 +476,18 @@ class _Table:
             new_order = self.top_cols + [
                 var for var in all_columns_in_order if var not in self.top_cols
             ]
-            # The polars version cast the column to pl.Enum(new_order) and
-            # sorted on it, letting the categorical ordering do the work.
-            # narwhals has no equivalent, so the rank is made explicit: map
-            # each name to its position, sort by that, drop it again. Same
-            # result, and it no longer depends on the name column being of
-            # a particular dtype afterwards.
-            rank = "____ORDER____"
-            stat_df = (
-                stat_df.with_columns(
-                    nw.col(name_var)
-                    .replace_strict(
-                        new_order, list(range(len(new_order))), return_dtype=nw.Int32
-                    )
-                    .alias(rank)
-                )
-                .sort(rank)
-                .drop(rank)
-            )
+            # The polars version cast the name column to pl.Enum(new_order)
+            # and sorted on it, letting the categorical ordering do the
+            # work. narwhals has no equivalent, and its nearest thing,
+            # replace_strict, needs polars >= 1 — which would put a floor on
+            # a library that is no longer even required. So the permutation
+            # is worked out in Python and applied to the rebuild below,
+            # which materialises the table anyway. Computed before the
+            # truncation on the next line, since a truncated name would no
+            # longer match its entry in new_order.
+            position = {name: i for i, name in enumerate(new_order)}
+            names = stat_df[name_var].to_list()
+            row_order = sorted(range(len(names)), key=lambda i: position[names[i]])
 
         stat_df = stat_df.with_columns(
             _truncate_long_strings(nw.col(name_var).cast(nw.String)).alias(name_var)
@@ -502,10 +497,13 @@ class _Table:
         # subframe's own index through a vertical concat, so the assembled
         # table came back indexed (0, 0, 0) — three rows all addressed as
         # row 0. Cheap: one row per column of the input.
+        columns = {name: stat_df[name].to_list() for name in stat_df.columns}
+        if row_order is not None:
+            columns = {
+                name: [values[i] for i in row_order] for name, values in columns.items()
+            }
         self.stat_dfs[table_type] = nw.from_dict(
-            {name: stat_df[name].to_list() for name in stat_df.columns},
-            schema=stat_df.schema,
-            backend=self.backend,
+            columns, schema=stat_df.schema, backend=self.backend
         )
 
     def show_one_table(self, table_type):
