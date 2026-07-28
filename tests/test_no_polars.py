@@ -14,13 +14,24 @@ before showstats is imported at all.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 import polars as pl
 
+import showstats
 from tests import _golden
+
+# Where the subprocess should look for showstats. `pythonpath = ["src"]` in
+# pyproject.toml only applies to the pytest process itself, and `uv run`
+# installs the project editable — neither reaches a bare `python -c`, so
+# under `nox`, which does neither, the subprocess could not import
+# showstats at all. Taking the path from the module this process imported
+# works however the environment was put together.
+_IMPORT_ROOT = str(Path(showstats.__file__).resolve().parent.parent)
 
 MIXED_PL = pl.DataFrame(
     {
@@ -51,11 +62,16 @@ def run_without_polars(body: str) -> subprocess.CompletedProcess:
         sys.meta_path.insert(0, NoPolars())
         assert "polars" not in sys.modules
     """) + textwrap.dedent(body)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        [_IMPORT_ROOT, *([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])]
+    )
     return subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
 

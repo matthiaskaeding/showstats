@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** `polars` is no longer a dependency. `narwhals` is the only
+  one — statistics, formatting, table assembly and printing all go through
+  it, so showstats adds nothing to whichever dataframe library you already
+  have. Installing showstats no longer pulls polars in; if you want it,
+  `pip install showstats[polars]` (#37, #42)
 - Tables are printed by showstats itself rather than by polars' dataframe
   formatter. The layout is unchanged; two of polars' display behaviours are
   not reproduced, both listed under Fixed below (#37)
@@ -17,8 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   returning a polars DataFrame. Code that called polars methods on the
   result of a non-polars input needs updating (#37)
 - Minimum `narwhals` raised from 1.0.0 to 1.40.0, which is where
-  `Expr.log` arrived. The old floor was never checked against anything —
-  see #78, the suite in fact needs 2.0.0 for the pandas backend (#37)
+  `Expr.log` arrived. The old floor was never checked against anything;
+  the whole `noxfile.py` matrix — Python 3.8 to 3.12, polars 0.20.21 and
+  1.4.1 — now passes, where the 3.8 and 3.9 legs did not before. See #78
+  for the remaining tension between `requires-python` and narwhals (#37)
 
 ### Fixed
 
