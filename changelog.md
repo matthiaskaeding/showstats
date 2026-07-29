@@ -49,6 +49,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `60.00000000000001` for 6 of 10, so a column exactly 60% missing was
   reported as 61%. Multiplying before dividing is exact — checked over every
   count/rows pair up to 60 rows on all three backends (#37)
+- The median of a date or datetime column containing nulls was wrong on the
+  pandas backend. pandas represents a missing timestamp as `NaT`, and
+  casting that to an integer gives the int64 minimum rather than null, so
+  the missing rows joined the median as enormous negative numbers — two
+  nulls alongside 2020-01-01, 2020-06-01 and 2020-12-01 reported a median
+  of 2020-01-01. Not blank, simply wrong (#37)
+- `Uniques` counted null as a distinct value, so a column of `a`, `b` and
+  two nulls read as three uniques with only two ever listed beside it —
+  disagreeing with both `NA%` and the `Top N` columns, which treat null as
+  missing (#37)
+- A pandas categorical or enum column padded its `Top N` columns with
+  categories it does not actually contain, at 0%: a column holding only
+  `alpha` listed `alpha (67%)`, `beta (0%)`, `gamma (0%)` (#37)
+- A frame holding a `Decimal` column beside an ordinary float column raised
+  `TypeError: unexpected value while building Series of type Decimal(38, 2)`.
+  Decimal columns are now summarised as floats. A Decimal column on its own
+  always worked, which is why this went unnoticed (#37)
+- `show_stats(df)` printed absolute silence when no column had a dtype
+  showstats summarises, rather than saying so as every other table type
+  does (#37)
 - `Min` and `Max` of an all-null integer or boolean column came back as null
   from `make_stats_tbl` where the equivalent float column gives `""`. Both
   printed blank either way (#37)

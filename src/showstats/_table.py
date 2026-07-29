@@ -150,8 +150,16 @@ def _median_expr(var: str, dtype) -> nw.Expr:
     back produces the same answer on every backend — for datetimes the cast
     goes through the column's own dtype, so the time unit round-trips
     correctly rather than being assumed.
+
+    Nulls are dropped before the cast, not left to median() to ignore.
+    pandas represents a missing datetime as NaT, and casting that to Int64
+    gives the int64 minimum rather than null — so the missing rows joined
+    the median as enormous negative numbers, and a column of two nulls and
+    the dates 2020-01-01, 2020-06-01, 2020-12-01 reported its median as
+    2020-01-01. Not blank; simply wrong, and plausible enough to go
+    unnoticed.
     """
-    col = nw.col(var)
+    col = nw.col(var).drop_nulls()
     if dtype == nw.Boolean:
         return col.cast(nw.Int8).median()
     if dtype == nw.Date or dtype == nw.Datetime or str(dtype).startswith("Datetime"):
@@ -245,6 +253,17 @@ class _Table:
                 funs_map[var_type] = funs_vt
                 stat_names_map[var_type] = []
         self.funs_map = funs_map
+        # Decimal columns are summarised as floats. Their statistics come
+        # back as Decimals otherwise, and a frame holding a Decimal column
+        # beside an ordinary float one then built a mixed list of Decimal
+        # and float — which nw.from_dict rejects: "unexpected value while
+        # building Series of type Decimal(38, 2); found value of type
+        # Float64". A Decimal alone worked, which is why it went unnoticed.
+        df = df.with_columns(
+            nw.col(name).cast(nw.Float64)
+            for name, dtype in df.schema.items()
+            if dtype == nw.Decimal
+        )
         schema = df.schema
         expressions = []
         sep = "____"
@@ -268,6 +287,14 @@ class _Table:
                         expr = _median_expr(var, schema[var]).alias(stat_name)
                     elif function == "std":
                         expr = _std_expr(var, schema[var]).alias(stat_name)
+                    elif function == "n_unique":
+                        # Nulls dropped first: they are already reported as
+                        # NA%, and the Top N columns beside this one count
+                        # only real values — so leaving them in made
+                        # Uniques disagree with both of its neighbours. A
+                        # column of "a", "b" and two nulls read as three
+                        # uniques with only two ever listed.
+                        expr = nw.col(var).drop_nulls().n_unique().alias(stat_name)
                     else:
                         expr = getattr(nw.col(var), function)().alias(stat_name)
                     expressions.append(expr)
@@ -295,9 +322,17 @@ class _Table:
             # pandas loop that had to agree with each other by inspection.
             # The frames it yields are already named [<column>, "count"],
             # which is the shape make_dt reads.
+            #
+            # Counts of zero are dropped: a pandas Categorical remembers
+            # every category it was declared with, and value_counts reports
+            # the unobserved ones at 0. An enum column holding one value
+            # therefore listed "alpha (67%)", "beta (0%)", "gamma (0%)" as
+            # its top three, and an all-null one listed its whole
+            # vocabulary. polars reports only what is present.
             for var in vars_map["cat"]:
                 counts = df[var].drop_nulls().value_counts(sort=True)
-                stats[f"top_3{sep}{var}"] = counts.rows(named=True)[:3]
+                observed = [row for row in counts.rows(named=True) if row["count"] > 0]
+                stats[f"top_3{sep}{var}"] = observed[:3]
         self.stat_names_map = stat_names_map
         self.stats = stats
         self.vars_map = vars_map
@@ -554,6 +589,14 @@ class _Table:
                 self.print_header(self.type)
                 self.show_one_table(self.type)
         elif self.type == "all":
+            if not self.stat_dfs:
+                # Every other branch says why it has nothing to show; this
+                # one printed absolute silence, which reads as a hang or a
+                # swallowed exception. Reachable whenever no column has a
+                # dtype showstats summarises — a frame of pandas `object`
+                # columns, say.
+                print("No summarisable columns found")
+                return
             for type_ in ["time", "num", "cat"]:
                 if type_ in self.stat_dfs:
                     self.print_header(type_)
