@@ -76,9 +76,18 @@ EPOCH = dt.date(1970, 1, 1)
 
 
 def _ints(bits: int, signed: bool):
+    """Every value the width can hold, except uint64 above int64's range.
+
+    A uint64 over 2**63 - 1 does not fit numpy's int64, and the pinned old
+    stack in `noxfile.py` (polars 1.4.1 with pandas 1.5.3) raises
+    `OverflowError: Python int too large to convert to C long` on it.
+    Current polars and pandas handle it — `18446744073709551615` prints
+    fine — so this is the old stack's limit, not showstats', and the
+    generator stops short of it rather than the matrix being narrowed.
+    """
     if signed:
         return st.integers(min_value=-(2 ** (bits - 1)), max_value=2 ** (bits - 1) - 1)
-    return st.integers(min_value=0, max_value=2**bits - 1)
+    return st.integers(min_value=0, max_value=min(2**bits, 2**63) - 1)
 
 
 def _decimals():

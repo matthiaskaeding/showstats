@@ -141,6 +141,18 @@ def _truncate_long_strings(expr: nw.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> n
     )
 
 
+def _blank_where_missing(name: str, rendered: nw.Expr) -> nw.Expr:
+    """`rendered`, or blank wherever the underlying value is missing.
+
+    Asked of the value rather than of its rendering, because backends
+    disagree about what a missing value looks like once it is a string.
+    pandas 1.5 casts `NaT` to the literal `"NaT"` while newer pandas gives
+    null, so a `fill_null` after the cast blanked an all-null date column
+    on one version and printed `NaT` on the other.
+    """
+    return _branch((nw.col(name).is_null(), nw.lit("")), otherwise=rendered)
+
+
 def _median_expr(var: str, dtype) -> nw.Expr:
     """Median of a column, for dtypes some backends refuse to take it on.
 
@@ -395,16 +407,23 @@ class _Table:
                 # the table. Casting a null to String leaves it null, so this
                 # one branch was handing back None where the float branch,
                 # which goes through convert_df_scientific, gives "".
-                nw.col("min", "max").cast(nw.String).str.to_lowercase().fill_null("")
+                *(
+                    _blank_where_missing(
+                        name, nw.col(name).cast(nw.String).str.to_lowercase()
+                    ).alias(name)
+                    for name in ("min", "max")
+                )
             )
         elif var_type == "date" or var_type == "datetime":
             df = df.select(
                 "Variable",
                 "null_count",
-                nw.col("median", "min", "max")
-                .cast(nw.String)
-                .str.slice(0, 19)
-                .fill_null(""),
+                *(
+                    _blank_where_missing(
+                        name, nw.col(name).cast(nw.String).str.slice(0, 19)
+                    ).alias(name)
+                    for name in ("median", "min", "max")
+                ),
             )
         elif var_type == "null":
             df = df.with_columns(

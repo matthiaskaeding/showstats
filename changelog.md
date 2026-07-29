@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TypeError: unexpected value while building Series of type Decimal(38, 2)`.
   Decimal columns are now summarised as floats. A Decimal column on its own
   always worked, which is why this went unnoticed (#37)
+- An all-null date or datetime column printed the literal `NaT` as its
+  median on pandas 1.5, where newer pandas printed blank. Whether a
+  statistic is missing is now decided from the value rather than from what
+  the backend renders it as (#37)
 - `show_stats(df)` printed absolute silence when no column had a dtype
   showstats summarises, rather than saying so as every other table type
   does (#37)
