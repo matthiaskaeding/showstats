@@ -38,6 +38,7 @@ polars = ["polars>=0.20.21"]
 dev = [
   "build>=1.2.1",
   "hatchling>=1.25.0",
+  "hypothesis>=6.113.0",
   "jupyter>=1.0.0",
   "narwhals>=1.40.0",
   "nbclient==0.10.0",
