@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in its place — so `quantiles=[0.25, 0.5, 0.75]` lost the `Q0` column, and
   the quantiles example in the README lost `Median`. Every column is now
   shown (#37)
+- `NA%` could be one percentage point too high: the missing share was
+  computed as `count / rows * 100`, which polars evaluates as
+  `60.00000000000001` for 6 of 10, so a column exactly 60% missing was
+  reported as 61%. Multiplying before dividing is exact — checked over every
+  count/rows pair up to 60 rows on all three backends (#37)
+- `Min` and `Max` of an all-null integer or boolean column came back as null
+  from `make_stats_tbl` where the equivalent float column gives `""`. Both
+  printed blank either way (#37)
 - A value wider than the table wrapped onto a second, unaligned line, which
   is how a datetime median printed. Columns are now sized to their contents,
   so a wide table is wide rather than misaligned (#37)

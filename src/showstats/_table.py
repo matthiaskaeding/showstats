@@ -331,8 +331,14 @@ class _Table:
             data.update(top_cols)
 
         df = nw.from_dict(data, backend=self.backend)
+        # Multiplied before dividing, which is not a stylistic choice: the
+        # other order rounds twice, and polars evaluates `count / rows * 100`
+        # for 6 of 10 as 60.00000000000001, so a column exactly 60% missing
+        # was reported as 61%. Checked exhaustively over every count/rows
+        # pair up to 60 rows on all three backends — 35 wrong answers this
+        # way round, none the other.
         df = df.with_columns(
-            _ceil(nw.col("null_count") / self.num_rows * 100).cast(nw.Int16)
+            _ceil(nw.col("null_count") * 100 / self.num_rows).cast(nw.Int16)
         )
 
         # Some special cases
@@ -342,18 +348,28 @@ class _Table:
             )
         elif var_type in ("num_int", "num_bool"):
             df = convert_df_scientific(
-                df,
-                ["mean", "median", "std"] + self.quantile_stat_names,
+                df, ["mean", "median", "std"] + self.quantile_stat_names
+            ).with_columns(
                 # Lowercased because pandas renders a boolean as "True" where
                 # polars and pyarrow give "true", and the printed table must
                 # not depend on which backend held the value. A no-op on the
                 # integers that share this branch.
-            ).with_columns(nw.col("min", "max").cast(nw.String).str.to_lowercase())
+                #
+                # fill_null because a statistic that does not exist — the
+                # minimum of an all-null column — is blank everywhere else in
+                # the table. Casting a null to String leaves it null, so this
+                # one branch was handing back None where the float branch,
+                # which goes through convert_df_scientific, gives "".
+                nw.col("min", "max").cast(nw.String).str.to_lowercase().fill_null("")
+            )
         elif var_type == "date" or var_type == "datetime":
             df = df.select(
                 "Variable",
                 "null_count",
-                nw.col("median", "min", "max").cast(nw.String).str.slice(0, 19),
+                nw.col("median", "min", "max")
+                .cast(nw.String)
+                .str.slice(0, 19)
+                .fill_null(""),
             )
         elif var_type == "null":
             df = df.with_columns(
