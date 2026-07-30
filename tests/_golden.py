@@ -31,10 +31,9 @@ CAT = (
 
 TIME = (
     "-Date and datetime columns------------------------------------------------------\n"
-    " Col (N=5)     NA%  Median      Min                  Max                 \n"
-    " date_col      0    2020-01-03  2020-01-01           2020-01-05          \n"
-    " datetime_col  0    2020-01-03  2020-01-01 12:30:15  2020-01-05 12:30:15 \n"
-    "                    12:30:15                                             \n"
+    " Col (N=5)     NA%  Median               Min                  Max                 \n"
+    " date_col      0    2020-01-03           2020-01-01           2020-01-05          \n"
+    " datetime_col  0    2020-01-03 12:30:15  2020-01-01 12:30:15  2020-01-05 12:30:15 \n"
 )
 
 ALL = (
@@ -78,10 +77,10 @@ BIG_N = (
 
 QUANTILES_FOLDED = (
     "-Numerical columns--------------------------------------------------------------\n"
-    " Col (N=5)  NA%  Avg  SD    …  Q25   Q50  Q75   Q100 \n"
-    " float_col  0    3.5  1.58  …  2.5   3.5  4.5   5.5  \n"
-    " int_col    20   2.5  1.29  …  1.75  2.5  3.25  4    \n"
-    " bool_col   0    0.6  0.55  …  0.0   1.0  1.0   true \n"
+    " Col (N=5)  NA%  Avg  SD    Q0     Q25   Q50  Q75   Q100 \n"
+    " float_col  0    3.5  1.58  1.5    2.5   3.5  4.5   5.5  \n"
+    " int_col    20   2.5  1.29  1      1.75  2.5  3.25  4    \n"
+    " bool_col   0    0.6  0.55  false  0.0   1.0  1.0   true \n"
 )
 
 QUANTILES_UNFOLDED = (

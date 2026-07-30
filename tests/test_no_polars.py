@@ -1,18 +1,15 @@
-"""The behaviour #37 is aiming at, declared up front and expected to fail.
+"""showstats works with no polars installed at all.
 
-Every test here is `@pytest.mark.rewrite` + a strict xfail: it describes
-something the narwhals migration is supposed to make true and that is not
-true yet. `xfail_strict = true` turns each one into a ratchet — the moment a
-slice makes one pass, the build fails until its markers are removed. So the
-markers cannot rot, and `make burndown` is an honest count of what is left.
+This is what #37 was for. `_table.py` imported polars at module scope and
+printed through `pl.Config`, so polars was a hard runtime dependency even
+for someone whose data was in pandas — installing showstats meant
+installing a second dataframe library to render a summary of the first.
 
-Tests are grouped by the implementation slice that should retire them, in
-the order the slices land. Nothing here is marked `integration`: CI
-deselects that marker, and hiding a rewrite test from CI would defeat the
-whole arrangement.
-
-Behaviour that already works is *not* here — it lives in the ordinary test
-files, and in `test_golden_output.py`, as the regression net.
+The check is a subprocess with an import blocker on `sys.meta_path`, not
+`monkeypatch.setitem(sys.modules, ...)`: by the time a test runs both
+showstats and polars are already imported, so an in-process block would
+only prove the cached modules still work. The finder has to be installed
+before showstats is imported at all.
 """
 
 from __future__ import annotations
@@ -22,18 +19,9 @@ import sys
 import textwrap
 
 import polars as pl
-import pytest
 
-from showstats.showstats import show_stats
 from tests import _golden
 
-pytestmark = pytest.mark.rewrite
-
-# The same data in three backends. Going through polars' own converters
-# keeps the dtypes corresponding — a hand-built pandas frame would differ in
-# ways that have nothing to do with the rewrite (int64 vs float64 for a
-# column with nulls, say), and the tests would then be measuring the
-# conversion rather than showstats.
 MIXED_PL = pl.DataFrame(
     {
         "int_col": [1, 2, 3, 4, 5],
@@ -41,13 +29,6 @@ MIXED_PL = pl.DataFrame(
         "str_col": ["a", "b", "c", "a", "b"],
     }
 )
-MIXED_PD = MIXED_PL.to_pandas()
-MIXED_PA = MIXED_PL.to_arrow()
-
-
-def render(capsys, df, **kwargs) -> str:
-    show_stats(df, **kwargs)
-    return capsys.readouterr().out
 
 
 def run_without_polars(body: str) -> subprocess.CompletedProcess:
@@ -92,23 +73,7 @@ def run_without_polars(body: str) -> subprocess.CompletedProcess:
 # Slice 4 — _Table.form_stat_df and the return type — is done. Its tests
 # now pass, so they have moved to test_make_tbl.py.
 
-# --------------------------------------------------------------------------
-# Slice 5 — _Table.show_one_table
-#
-# Printing goes through pl.Config, so there is no polars-free path to the
-# output at all: polars stops being importable-or-bust only once this
-# lands.
-#
-# Rendering no longer varies by input backend — that turned out to belong
-# to slice 1 rather than here, and its test now lives in test_backends.py.
-#
-# Which rendering wins is not open: the polars one, because README.md is
-# generated from it and is pinned in test_golden_output.py. So the last
-# test below compares against the golden, not merely against itself.
-# --------------------------------------------------------------------------
 
-
-@pytest.mark.xfail(strict=True, reason="#37: showstats._table imports polars at import")
 def test_showstats_imports_without_polars():
     result = run_without_polars("""
         import showstats
@@ -119,7 +84,6 @@ def test_showstats_imports_without_polars():
     assert "ok" in result.stdout
 
 
-@pytest.mark.xfail(strict=True, reason="#37: rendering goes through pl.Config")
 def test_show_stats_renders_without_polars():
     result = run_without_polars(f"""
         import pandas as pd
@@ -133,9 +97,6 @@ def test_show_stats_renders_without_polars():
     assert "int_col" in result.stdout
 
 
-@pytest.mark.xfail(
-    strict=True, reason="#37: form_stat_df needs polars to build a frame"
-)
 def test_make_stats_tbl_works_without_polars():
     result = run_without_polars(f"""
         import pandas as pd
@@ -151,12 +112,6 @@ def test_make_stats_tbl_works_without_polars():
     assert "ok" in result.stdout
 
 
-# --------------------------------------------------------------------------
-# The finish line — what "#37 is done" means, in one test.
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(strict=True, reason="#37: polars is still a hard runtime dependency")
 def test_the_readme_table_renders_without_polars():
     """The whole point, end to end: the documented output, no polars.
 

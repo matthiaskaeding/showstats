@@ -128,12 +128,25 @@ def test_rendered_output_matches_golden(capsys, expected, df, kwargs):
     assert render(capsys, df, **kwargs) == expected
 
 
-def test_every_golden_line_fits_the_configured_width(capsys):
-    """80 chars is the configured table width, and README.md relies on it.
+def test_every_row_of_a_table_is_the_same_width(capsys):
+    """Alignment, checked as an invariant rather than only in snapshots.
 
-    Checked as an invariant as well as inside the snapshots, so a golden
-    that is updated carelessly still cannot smuggle in a wider table.
+    Every line of one table must be exactly as wide as its header row —
+    that is what "aligned columns" means, and it is the property a careless
+    golden update is most likely to break. The `-Section----` rules are
+    their own fixed 80 wide and are excluded.
+
+    Not an 80-character cap: a table only as wide as its content is the
+    point of the hand-written formatter. The old renderer wrapped anything
+    wider onto a second, unaligned line, which is what this now forbids.
     """
     for name, _expected, df, kwargs in CASES:
+        table = None
         for line in render(capsys, df, **kwargs).splitlines():
-            assert len(line) <= 80, f"{name}: {len(line)} chars: {line!r}"
+            if line.startswith("-"):
+                assert len(line) == 80, f"{name}: rule is {len(line)} chars"
+                table = None
+                continue
+            if table is None:
+                table = len(line)
+            assert len(line) == table, f"{name}: {len(line)} vs {table}: {line!r}"

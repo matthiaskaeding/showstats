@@ -4,10 +4,15 @@ import warnings
 from typing import Iterable, Literal
 
 import narwhals as nw
-import polars as pl
 from narwhals.typing import IntoDataFrame
 
-from showstats._utils import _branch, _ceil, convert_df_scientific
+from showstats._utils import (
+    TABLE_WIDTH,
+    _branch,
+    _ceil,
+    convert_df_scientific,
+    render_table,
+)
 
 # The table types show_stats/make_stats_tbl accept. Runtime validation reads
 # the members off this alias via get_args, so the two cannot drift apart.
@@ -505,29 +510,7 @@ class _Table:
 
     def show_one_table(self, table_type):
         if table_type in self.stat_dfs:
-            # Temporary seam: the table is assembled in the caller's own
-            # backend now, but printing is still pl.Config, and there is no
-            # narwhals renderer to hand it to. Arrow is the one exchange
-            # format every narwhals backend can produce, and every column
-            # here is a string or an Int16, so the round-trip is faithful.
-            # Slice 5 of #37 replaces the printing and removes this.
-            frame = self.stat_dfs[table_type]
-            # select() rather than the bare conversion: a pandas frame
-            # carries its index into Arrow as __index_level_0__, which
-            # would print as an extra column.
-            printable = pl.from_arrow(frame.to_arrow()).select(frame.columns)
-            with pl.Config(
-                tbl_hide_dataframe_shape=True,
-                tbl_formatting="NOTHING",
-                tbl_hide_column_data_types=True,
-                float_precision=2,
-                fmt_str_lengths=100,
-                tbl_rows=-1,
-                tbl_cell_alignment="LEFT",
-                set_fmt_float="full",
-                set_tbl_width_chars=80,
-            ):
-                print(printable)
+            print(render_table(self.stat_dfs[table_type]), end="")
         else:
             if table_type == "num":
                 print("No numerical columns found")
@@ -541,7 +524,7 @@ class _Table:
             lhs = "-Categorical columns"
         elif type_ == "num":
             lhs = "-Numerical columns"
-        rhs = "-" * (80 - len(lhs))
+        rhs = "-" * (TABLE_WIDTH - len(lhs))
         print(f"{lhs}{rhs}")
 
     def show(self):
