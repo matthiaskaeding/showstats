@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from decimal import Decimal
 from typing import Iterable, Literal
 
 import narwhals as nw
@@ -467,18 +468,21 @@ class _Table:
         """
         Makes the final data frame
         """
-        from decimal import Decimal
-
         if table_type == "all":
             self.form_stat_df("time")
             self.form_stat_df("num")
             self.form_stat_df("cat")
             return
 
-        if self.num_rows < 100_000:
-            name_var = f"Col (N={self.num_rows})"
-        else:
-            name_var = f"Col (N={Decimal(self.num_rows):.2E})"
+        # Just "Col". The row count used to live here, and since it is
+        # usually wider than the variable names it padded every row of the
+        # first column out to its own length — 12 characters of "Col
+        # (N=1461)" against a 7-character "weather". It moved to the
+        # section rule, which is 80 characters of dashes with room to
+        # spare (#75). A side benefit: this column's name no longer
+        # changes with the row count, so callers of make_stats_tbl can
+        # address it by name.
+        name_var = "Col"
         subdfs = []
 
         for var_type in _map_table_type_to_var_types(table_type):
@@ -499,7 +503,6 @@ class _Table:
                     [] if 0.5 in self.quantiles else [nw.col("median").alias("Median")]
                 )
                 tail_cols = [
-                    *median_col,
                     nw.col("min").alias("Q0"),
                     *(
                         nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
@@ -511,8 +514,8 @@ class _Table:
                 # Named stats keep their names; any requested quantiles are
                 # appended alongside them. Min and Max sit last: they are the
                 # extremes, so the central statistics come first.
+                median_col = [nw.col("median").alias("Median")]
                 tail_cols = [
-                    nw.col("median").alias("Median"),
                     *(
                         nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
                         for q in (self.quantiles or [])
@@ -520,10 +523,14 @@ class _Table:
                     nw.col("min").alias("Min"),
                     nw.col("max").alias("Max"),
                 ]
+            # Avg, Median, SD, then the extremes (#74): the two measures of
+            # location sit together, with the spread beside them, rather
+            # than SD splitting them apart.
             stat_df = stat_df.select(
                 nw.col("Variable").alias(name_var),
                 nw.col("null_count").alias("NA%"),
                 nw.col("mean").alias("Avg"),
+                *median_col,
                 nw.col("std").alias("SD"),
                 *tail_cols,
             )
@@ -585,13 +592,24 @@ class _Table:
             elif table_type == "cat":
                 print("No categorical columns found")
 
+    def row_count(self) -> str:
+        """The row count as the header shows it.
+
+        Scientific past 100,000, where the exact figure is noise and the
+        digits would only widen the line.
+        """
+        if self.num_rows < 100_000:
+            return str(self.num_rows)
+        return f"{Decimal(self.num_rows):.2E}"
+
     def print_header(self, type_):
         if type_ == "time":
-            lhs = "-Date and datetime columns"
+            name = "Date and datetime columns"
         elif type_ == "cat":
-            lhs = "-Categorical columns"
+            name = "Categorical columns"
         elif type_ == "num":
-            lhs = "-Numerical columns"
+            name = "Numerical columns"
+        lhs = f"-{name} (N={self.row_count()})"
         rhs = "-" * (TABLE_WIDTH - len(lhs))
         print(f"{lhs}{rhs}")
 

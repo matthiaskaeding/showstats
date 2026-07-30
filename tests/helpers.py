@@ -26,6 +26,8 @@ def row_for(result, variable: str) -> nw.DataFrame:
 
     The first column holds the variable names but is titled with the row count
     (``Col (N=10)``), so it is addressed by position rather than by name.
+    Since #75 that column is simply ``Col``, but addressing it by position
+    keeps these helpers indifferent to the name.
     """
     frame = stats_frame(result)
     return frame.filter(nw.col(frame.columns[0]) == variable)

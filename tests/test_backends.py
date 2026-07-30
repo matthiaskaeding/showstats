@@ -161,9 +161,7 @@ def test_polars_vs_pandas_numeric_stats():
     assert stats_frame(result_polars).shape == stats_frame(result_pandas).shape
 
     # Variable names should be the same
-    assert (
-        result_polars["Col (N=10)"].to_list() == result_pandas["Col (N=10)"].to_list()
-    )
+    assert result_polars["Col"].to_list() == result_pandas["Col"].to_list()
 
     # NA% should be the same (both 0)
     assert result_polars["NA%"].to_list() == result_pandas["NA%"].to_list()
@@ -190,9 +188,7 @@ def test_polars_vs_pandas_categorical_stats():
     assert stats_frame(result_polars).shape == stats_frame(result_pandas).shape
 
     # Variable names should be the same
-    assert (
-        result_polars["Col (N=10)"].to_list() == result_pandas["Col (N=10)"].to_list()
-    )
+    assert result_polars["Col"].to_list() == result_pandas["Col"].to_list()
 
     # Number of uniques should be the same
     assert result_polars["Uniques"].to_list() == result_pandas["Uniques"].to_list()
@@ -252,8 +248,8 @@ def test_polars_backend_datetime():
     # Should have 2 rows (date_col and datetime_col)
     assert stats_frame(result).shape[0] == 2
 
-    # Should have columns: Col (N=10), NA%, Min, Max, Median
-    assert "Col (N=10)" in stats_frame(result).columns
+    # Should have columns: Col, NA%, Min, Max, Median
+    assert "Col" in stats_frame(result).columns
     assert "NA%" in stats_frame(result).columns
     assert "Min" in stats_frame(result).columns
     assert "Max" in stats_frame(result).columns
@@ -304,7 +300,7 @@ def test_polars_backend_boolean():
     assert stats_frame(result).shape[0] == 2
 
     # bool_col should be included
-    assert "bool_col" in result["Col (N=10)"].to_list()
+    assert "bool_col" in result["Col"].to_list()
 
 
 def test_pandas_backend_boolean():

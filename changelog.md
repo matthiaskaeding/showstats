@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** the numerical table now reads `Avg`, `Median`, `SD`, then the
+  extremes. The two measures of location sit together with the spread beside
+  them, rather than `SD` splitting them apart (#74)
+- **Breaking:** the row count moved from the first column's header to the
+  section rule — `-Numerical columns (N=1461)---` with the column simply
+  named `Col`. The header was usually wider than the variable names and
+  padded every row of the first column out to its own length: twelve
+  characters of `Col (N=1461)` against a seven-character `weather`, or
+  fifteen once N passes 100,000 and the count goes scientific. A side
+  benefit for callers of `make_stats_tbl`: the first column's name no longer
+  changes with the row count, so it can be addressed by name (#75)
+
 ## [0.2.0] - 2026-07-29
 
 ### Changed
