@@ -7,7 +7,7 @@ import narwhals as nw
 import polars as pl
 from narwhals.typing import IntoDataFrame
 
-from showstats._utils import _ceil, convert_df_scientific
+from showstats._utils import _branch, _ceil, convert_df_scientific
 
 # The table types show_stats/make_stats_tbl accept. Runtime validation reads
 # the members off this alias via get_args, so the two cannot drift apart.
@@ -119,16 +119,20 @@ def _map_cols_and_funs_for_var_type(
 _MAX_VAR_NAME_LEN = 30
 
 
-def _truncate_long_strings(expr: pl.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> pl.Expr:
+def _truncate_long_strings(expr: nw.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> nw.Expr:
     """Truncates strings longer than max_len, marking the cut with an ellipsis.
 
     Long variable names otherwise wrap onto a new, misaligned line when the
     printed table exceeds its configured width.
+
+    "Longer than max_len" is asked as "does slicing to max_len change it",
+    which sidesteps `str.len_chars` — that only arrived in a narwhals new
+    enough to need Python 3.9 (#78) — and asks the question in exactly the
+    units the slice below will use.
     """
-    return (
-        pl.when(expr.str.len_chars().gt(max_len))
-        .then(expr.str.slice(0, max_len - 1) + "…")
-        .otherwise(expr)
+    return _branch(
+        (expr.str.slice(0, max_len) == expr, expr),
+        otherwise=nw.concat_str([expr.str.slice(0, max_len - 1), nw.lit("…")]),
     )
 
 
@@ -408,13 +412,7 @@ class _Table:
 
         if len(subdfs) == 0:
             return
-        # Temporary seam: make_dt now returns a frame in the caller's own
-        # backend, while everything below is still polars. Arrow is the one
-        # exchange format every backend narwhals supports can produce, and
-        # by this point every column is a string or an Int16, so the
-        # round-trip is faithful. Slice 4 of #37 removes it along with the
-        # polars assembly it feeds.
-        stat_df = pl.concat([pl.from_arrow(sub.to_arrow()).lazy() for sub in subdfs])
+        stat_df = nw.concat(subdfs, how="vertical")
 
         if table_type == "num":
             if self.quantile_framing:
@@ -423,46 +421,46 @@ class _Table:
                 # explicit 0.5 replaces the Median column outright, since Q50
                 # is the same statistic under the same interpolation.
                 median_col = (
-                    [] if 0.5 in self.quantiles else [pl.col("median").alias("Median")]
+                    [] if 0.5 in self.quantiles else [nw.col("median").alias("Median")]
                 )
                 tail_cols = [
                     *median_col,
-                    pl.col("min").alias("Q0"),
+                    nw.col("min").alias("Q0"),
                     *(
-                        pl.col(_quantile_stat_name(q)).alias(_quantile_label(q))
+                        nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
                         for q in self.quantiles
                     ),
-                    pl.col("max").alias("Q100"),
+                    nw.col("max").alias("Q100"),
                 ]
             else:
                 # Named stats keep their names; any requested quantiles are
                 # appended alongside them. Min and Max sit last: they are the
                 # extremes, so the central statistics come first.
                 tail_cols = [
-                    pl.col("median").alias("Median"),
+                    nw.col("median").alias("Median"),
                     *(
-                        pl.col(_quantile_stat_name(q)).alias(_quantile_label(q))
+                        nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
                         for q in (self.quantiles or [])
                     ),
-                    pl.col("min").alias("Min"),
-                    pl.col("max").alias("Max"),
+                    nw.col("min").alias("Min"),
+                    nw.col("max").alias("Max"),
                 ]
             stat_df = stat_df.select(
-                pl.col("Variable").alias(name_var),
-                pl.col("null_count").alias("NA%"),
-                pl.col("mean").alias("Avg"),
-                pl.col("std").alias("SD"),
+                nw.col("Variable").alias(name_var),
+                nw.col("null_count").alias("NA%"),
+                nw.col("mean").alias("Avg"),
+                nw.col("std").alias("SD"),
                 *tail_cols,
             )
         elif table_type == "cat":
             stat_df = stat_df.rename({"Variable": name_var})
         elif table_type == "time":
             stat_df = stat_df.select(
-                pl.col("Variable").alias(name_var),
-                pl.col("null_count").alias("NA%"),
-                pl.col("median").alias("Median"),
-                pl.col("min").alias("Min"),
-                pl.col("max").alias("Max"),
+                nw.col("Variable").alias(name_var),
+                nw.col("null_count").alias("NA%"),
+                nw.col("median").alias("Median"),
+                nw.col("min").alias("Min"),
+                nw.col("max").alias("Max"),
             )
 
         if self.top_cols is not None:  # Put top_cols at front
@@ -472,18 +470,52 @@ class _Table:
             new_order = self.top_cols + [
                 var for var in all_columns_in_order if var not in self.top_cols
             ]
-            stat_df = stat_df.with_columns(
-                pl.col(name_var).cast(pl.Enum(new_order))
-            ).sort(name_var)
+            # The polars version cast the column to pl.Enum(new_order) and
+            # sorted on it, letting the categorical ordering do the work.
+            # narwhals has no equivalent, so the rank is made explicit: map
+            # each name to its position, sort by that, drop it again. Same
+            # result, and it no longer depends on the name column being of
+            # a particular dtype afterwards.
+            rank = "____ORDER____"
+            stat_df = (
+                stat_df.with_columns(
+                    nw.col(name_var)
+                    .replace_strict(
+                        new_order, list(range(len(new_order))), return_dtype=nw.Int32
+                    )
+                    .alias(rank)
+                )
+                .sort(rank)
+                .drop(rank)
+            )
 
         stat_df = stat_df.with_columns(
-            _truncate_long_strings(pl.col(name_var).cast(pl.String)).alias(name_var)
+            _truncate_long_strings(nw.col(name_var).cast(nw.String)).alias(name_var)
         )
 
-        self.stat_dfs[table_type] = stat_df.collect()
+        # Rebuilt so the row labels are fresh. pandas carries each
+        # subframe's own index through a vertical concat, so the assembled
+        # table came back indexed (0, 0, 0) — three rows all addressed as
+        # row 0. Cheap: one row per column of the input.
+        self.stat_dfs[table_type] = nw.from_dict(
+            {name: stat_df[name].to_list() for name in stat_df.columns},
+            schema=stat_df.schema,
+            backend=self.backend,
+        )
 
     def show_one_table(self, table_type):
         if table_type in self.stat_dfs:
+            # Temporary seam: the table is assembled in the caller's own
+            # backend now, but printing is still pl.Config, and there is no
+            # narwhals renderer to hand it to. Arrow is the one exchange
+            # format every narwhals backend can produce, and every column
+            # here is a string or an Int16, so the round-trip is faithful.
+            # Slice 5 of #37 replaces the printing and removes this.
+            frame = self.stat_dfs[table_type]
+            # select() rather than the bare conversion: a pandas frame
+            # carries its index into Arrow as __index_level_0__, which
+            # would print as an extra column.
+            printable = pl.from_arrow(frame.to_arrow()).select(frame.columns)
             with pl.Config(
                 tbl_hide_dataframe_shape=True,
                 tbl_formatting="NOTHING",
@@ -495,7 +527,7 @@ class _Table:
                 set_fmt_float="full",
                 set_tbl_width_chars=80,
             ):
-                print(self.stat_dfs[table_type])
+                print(printable)
         else:
             if table_type == "num":
                 print("No numerical columns found")

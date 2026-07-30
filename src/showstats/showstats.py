@@ -61,10 +61,16 @@ def make_stats_tbl(
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
-) -> None:
+) -> IntoDataFrame | None:
     """
     Builds table of summary statistics for the given DataFrame, configured
     for for optimal readability.
+
+    The result is a frame of the same kind as the input — a polars frame in
+    gives a polars frame back, pandas gives pandas, and so on — so callers
+    do not take on a dependency on some other dataframe library just to
+    read the summary. Returns None when the input has no columns of the
+    requested type.
 
     Args:
         df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
@@ -99,4 +105,7 @@ def make_stats_tbl(
     _table = _Table(df, table_type, top_cols, quantiles, fold_quantiles)
     _table.form_stat_df(table_type)
     # Return None if no columns of this type were found
-    return _table.stat_dfs.get(table_type, None)
+    stat_df = _table.stat_dfs.get(table_type, None)
+    if stat_df is None:
+        return None
+    return stat_df.to_native()

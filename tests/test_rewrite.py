@@ -21,12 +21,10 @@ import subprocess
 import sys
 import textwrap
 
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 import pytest
 
-from showstats.showstats import make_stats_tbl, show_stats
+from showstats.showstats import show_stats
 from tests import _golden
 
 pytestmark = pytest.mark.rewrite
@@ -91,44 +89,8 @@ def run_without_polars(body: str) -> subprocess.CompletedProcess:
 # Slice 3 — _Table.make_dt — is done. Its tests now pass, so they have
 # moved to test_table.py, next to the other make_dt assertions.
 
-# --------------------------------------------------------------------------
-# Slice 4 — _Table.form_stat_df and the return type
-#
-# make_stats_tbl returns a pl.DataFrame whatever it is given. The agreed
-# outcome (see the sign-off on #37) is that the return follows the input.
-# The polars case already holds today and so is asserted in
-# test_make_tbl.py, unmarked, rather than here.
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(
-    strict=True, reason="#37: form_stat_df collects to polars whatever came in"
-)
-@pytest.mark.parametrize(
-    ("df", "native_type"),
-    [
-        pytest.param(MIXED_PD, pd.DataFrame, id="pandas"),
-        pytest.param(MIXED_PA, pa.Table, id="pyarrow"),
-    ],
-)
-def test_make_stats_tbl_returns_the_input_type(df, native_type):
-    assert isinstance(make_stats_tbl(df, "num"), native_type)
-
-
-@pytest.mark.xfail(
-    strict=True, reason="#37: form_stat_df orders top_cols by casting to pl.Enum"
-)
-def test_top_cols_ordering_survives_the_backend_change():
-    """top_cols currently works by casting to pl.Enum and sorting.
-
-    narwhals has no equivalent, so the ordering needs a different
-    implementation — and it has to keep working, natively, for a
-    non-polars input.
-    """
-    result = make_stats_tbl(MIXED_PD, "num", top_cols="float_col")
-    assert isinstance(result, pd.DataFrame)
-    assert result[result.columns[0]].tolist() == ["float_col", "int_col"]
-
+# Slice 4 — _Table.form_stat_df and the return type — is done. Its tests
+# now pass, so they have moved to test_make_tbl.py.
 
 # --------------------------------------------------------------------------
 # Slice 5 — _Table.show_one_table
