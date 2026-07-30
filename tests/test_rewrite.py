@@ -82,45 +82,9 @@ def run_without_polars(body: str) -> subprocess.CompletedProcess:
     )
 
 
-# --------------------------------------------------------------------------
-# Slice 1 — the backend fork in _Table.__init__
-#
-# `__init__` branches on `isinstance(native_stats, pl.DataFrame)` and falls
-# back to `.iloc[0]` for "pandas", with a second, separately hand-rolled
-# value_counts path for categoricals. pyarrow reaches that fallback and dies
-# on it, so a pyarrow frame that `_check_input_maybe_try_transform` happily
-# accepts (see test_utils.py::test_input_check_pyarrow) cannot in fact be
-# summarised. Collapsing the fork to one narwhals path fixes all three.
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="#37: _Table.__init__ falls back to .iloc[0], which pyarrow has no",
-)
-def test_pyarrow_numeric_table():
-    result = make_stats_tbl(MIXED_PA, "num")
-    assert nw.from_native(result, eager_only=True).shape[0] == 2
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="#37: the categorical value_counts path in _Table.__init__ is pandas-only",
-)
-def test_pyarrow_categorical_table():
-    result = make_stats_tbl(MIXED_PA, "cat")
-    frame = nw.from_native(result, eager_only=True)
-    assert "Top 1" in frame.columns
-    assert frame["Top 1"][0] == "a (40%)"
-
-
-@pytest.mark.xfail(
-    strict=True, reason="#37: show_stats cannot render a pyarrow table at all"
-)
-def test_pyarrow_show_stats(capsys):
-    show_stats(MIXED_PA, "all")
-    assert "int_col" in capsys.readouterr().out
-
+# Slice 1 — the backend fork in _Table.__init__ — is done. Its tests now
+# pass, so they have moved to test_backends.py, where they belong as
+# ordinary regression tests rather than as a to-do list.
 
 # --------------------------------------------------------------------------
 # Slice 2 — _utils.convert_df_scientific
@@ -220,28 +184,16 @@ def test_top_cols_ordering_survives_the_backend_change():
 # Slice 5 — _Table.show_one_table
 #
 # Printing goes through pl.Config, so there is no polars-free path to the
-# output at all. Two things have to become true: the rendering stops
-# depending on the input backend, and polars stops being importable-or-bust.
+# output at all: polars stops being importable-or-bust only once this
+# lands.
+#
+# Rendering no longer varies by input backend — that turned out to belong
+# to slice 1 rather than here, and its test now lives in test_backends.py.
 #
 # Which rendering wins is not open: the polars one, because README.md is
-# generated from it and is pinned in test_golden_output.py. So these
-# compare against the polars rendering of the same data, not merely against
-# each other.
+# generated from it and is pinned in test_golden_output.py. So the last
+# test below compares against the golden, not merely against itself.
 # --------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="#37: pandas input renders int min/max as 1.0 and Uniques as 3.00",
-)
-@pytest.mark.parametrize(
-    "df",
-    [pytest.param(MIXED_PD, id="pandas"), pytest.param(MIXED_PA, id="pyarrow")],
-)
-def test_rendering_does_not_depend_on_the_input_backend(capsys, df):
-    assert render(capsys, df, table_type="all") == render(
-        capsys, MIXED_PL, table_type="all"
-    )
 
 
 @pytest.mark.xfail(strict=True, reason="#37: showstats._table imports polars at import")
