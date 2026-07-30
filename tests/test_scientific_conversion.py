@@ -1,3 +1,5 @@
+import narwhals as nw
+import pandas as pd
 import polars as pl
 
 from showstats._utils import convert_df_scientific
@@ -38,6 +40,39 @@ def test_convert_df_scientific():
     ]
     assert result.get_column("special").to_list() == ["0.0", "inf", "-inf", ""]
     assert result.get_column("null").to_list() == [""] * 4
+
+
+def test_convert_df_scientific_accepts_pandas():
+    """Whatever kind of frame goes in comes back out.
+
+    The conversion used to be a polars expression pipeline, so a pandas
+    frame died on `with_columns`. Nothing but polars ever reached it, but
+    that is exactly what made the LazyFrame in `make_dt` unavoidable.
+    """
+    df = pd.DataFrame({"values": [0.1, 10.0, 1000.0, 10000.0, 100000.0]})
+    result = convert_df_scientific(df, ["values"])
+    assert isinstance(result, pd.DataFrame)
+    assert result["values"].tolist() == ["0.1", "10.0", "1000.0", "10000.0", "1.0E5"]
+
+
+def test_convert_df_scientific_accepts_narwhals():
+    df = nw.from_native(pl.DataFrame({"values": [0.1, 1e5]}), eager_only=True)
+    result = convert_df_scientific(df, ["values"])
+    assert isinstance(result, nw.DataFrame)
+    assert result["values"].to_list() == ["0.1", "1.0E5"]
+
+
+def test_convert_df_scientific_agrees_across_backends():
+    """The strings must not depend on which frame carried the numbers."""
+    values = [0.002, 0.000023241, -1e7, 1000.0, 2343342.0, 3e7, 0.0, 1e-7]
+    polars_out = (
+        convert_df_scientific(pl.DataFrame({"v": values}).lazy(), ["v"])
+        .collect()
+        .get_column("v")
+        .to_list()
+    )
+    pandas_out = convert_df_scientific(pd.DataFrame({"v": values}), ["v"])["v"].tolist()
+    assert polars_out == pandas_out
 
 
 def test_convert_df_scientific_custom_threshold():

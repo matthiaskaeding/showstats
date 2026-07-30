@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Minimum `narwhals` raised from 1.0.0 to 1.40.0, which is where
+  `Expr.log` arrived. The old floor was never checked against anything —
+  see #78, the suite in fact needs 2.0.0 for the pandas backend (#37)
+
 ### Fixed
 
 - pyarrow tables raised `AttributeError: 'pyarrow.lib.Table' object has no
