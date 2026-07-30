@@ -26,7 +26,7 @@ CAT = (
     "-Categorical columns------------------------------------------------------------\n"
     " Col (N=10)  NA%  Uniques  Top 1    Top 2    Top 3   \n"
     " cat_col     0    3        A (50%)  B (30%)  C (20%) \n"
-    " other_col   10   3        x (50%)  y (40%)          \n"
+    " other_col   10   2        x (50%)  y (40%)          \n"
 )
 
 TIME = (

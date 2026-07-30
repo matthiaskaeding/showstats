@@ -13,10 +13,11 @@ def lint(session):
 def test(session):
     session.install(
         "pytest>=8.3.2",
+        "hypothesis>=6.113.0",
         "polars>=0.20.21",
         "pandas>=1.5.3",
         "pyarrow>=10.0.0",
-        "narwhals>=1.0.0",
+        "narwhals>=1.40.0",
     )
 
     session.run("pytest", "tests/")
@@ -28,9 +29,10 @@ def test(session):
 def test_polars_versions(session, polars_version, pandas_version):
     session.install(
         "pytest>=8.3.2",
+        "hypothesis>=6.113.0",
         f"polars=={polars_version}",
         f"pandas>={pandas_version}",
         "pyarrow>=10.0.0",
-        "narwhals>=1.0.0",
+        "narwhals>=1.40.0",
     )
     session.run("pytest", "tests/")

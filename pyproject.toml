@@ -3,11 +3,15 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
+# narwhals is the only runtime dependency: statistics, formatting, table
+# assembly and printing all go through it, so showstats adds nothing to
+# whichever dataframe library the caller already has (#37).
+#
 # 1.40.0 is where narwhals grew Expr.log, which _utils needs. The declared
 # floor of 1.0.0 was never checked against anything; see #78 — the suite in
 # fact needs narwhals >= 2.0.0, which in turn needs Python >= 3.9, so the
 # floor cannot be raised that far without dropping the 3.8 promise.
-dependencies = ["narwhals >= 1.40.0", "polars >= 0.20.21"]
+dependencies = ["narwhals >= 1.40.0"]
 name = "showstats"
 description = "Vertical summary statistics for data frames"
 authors = [{ name = "Matthias Kaeding" }]
@@ -16,12 +20,16 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
-version = "0.1.0"
+version = "0.2.0"
 readme = "README.md"
 requires-python = ">= 3.8"
 
 [project.optional-dependencies]
+# Convenience extras for people who want a dataframe library installed
+# alongside showstats. None of them is required: showstats works with
+# whatever narwhals-compatible frame it is handed.
 pandas = ["pandas>=1.5.3", "pyarrow>=10.0.0"]
+polars = ["polars>=0.20.21"]
 
 
 [dependency-groups]
@@ -30,6 +38,7 @@ pandas = ["pandas>=1.5.3", "pyarrow>=10.0.0"]
 dev = [
   "build>=1.2.1",
   "hatchling>=1.25.0",
+  "hypothesis>=6.113.0",
   "jupyter>=1.0.0",
   "narwhals>=1.40.0",
   "nbclient==0.10.0",
@@ -62,11 +71,12 @@ ban-relative-imports = "all"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-# A test that unexpectedly passes fails the build, so a rewrite marker cannot
-# be left behind after the behaviour it describes has been implemented.
+# A test that unexpectedly passes fails the build, so an xfail cannot be left
+# behind after the behaviour it describes has been implemented. Introduced
+# for the #37 rewrite and kept now that it is finished; the `rewrite` marker
+# it was paired with is gone, since the burndown reached zero.
 xfail_strict = true
 markers = [
-  "rewrite: behaviour targeted by the narwhals rewrite (#37), xfail until implemented",
   "integration: slower end-to-end test, deselected in CI",
 ]
 

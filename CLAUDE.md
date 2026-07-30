@@ -69,14 +69,28 @@ uv build             # sdist + wheel
   overwritten.
 - Update `changelog.md` (Keep a Changelog format) for user-facing changes.
 
-## Rewrite in progress (#37)
+## No polars
 
-Tests for not-yet-migrated behaviour are marked
-`@pytest.mark.rewrite` + `@pytest.mark.xfail(strict=True, reason="#37: ...")`.
-`xfail_strict = true`, so an unexpected pass fails the build — remove both
-markers in the PR that implements the behaviour, never separately.
-`make burndown` counts what's left. Full plan and the `make_stats_tbl`
-return-type decision: issue #37.
+`narwhals` is the only runtime dependency. Statistics, formatting, table
+assembly and printing all go through it, so showstats adds nothing to
+whichever dataframe library the caller already has — that was #37, finished
+across PRs #72–#83.
+
+Consequences worth knowing before editing `src/`:
+
+- `make_stats_tbl` returns a frame of the **input's** type, never polars.
+- Printing is `_utils.render_table`, a hand-written fixed-width formatter,
+  not a dataframe library's `__repr__`. `tests/_golden.py` pins its exact
+  output, byte for byte, and `README.md` embeds that output.
+- Backends disagree about how values become text — Arrow drops a trailing
+  `.0`, pandas renders booleans as `True` — so `tests/test_backends.py`
+  asserts pandas and pyarrow print byte-identically to polars. Add a case
+  there when touching formatting.
+- Some narwhals APIs are avoided on purpose (`Expr.floor`, `Expr.ceil`,
+  `str.len_chars`, chained `.when()`): they need a narwhals that requires
+  Python 3.9+, and `requires-python` still says 3.8. See #78.
+
+`xfail_strict = true` stays: an unexpectedly passing xfail fails the build.
 
 ## Issue work — always open a PR
 

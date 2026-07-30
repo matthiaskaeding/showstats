@@ -141,6 +141,18 @@ def _truncate_long_strings(expr: nw.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> n
     )
 
 
+def _blank_where_missing(name: str, rendered: nw.Expr) -> nw.Expr:
+    """`rendered`, or blank wherever the underlying value is missing.
+
+    Asked of the value rather than of its rendering, because backends
+    disagree about what a missing value looks like once it is a string.
+    pandas 1.5 casts `NaT` to the literal `"NaT"` while newer pandas gives
+    null, so a `fill_null` after the cast blanked an all-null date column
+    on one version and printed `NaT` on the other.
+    """
+    return _branch((nw.col(name).is_null(), nw.lit("")), otherwise=rendered)
+
+
 def _median_expr(var: str, dtype) -> nw.Expr:
     """Median of a column, for dtypes some backends refuse to take it on.
 
@@ -150,8 +162,16 @@ def _median_expr(var: str, dtype) -> nw.Expr:
     back produces the same answer on every backend — for datetimes the cast
     goes through the column's own dtype, so the time unit round-trips
     correctly rather than being assumed.
+
+    Nulls are dropped before the cast, not left to median() to ignore.
+    pandas represents a missing datetime as NaT, and casting that to Int64
+    gives the int64 minimum rather than null — so the missing rows joined
+    the median as enormous negative numbers, and a column of two nulls and
+    the dates 2020-01-01, 2020-06-01, 2020-12-01 reported its median as
+    2020-01-01. Not blank; simply wrong, and plausible enough to go
+    unnoticed.
     """
-    col = nw.col(var)
+    col = nw.col(var).drop_nulls()
     if dtype == nw.Boolean:
         return col.cast(nw.Int8).median()
     if dtype == nw.Date or dtype == nw.Datetime or str(dtype).startswith("Datetime"):
@@ -245,6 +265,17 @@ class _Table:
                 funs_map[var_type] = funs_vt
                 stat_names_map[var_type] = []
         self.funs_map = funs_map
+        # Decimal columns are summarised as floats. Their statistics come
+        # back as Decimals otherwise, and a frame holding a Decimal column
+        # beside an ordinary float one then built a mixed list of Decimal
+        # and float — which nw.from_dict rejects: "unexpected value while
+        # building Series of type Decimal(38, 2); found value of type
+        # Float64". A Decimal alone worked, which is why it went unnoticed.
+        df = df.with_columns(
+            nw.col(name).cast(nw.Float64)
+            for name, dtype in df.schema.items()
+            if dtype == nw.Decimal
+        )
         schema = df.schema
         expressions = []
         sep = "____"
@@ -268,6 +299,14 @@ class _Table:
                         expr = _median_expr(var, schema[var]).alias(stat_name)
                     elif function == "std":
                         expr = _std_expr(var, schema[var]).alias(stat_name)
+                    elif function == "n_unique":
+                        # Nulls dropped first: they are already reported as
+                        # NA%, and the Top N columns beside this one count
+                        # only real values — so leaving them in made
+                        # Uniques disagree with both of its neighbours. A
+                        # column of "a", "b" and two nulls read as three
+                        # uniques with only two ever listed.
+                        expr = nw.col(var).drop_nulls().n_unique().alias(stat_name)
                     else:
                         expr = getattr(nw.col(var), function)().alias(stat_name)
                     expressions.append(expr)
@@ -295,9 +334,17 @@ class _Table:
             # pandas loop that had to agree with each other by inspection.
             # The frames it yields are already named [<column>, "count"],
             # which is the shape make_dt reads.
+            #
+            # Counts of zero are dropped: a pandas Categorical remembers
+            # every category it was declared with, and value_counts reports
+            # the unobserved ones at 0. An enum column holding one value
+            # therefore listed "alpha (67%)", "beta (0%)", "gamma (0%)" as
+            # its top three, and an all-null one listed its whole
+            # vocabulary. polars reports only what is present.
             for var in vars_map["cat"]:
                 counts = df[var].drop_nulls().value_counts(sort=True)
-                stats[f"top_3{sep}{var}"] = counts.rows(named=True)[:3]
+                observed = [row for row in counts.rows(named=True) if row["count"] > 0]
+                stats[f"top_3{sep}{var}"] = observed[:3]
         self.stat_names_map = stat_names_map
         self.stats = stats
         self.vars_map = vars_map
@@ -331,8 +378,14 @@ class _Table:
             data.update(top_cols)
 
         df = nw.from_dict(data, backend=self.backend)
+        # Multiplied before dividing, which is not a stylistic choice: the
+        # other order rounds twice, and polars evaluates `count / rows * 100`
+        # for 6 of 10 as 60.00000000000001, so a column exactly 60% missing
+        # was reported as 61%. Checked exhaustively over every count/rows
+        # pair up to 60 rows on all three backends — 35 wrong answers this
+        # way round, none the other.
         df = df.with_columns(
-            _ceil(nw.col("null_count") / self.num_rows * 100).cast(nw.Int16)
+            _ceil(nw.col("null_count") * 100 / self.num_rows).cast(nw.Int16)
         )
 
         # Some special cases
@@ -342,18 +395,35 @@ class _Table:
             )
         elif var_type in ("num_int", "num_bool"):
             df = convert_df_scientific(
-                df,
-                ["mean", "median", "std"] + self.quantile_stat_names,
+                df, ["mean", "median", "std"] + self.quantile_stat_names
+            ).with_columns(
                 # Lowercased because pandas renders a boolean as "True" where
                 # polars and pyarrow give "true", and the printed table must
                 # not depend on which backend held the value. A no-op on the
                 # integers that share this branch.
-            ).with_columns(nw.col("min", "max").cast(nw.String).str.to_lowercase())
+                #
+                # fill_null because a statistic that does not exist — the
+                # minimum of an all-null column — is blank everywhere else in
+                # the table. Casting a null to String leaves it null, so this
+                # one branch was handing back None where the float branch,
+                # which goes through convert_df_scientific, gives "".
+                *(
+                    _blank_where_missing(
+                        name, nw.col(name).cast(nw.String).str.to_lowercase()
+                    ).alias(name)
+                    for name in ("min", "max")
+                )
+            )
         elif var_type == "date" or var_type == "datetime":
             df = df.select(
                 "Variable",
                 "null_count",
-                nw.col("median", "min", "max").cast(nw.String).str.slice(0, 19),
+                *(
+                    _blank_where_missing(
+                        name, nw.col(name).cast(nw.String).str.slice(0, 19)
+                    ).alias(name)
+                    for name in ("median", "min", "max")
+                ),
             )
         elif var_type == "null":
             df = df.with_columns(
@@ -468,6 +538,7 @@ class _Table:
                 nw.col("max").alias("Max"),
             )
 
+        row_order = None
         if self.top_cols is not None:  # Put top_cols at front
             all_columns_in_order = []
             for vt in self.vars_map:
@@ -475,24 +546,18 @@ class _Table:
             new_order = self.top_cols + [
                 var for var in all_columns_in_order if var not in self.top_cols
             ]
-            # The polars version cast the column to pl.Enum(new_order) and
-            # sorted on it, letting the categorical ordering do the work.
-            # narwhals has no equivalent, so the rank is made explicit: map
-            # each name to its position, sort by that, drop it again. Same
-            # result, and it no longer depends on the name column being of
-            # a particular dtype afterwards.
-            rank = "____ORDER____"
-            stat_df = (
-                stat_df.with_columns(
-                    nw.col(name_var)
-                    .replace_strict(
-                        new_order, list(range(len(new_order))), return_dtype=nw.Int32
-                    )
-                    .alias(rank)
-                )
-                .sort(rank)
-                .drop(rank)
-            )
+            # The polars version cast the name column to pl.Enum(new_order)
+            # and sorted on it, letting the categorical ordering do the
+            # work. narwhals has no equivalent, and its nearest thing,
+            # replace_strict, needs polars >= 1 — which would put a floor on
+            # a library that is no longer even required. So the permutation
+            # is worked out in Python and applied to the rebuild below,
+            # which materialises the table anyway. Computed before the
+            # truncation on the next line, since a truncated name would no
+            # longer match its entry in new_order.
+            position = {name: i for i, name in enumerate(new_order)}
+            names = stat_df[name_var].to_list()
+            row_order = sorted(range(len(names)), key=lambda i: position[names[i]])
 
         stat_df = stat_df.with_columns(
             _truncate_long_strings(nw.col(name_var).cast(nw.String)).alias(name_var)
@@ -502,10 +567,13 @@ class _Table:
         # subframe's own index through a vertical concat, so the assembled
         # table came back indexed (0, 0, 0) — three rows all addressed as
         # row 0. Cheap: one row per column of the input.
+        columns = {name: stat_df[name].to_list() for name in stat_df.columns}
+        if row_order is not None:
+            columns = {
+                name: [values[i] for i in row_order] for name, values in columns.items()
+            }
         self.stat_dfs[table_type] = nw.from_dict(
-            {name: stat_df[name].to_list() for name in stat_df.columns},
-            schema=stat_df.schema,
-            backend=self.backend,
+            columns, schema=stat_df.schema, backend=self.backend
         )
 
     def show_one_table(self, table_type):
@@ -540,6 +608,14 @@ class _Table:
                 self.print_header(self.type)
                 self.show_one_table(self.type)
         elif self.type == "all":
+            if not self.stat_dfs:
+                # Every other branch says why it has nothing to show; this
+                # one printed absolute silence, which reads as a hang or a
+                # swallowed exception. Reachable whenever no column has a
+                # dtype showstats summarises — a frame of pandas `object`
+                # columns, say.
+                print("No summarisable columns found")
+                return
             for type_ in ["time", "num", "cat"]:
                 if type_ in self.stat_dfs:
                     self.print_header(type_)
