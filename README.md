@@ -52,9 +52,9 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
 ```
 
     -Numerical columns--------------------------------------------------------------
-     Col (N=1461)  NA%  Avg    SD    …  Q0    Q10  Q90   Q100 
-     temp_max      0    16.44  7.35  …  -1.6  7.2  26.7  35.6 
-     wind          0    3.24   1.44  …  0.4   1.7  5.2   9.5  
+     Col (N=1461)  NA%  Avg    SD    Median  Q0    Q10  Q90   Q100 
+     temp_max      0    16.44  7.35  15.6    -1.6  7.2  26.7  35.6 
+     wind          0    3.24   1.44  3.0     0.4   1.7  5.2   9.5  
 
 ``` python
 # pandas, pyarrow and other narwhals-supported frames work the same way
