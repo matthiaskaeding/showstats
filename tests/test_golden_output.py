@@ -10,16 +10,18 @@ README.md embeds this output verbatim.
 None of these are marked `rewrite`. They describe behaviour that must
 survive the rewrite unchanged, so they are expected to pass throughout.
 
-Three current warts are pinned here deliberately rather than fixed:
+Two current warts are pinned here deliberately rather than fixed:
 
 1. `QUANTILES_FOLDED` is missing its Q0 column — polars elides columns that
    do not fit `set_tbl_width_chars=80`, replacing them with `…`. So asking
    for enough quantiles silently drops the minimum.
 2. `TIME` wraps the datetime median onto a second, unaligned line for the
    same reason.
-3. Numbers render differently depending on the input backend — see
-   `test_rewrite.py::test_pandas_renders_like_polars`, which is the xfail
-   that owns that one.
+
+These goldens are all polars input. That the same data prints identically
+from pandas and pyarrow is
+`test_backends.py::test_rendering_does_not_depend_on_the_input_backend`;
+together the two say the rendering is fixed *and* backend-independent.
 
 Changing any of these is a deliberate act: update the golden in its own
 commit, with the reason, plus a changelog entry. Never quietly, alongside

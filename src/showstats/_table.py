@@ -7,7 +7,7 @@ import narwhals as nw
 import polars as pl
 from narwhals.typing import IntoDataFrame
 
-from showstats._utils import convert_df_scientific
+from showstats._utils import _ceil, convert_df_scientific
 
 # The table types show_stats/make_stats_tbl accept. Runtime validation reads
 # the members off this alias via get_args, so the two cannot drift apart.
@@ -150,6 +150,19 @@ def _median_expr(var: str, dtype) -> nw.Expr:
     return col.median()
 
 
+def _std_expr(var: str, dtype) -> nw.Expr:
+    """Standard deviation, for the one dtype pyarrow will not take it on.
+
+    Arrow has no `stddev` kernel for booleans — polars and pandas both do —
+    so it goes through Int8, the same detour `_median_expr` makes. Arrow's
+    `mean` does accept booleans, so only this one needs it.
+    """
+    col = nw.col(var)
+    if dtype == nw.Boolean:
+        return col.cast(nw.Int8).std()
+    return col.std()
+
+
 def _map_table_type_to_var_types(table_type):
     """Maps table type to var types"""
     if table_type == "all":
@@ -205,6 +218,9 @@ class _Table:
                 )
                 quantiles = [q for q in quantiles if q not in (0, 1)]
         self.type = table_type
+        # Remembered so the formatted table can be rebuilt in the same
+        # backend the caller handed in, rather than in polars.
+        self.backend = nw.get_native_namespace(df)
         self.stat_dfs = {}
         self.top_cols = top_cols
         self.quantiles = quantiles
@@ -241,6 +257,8 @@ class _Table:
                         expr = col.quantile(q, interpolation="linear").alias(stat_name)
                     elif function == "median":
                         expr = _median_expr(var, schema[var]).alias(stat_name)
+                    elif function == "std":
+                        expr = _std_expr(var, schema[var]).alias(stat_name)
                     else:
                         expr = getattr(nw.col(var), function)().alias(stat_name)
                     expressions.append(expr)
@@ -279,7 +297,14 @@ class _Table:
             [_quantile_stat_name(q) for q in quantiles] if quantiles else []
         )
 
-    def make_dt(self, var_type: str) -> pl.DataFrame:
+    def make_dt(self, var_type: str):
+        """One row per variable of `var_type`, formatted for printing.
+
+        Returns a frame of the input's own backend — the statistics have
+        been Python values since `__init__` read them out, so the frame is
+        rebuilt here, and rebuilding it in polars was the last thing
+        forcing polars on a pandas or pyarrow user.
+        """
         data = {}
         data["Variable"] = self.vars_map[var_type]
         for fun_name in self.funs_map[var_type]:
@@ -290,9 +315,15 @@ class _Table:
             stat_value = self.stats[name]
             data[fun_name].append(stat_value)
 
-        df = pl.LazyFrame(data)
+        top_names = ()
+        if var_type == "cat":
+            top_cols = self._top_value_columns()
+            top_names = tuple(top_cols)
+            data.update(top_cols)
+
+        df = nw.from_dict(data, backend=self.backend)
         df = df.with_columns(
-            pl.col("null_count").truediv(self.num_rows).mul(100).ceil().cast(pl.Int16)
+            _ceil(nw.col("null_count") / self.num_rows * 100).cast(nw.Int16)
         )
 
         # Some special cases
@@ -302,46 +333,56 @@ class _Table:
             )
         elif var_type in ("num_int", "num_bool"):
             df = convert_df_scientific(
-                df, ["mean", "median", "std"] + self.quantile_stat_names
-            ).with_columns(
-                pl.col("min", "max").cast(pl.String),
-            )
+                df,
+                ["mean", "median", "std"] + self.quantile_stat_names,
+                # Lowercased because pandas renders a boolean as "True" where
+                # polars and pyarrow give "true", and the printed table must
+                # not depend on which backend held the value. A no-op on the
+                # integers that share this branch.
+            ).with_columns(nw.col("min", "max").cast(nw.String).str.to_lowercase())
         elif var_type == "date" or var_type == "datetime":
             df = df.select(
                 "Variable",
                 "null_count",
-                pl.col("median", "min", "max").cast(pl.String).str.slice(0, 19),
+                nw.col("median", "min", "max").cast(nw.String).str.slice(0, 19),
             )
         elif var_type == "null":
             df = df.with_columns(
-                "null_count",
-                pl.lit("").alias("mean"),
-                pl.lit("").alias("std"),
-                pl.lit("").alias("median"),
-                pl.lit("").alias("min"),
-                pl.lit("").alias("max"),
-                *(pl.lit("").alias(name) for name in self.quantile_stat_names),
+                nw.lit("").alias("mean"),
+                nw.lit("").alias("std"),
+                nw.lit("").alias("median"),
+                nw.lit("").alias("min"),
+                nw.lit("").alias("max"),
+                *(nw.lit("").alias(name) for name in self.quantile_stat_names),
             )
         elif var_type == "cat":
-            data = []
-            for var_name in self.vars_map["cat"]:
-                stat_name = f"top_3{self.sep}{var_name}"
-                freq_list = self.stats[stat_name]
-                row = {}
-                for i, dd in enumerate(freq_list):
-                    val, count = dd[var_name], dd["count"]
-                    row[f"Top {i + 1}"] = f"{val} ({count / self.num_rows:.0%})"
-                data.append(row)
-            right = pl.DataFrame(data).fill_null("")
             df = df.select(
                 "Variable",
-                pl.col("null_count").alias("NA%"),
-                pl.col("n_unique").alias("Uniques"),
+                nw.col("null_count").alias("NA%"),
+                nw.col("n_unique").alias("Uniques"),
+                *top_names,
             )
-            for col_name in right.columns:
-                column = right.get_column(col_name)
-                df = df.with_columns(column)
         return df
+
+    def _top_value_columns(self) -> dict:
+        """ "Top 1".."Top 3" columns, as plain Python lists.
+
+        One entry per categorical variable, each already rendered as
+        "<value> (<share>%)". Variables with fewer than three distinct
+        values leave the later columns blank — the polars version got there
+        by building a ragged frame and filling its nulls, which needs a
+        second frame; padding the lists reaches the same place and keeps
+        every column a plain string column on every backend.
+        """
+        columns = {}
+        variables = self.vars_map["cat"]
+        for position, var_name in enumerate(variables):
+            freq_list = self.stats[f"top_3{self.sep}{var_name}"]
+            for i, dd in enumerate(freq_list):
+                val, count = dd[var_name], dd["count"]
+                column = columns.setdefault(f"Top {i + 1}", [""] * len(variables))
+                column[position] = f"{val} ({count / self.num_rows:.0%})"
+        return columns
 
     def form_stat_df(self, table_type):
         """
@@ -367,7 +408,13 @@ class _Table:
 
         if len(subdfs) == 0:
             return
-        stat_df = pl.concat(subdfs)
+        # Temporary seam: make_dt now returns a frame in the caller's own
+        # backend, while everything below is still polars. Arrow is the one
+        # exchange format every backend narwhals supports can produce, and
+        # by this point every column is a string or an Int16, so the
+        # round-trip is faithful. Slice 4 of #37 removes it along with the
+        # polars assembly it feeds.
+        stat_df = pl.concat([pl.from_arrow(sub.to_arrow()).lazy() for sub in subdfs])
 
         if table_type == "num":
             if self.quantile_framing:
