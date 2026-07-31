@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterable
 from decimal import Decimal
-from typing import Iterable, Literal
+from typing import Literal
 
 import narwhals as nw
 from narwhals.typing import IntoDataFrame
@@ -10,7 +11,6 @@ from narwhals.typing import IntoDataFrame
 from showstats._utils import (
     TABLE_WIDTH,
     _branch,
-    _ceil,
     convert_df_scientific,
     render_table,
 )
@@ -131,13 +131,9 @@ def _truncate_long_strings(expr: nw.Expr, max_len: int = _MAX_VAR_NAME_LEN) -> n
     Long variable names otherwise wrap onto a new, misaligned line when the
     printed table exceeds its configured width.
 
-    "Longer than max_len" is asked as "does slicing to max_len change it",
-    which sidesteps `str.len_chars` — that only arrived in a narwhals new
-    enough to need Python 3.9 (#78) — and asks the question in exactly the
-    units the slice below will use.
     """
     return _branch(
-        (expr.str.slice(0, max_len) == expr, expr),
+        (expr.str.len_chars() <= max_len, expr),
         otherwise=nw.concat_str([expr.str.slice(0, max_len - 1), nw.lit("…")]),
     )
 
@@ -386,7 +382,7 @@ class _Table:
         # pair up to 60 rows on all three backends — 35 wrong answers this
         # way round, none the other.
         df = df.with_columns(
-            _ceil(nw.col("null_count") * 100 / self.num_rows).cast(nw.Int16)
+            (nw.col("null_count") * 100 / self.num_rows).ceil().cast(nw.Int16)
         )
 
         # Some special cases

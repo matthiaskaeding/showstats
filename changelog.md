@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** `requires-python` is now `>= 3.10`, up from `>= 3.8`, and the
+  minimum `narwhals` is 2.20.0. The two are linked: `requires-python` caps
+  which narwhals is installable at all — 1.42.1 and below need 3.8, 1.43.0
+  to 2.21.0 need 3.9, 2.21.2 and above need 3.10 — so claiming 3.8 pinned
+  the project to a narwhals nothing had ever been tested against. Python 3.8
+  and 3.9 are both past end of life. Four internal workarounds go with it:
+  `Expr.floor`, `Expr.ceil`, `str.len_chars` and chained `.when()` are used
+  directly now instead of being hand-rolled (#78)
 - **Breaking:** the numerical table now reads `Avg`, `Median`, `SD`, then the
   extremes. The two measures of location sit together with the spread beside
   them, rather than `SD` splitting them apart (#74)
