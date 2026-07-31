@@ -2,6 +2,8 @@
 Tests to verify showstats works correctly with different dataframe backends.
 """
 
+from datetime import date, datetime
+
 import pandas as pd
 import polars as pl
 import pytest
@@ -141,6 +143,63 @@ def test_rendering_does_not_depend_on_the_input_backend(capsys, df, kwargs):
     from_backend = capsys.readouterr().out
     show_stats(MIXED_PL, **kwargs)
     assert from_backend == capsys.readouterr().out
+
+
+TEMPORAL_PL = pl.DataFrame(
+    {
+        "date_col": [date(2020, 1, 1), date(2020, 6, 1), None, date(2020, 12, 1)],
+        "dt_col": [
+            datetime(2020, 1, 1),  # noqa: DTZ001 — naive, as the column is
+            datetime(2020, 1, 3),  # noqa: DTZ001
+            None,
+            datetime(2020, 1, 2),  # noqa: DTZ001
+        ],
+    }
+)
+
+
+@pytest.mark.parametrize("backend", ["polars", "pandas", "pyarrow"])
+def test_temporal_columns_summarise_on_every_backend(backend):
+    """A date column on a pyarrow table used to raise outright.
+
+    The median went through Int64 — the detour pandas needs, since it
+    refuses median() on a datetime — and Arrow refuses that cast:
+    `Unsupported cast from date32[day] to int64`. It has no quantile
+    kernel for dates either, so there is no expression that works
+    everywhere; the median is computed from the sorted values instead
+    (#86).
+    """
+    frame = {
+        "polars": TEMPORAL_PL,
+        "pandas": TEMPORAL_PL.to_pandas(),
+        "pyarrow": TEMPORAL_PL.to_arrow(),
+    }[backend]
+
+    rows = {
+        row["Col"]: row
+        for row in stats_frame(make_stats_tbl(frame, "time")).rows(named=True)
+    }
+
+    # The middle of three real dates, with the null ignored rather than
+    # dragged in as the int64 minimum.
+    assert rows["date_col"]["Median"].startswith("2020-06-01")
+    assert rows["date_col"]["Min"].startswith("2020-01-01")
+    assert rows["date_col"]["Max"].startswith("2020-12-01")
+    assert rows["date_col"]["NA%"] == 25
+    assert rows["dt_col"]["Median"].startswith("2020-01-02")
+
+
+def test_temporal_median_of_an_even_count_is_the_midpoint():
+    """Two middle instants average, and a date truncates to whole days."""
+    even = pl.DataFrame({"d": [date(2020, 1, 1), date(2020, 1, 2)]})
+    row = stats_frame(make_stats_tbl(even, "time")).rows(named=True)[0]
+    assert row["Median"] == "2020-01-01"
+
+    even_dt = pl.DataFrame(
+        {"t": [datetime(2020, 1, 1), datetime(2020, 1, 2)]}  # noqa: DTZ001
+    )
+    row = stats_frame(make_stats_tbl(even_dt, "time")).rows(named=True)[0]
+    assert row["Median"] == "2020-01-01 12:00:00"
 
 
 def test_polars_vs_pandas_numeric_stats():
