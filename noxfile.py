@@ -3,13 +3,20 @@ import nox
 nox.options.default_venv_backend = "uv"
 
 
-@nox.session
+@nox.session(venv_backend="none")
 def lint(session):
-    session.install("ruff")
-    session.run("ruff", "check")
+    """Lint with the project's own pinned ruff.
+
+    `session.install("ruff")` fetched whatever was newest, which
+    `required-version = "==0.16.0"` then refused to run — as it did the
+    moment ruff shipped 0.16.1. Delegating to `uv run` keeps the pin in
+    one place, the dev group, rather than adding another to forget.
+    """
+    session.run("uv", "run", "ruff", "check", ".", external=True)
+    session.run("uv", "run", "ruff", "format", "--check", ".", external=True)
 
 
-@nox.session(name="python_versions", python=["3.8", "3.9", "3.10", "3.11", "3.12"])
+@nox.session(name="python_versions", python=["3.10", "3.11", "3.12"])
 def test(session):
     session.install(
         "pytest>=8.3.2",
@@ -17,7 +24,7 @@ def test(session):
         "polars>=0.20.21",
         "pandas>=1.5.3",
         "pyarrow>=10.0.0",
-        "narwhals>=1.40.0",
+        "narwhals>=2.20.0",
     )
 
     session.run("pytest", "tests/")
@@ -25,7 +32,7 @@ def test(session):
 
 @nox.parametrize("polars_version", ["0.20.21", "1.4.1"])
 @nox.parametrize("pandas_version", ["1.5.3"])
-@nox.session(name="polars_pandas", python="3.9")
+@nox.session(name="polars_pandas", python="3.10")
 def test_polars_versions(session, polars_version, pandas_version):
     session.install(
         "pytest>=8.3.2",
@@ -33,6 +40,6 @@ def test_polars_versions(session, polars_version, pandas_version):
         f"polars=={polars_version}",
         f"pandas>={pandas_version}",
         "pyarrow>=10.0.0",
-        "narwhals>=1.40.0",
+        "narwhals>=2.20.0",
     )
     session.run("pytest", "tests/")

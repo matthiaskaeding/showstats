@@ -10,9 +10,10 @@ booleans, strings, categoricals, enums, dates, datetimes, and the all-null
 Null dtype — because the classification decides which of the three tables a
 column lands in, and each table reports different statistics.
 
-Every frame is checked twice, as polars and converted to pandas, since the
-point of the narwhals work is that the answer must not depend on which
-library holds the data.
+Every frame is checked three times — as polars, and converted to pandas
+and to pyarrow — since the point of the narwhals work is that the answer
+must not depend on which library holds the data. pyarrow was added after
+it turned out that date columns crashed there and nothing noticed (#86).
 
 Two deliberate accommodations for the conversion, neither of them about
 showstats:
@@ -326,7 +327,11 @@ CHECKS = {"num": check_numerical, "cat": check_categorical, "time": check_tempor
 )
 @given(frame=realistic_frames())
 def test_every_column_is_summarised_correctly(frame):
-    for backend, df in (("polars", frame), ("pandas", frame.to_pandas())):
+    for backend, df in (
+        ("polars", frame),
+        ("pandas", frame.to_pandas()),
+        ("pyarrow", frame.to_arrow()),
+    ):
         tables = tables_for(df)
         schema = nw.from_native(df, eager_only=True).schema
 
@@ -356,7 +361,7 @@ def test_showing_every_table_never_raises(frame):
     fixture: a function-scoped fixture is not reset between the inputs
     `@given` generates, so it would accumulate across examples.
     """
-    for df in (frame, frame.to_pandas()):
+    for df in (frame, frame.to_pandas(), frame.to_arrow()):
         buffer = io.StringIO()
         with redirect_stdout(buffer):
             show_stats(df, "all")

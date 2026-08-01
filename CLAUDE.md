@@ -58,7 +58,10 @@ uv build             # sdist + wheel
   mismatch lints under different rules than CI enforces. Bumping it means
   updating **four** places: `required-version`, the `dev` group, `rev:` in
   `.pre-commit-config.yaml`, and `version:` in `.github/workflows/lint.yaml`
-  — and then fixing whatever the new defaults flag. CI lints via
+  — and then fixing whatever the new defaults flag. `noxfile.py`'s lint
+  session is deliberately not a fifth: it shells out to `uv run ruff` so it
+  picks up the dev group's pin. It used to install ruff unpinned, which
+  broke the day 0.16.1 shipped. CI lints via
   `astral-sh/ruff-action` rather than syncing the dev environment, since
   ruff is a standalone tool.
 - `README.md` is generated from `README.qmd` via Quarto: `uv run quarto
@@ -86,9 +89,10 @@ Consequences worth knowing before editing `src/`:
   `.0`, pandas renders booleans as `True` — so `tests/test_backends.py`
   asserts pandas and pyarrow print byte-identically to polars. Add a case
   there when touching formatting.
-- Some narwhals APIs are avoided on purpose (`Expr.floor`, `Expr.ceil`,
-  `str.len_chars`, chained `.when()`): they need a narwhals that requires
-  Python 3.9+, and `requires-python` still says 3.8. See #78.
+- The narwhals floor is a *feature* floor, checked rather than guessed, and
+  it moves with `requires-python`: 1.42.1 and below need Python 3.8, 1.43.0
+  to 2.21.0 need 3.9, 2.21.2 and above need 3.10. Raising one without the
+  other is what #78 was about.
 
 `xfail_strict = true` stays: an unexpectedly passing xfail fails the build.
 
