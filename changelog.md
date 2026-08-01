@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Lazy frames are accepted. `show_stats(df.lazy())` used to raise
+  `TypeError: Cannot only use eager_only ... with polars.LazyFrame`; the
+  frame is collected at the door instead. Summarising is not a streaming
+  job — it reads every column several times over, once for the aggregate
+  row and again per categorical and temporal column — so collecting once up
+  front is what a lazy frame would end up doing anyway, without re-scanning
+  for each pass (#85)
+
 ### Fixed
 
 - `make_stats_tbl(..., table_type="all")` now returns a dictionary of the

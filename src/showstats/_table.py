@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Literal, get_args
 
 import narwhals as nw
-from narwhals.typing import IntoDataFrame
+from narwhals.typing import IntoFrame
 
 from showstats._utils import (
     TABLE_WIDTH,
@@ -36,8 +36,19 @@ def _warn_once(key: str, message: str) -> None:
 
 # Basic idea of these helper functions:
 #   table_type --> var_types --> functions
-def _check_input_maybe_try_transform(input: IntoDataFrame) -> nw.DataFrame:
-    df = nw.from_native(input, eager_only=True)
+def _check_input_maybe_try_transform(input: IntoFrame) -> nw.DataFrame:
+    """The input as an eager narwhals frame, collecting a lazy one.
+
+    Lazy frames are accepted and collected here rather than rejected
+    (#85). Summarising is not a streaming job — it reads every column
+    several times over: once for the aggregate row, again per categorical
+    column for its top values, again per temporal column for its median.
+    Collecting once up front is what a lazy frame would end up doing
+    anyway, only without re-scanning for each pass.
+    """
+    df = nw.from_native(input)
+    if isinstance(df, nw.LazyFrame):
+        df = df.collect()
     if df.shape[0] == 0 or df.shape[1] == 0:
         raise ValueError("Input data frame must have rows and columns")
     return df
@@ -681,7 +692,7 @@ class _Table:
 
     def __init__(
         self,
-        df: IntoDataFrame,
+        df: IntoFrame,
         table_type: TableType,
         top_cols: Iterable | None = None,
         quantiles: Iterable | None = None,

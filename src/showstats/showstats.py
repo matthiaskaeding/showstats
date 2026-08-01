@@ -1,7 +1,7 @@
 # Central functions for table making
 from __future__ import annotations
 
-from narwhals.typing import IntoDataFrame
+from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
     TableType,
@@ -15,7 +15,7 @@ from showstats._table import (
 
 
 def show_stats(
-    df: IntoDataFrame,
+    df: IntoFrame,
     table_type: TableType = "all",
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
@@ -26,7 +26,9 @@ def show_stats(
     for for optimal readability.
 
     Args:
-        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
+        df: The input frame — polars, pandas, pyarrow or any other
+            narwhals-compatible frame. Lazy frames are accepted and
+            collected.
         top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
@@ -59,7 +61,7 @@ def show_stats(
 
 
 def make_stats_tbl(
-    df: IntoDataFrame,
+    df: IntoFrame,
     table_type: TableType = "num",
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
@@ -76,7 +78,9 @@ def make_stats_tbl(
     Returns None when the input has no columns of a requested single type.
 
     Args:
-        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
+        df: The input frame — polars, pandas, pyarrow or any other
+            narwhals-compatible frame. Lazy frames are accepted and
+            collected.
         top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
