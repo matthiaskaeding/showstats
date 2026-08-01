@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from collections.abc import Iterable
 
 import narwhals as nw
 
@@ -66,16 +66,6 @@ def _as_string(expr: nw.Expr) -> nw.Expr:
     return expr.cast(nw.String)
 
 
-def _floor(expr: nw.Expr) -> nw.Expr:
-    """Floor, as floor division.
-
-    `Expr.floor` only arrived in narwhals 2.20, which needs Python 3.9+ —
-    and this package promises 3.8. `// 1` floors identically on polars,
-    pandas and pyarrow, negatives included.
-    """
-    return expr // 1
-
-
 def _float_as_string(expr: nw.Expr) -> nw.Expr:
     """String form of a float, with the trailing ".0" kept.
 
@@ -95,27 +85,12 @@ def _float_as_string(expr: nw.Expr) -> nw.Expr:
     )
 
 
-def _ceil(expr: nw.Expr) -> nw.Expr:
-    """Ceiling, as `-floor(-x)`, for the same version reason as `_floor`.
-
-    Written with `* -1` rather than unary `-`: narwhals only gave `Expr` a
-    `__neg__` recently, and on Python 3.9 the newest resolvable narwhals
-    does not have it (#78).
-    """
-    return ((expr * -1) // 1) * -1
-
-
 def _branch(*cases, otherwise: nw.Expr) -> nw.Expr:
-    """A when/then/otherwise chain, written as nesting.
-
-    polars lets `.when()` be chained onto a `Then`; narwhals only grew that
-    in 2.x, so the same shape is expressed by nesting each remaining case
-    inside the previous `otherwise`.
-    """
-    expr = otherwise
-    for condition, value in reversed(cases):
-        expr = nw.when(condition).then(value).otherwise(expr)
-    return expr
+    """A when/then/otherwise chain, as a readable sequence of cases."""
+    chain = nw.when(cases[0][0]).then(cases[0][1])
+    for condition, value in cases[1:]:
+        chain = chain.when(condition).then(value)
+    return chain.otherwise(otherwise)
 
 
 def convert_df_scientific(df, varnames: Iterable[str], thr: int = 4):
@@ -140,6 +115,15 @@ def convert_df_scientific(df, varnames: Iterable[str], thr: int = 4):
     already_narwhals = isinstance(df, (nw.DataFrame, nw.LazyFrame))
     frame = df if already_narwhals else nw.from_native(df)
 
+    # Everything below treats these as floats, so make them floats. A
+    # statistic that is missing for every row — the standard deviation of a
+    # one-row column, say — arrives as an all-null column, and Arrow types
+    # that as `null` rather than as a float that happens to be absent.
+    # `fill_null` on a null-typed column then raises `ArrowInvalid: Invalid
+    # null value`, since there is no float to put there. A no-op on the
+    # backends that infer a float type anyway.
+    frame = frame.with_columns(nw.col(name).cast(nw.Float64) for name in varnames)
+
     exprs_ex = []
     name_exponents = []
     for varname in varnames:
@@ -163,7 +147,7 @@ def convert_df_scientific(df, varnames: Iterable[str], thr: int = 4):
         magnitude = _branch((has_exponent, var.abs()), otherwise=nw.lit(1.0))
         exp_ex = (
             _branch(
-                (has_exponent, _floor(magnitude.log(base=10))),
+                (has_exponent, magnitude.log(base=10).floor()),
                 otherwise=nw.lit(0.0),
             )
             .cast(nw.Int16)

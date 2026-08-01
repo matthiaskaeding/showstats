@@ -171,7 +171,7 @@ def test_single_columns():
     assert flt_table.stat_dfs["num"].shape == desired_shape
     assert flt_table.stat_dfs["num"].item(0, "Avg") == "1.6"
     assert flt_table.stat_dfs["num"].item(0, 1) == 0
-    assert flt_table.stat_dfs["num"].columns[0] == "Col (N=2)"
+    assert flt_table.stat_dfs["num"].columns[0] == "Col"
 
 
 def test_char_table():
@@ -202,7 +202,7 @@ def test_char_table():
 
     assert stat_df.get_column(stat_df.columns[0]).to_list() == list(data.keys())
     assert stat_df.columns == [
-        "Col (N=26)",
+        "Col",
         "NA%",
         "Uniques",
         "Top 1",
@@ -254,14 +254,14 @@ def test_quantiles_fold_min_and_max():
     default = _Table(df, "num")
     default.form_stat_df("num")
     assert default.stat_dfs["num"].columns == [
-        "Col (N=100)",
+        "Col",
         "NA%",
         "Avg",
-        "SD",
         "Median",
+        "SD",
         "Min",
         "Max",
-    ], "Min/Max come last; the central statistics lead"
+    ], "Avg and Median together, then SD; Min/Max last (#74)"
 
     _table = _Table(df, "num", quantiles=[0.1, 0.9])
     _table.form_stat_df("num")
@@ -269,11 +269,11 @@ def test_quantiles_fold_min_and_max():
 
     # Ascending sequence, with Min/Max folded in as the endpoints.
     assert stat_df.columns == [
-        "Col (N=100)",
+        "Col",
         "NA%",
         "Avg",
-        "SD",
         "Median",
+        "SD",
         "Q0",
         "Q10",
         "Q90",
@@ -314,7 +314,7 @@ def test_quantiles_0_and_1_warn_and_are_dropped():
 
     # 0 and 1 are dropped as explicit quantiles, but still appear as the
     # relabelled min/max endpoints — so no column is duplicated.
-    assert stat_df.columns == ["Col (N=100)", "NA%", "Avg", "SD", "Q0", "Q50", "Q100"]
+    assert stat_df.columns == ["Col", "NA%", "Avg", "SD", "Q0", "Q50", "Q100"]
 
 
 def test_quantiles_warning_is_emitted_once_per_session():
@@ -342,11 +342,11 @@ def test_fold_quantiles_false_keeps_named_columns():
 
     # Named stats keep their names, and the quantiles are appended.
     assert stat_df.columns == [
-        "Col (N=100)",
+        "Col",
         "NA%",
         "Avg",
-        "SD",
         "Median",
+        "SD",
         "Q10",
         "Q50",
         "Min",
@@ -392,8 +392,8 @@ def test_pandas(sample_df):
     # So we check shapes and most columns, but allow minor formatting differences
     assert _table_pandas.stat_dfs["num"].shape == _table_polars.stat_dfs["num"].shape
     assert (
-        _table_pandas.stat_dfs["num"]["Col (N=3)"][0]
-        == _table_polars.stat_dfs["num"]["Col (N=3)"][0]
+        _table_pandas.stat_dfs["num"]["Col"][0]
+        == _table_polars.stat_dfs["num"]["Col"][0]
     )
     assert (
         _table_pandas.stat_dfs["num"]["NA%"][0]

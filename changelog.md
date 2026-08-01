@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Date and datetime columns raised `ArrowNotImplementedError: Unsupported
+  cast from date32[day] to int64` on a pyarrow table — every one of them.
+  The median went through Int64, which is the detour pandas needs, and Arrow
+  refuses that cast and has no quantile kernel for dates either. It is
+  computed from the sorted values now, which needs no cast (#86)
+- The median was approximate on pyarrow. `median()` maps to Arrow's
+  `approximate_median`, a t-digest: for the two values 0.00 and 0.02 it
+  answered 0.0. The median is the 50th percentile now, which is exact on
+  every backend — and the same call the `Q50` column makes, so the two agree
+  by construction rather than by coincidence (#86)
+- Quantiles of a narrow integer column overflowed: pandas answered 64.0 for
+  the median of an `Int8` column holding 0 and -128, where it is -64.0.
+  Interpolation happens in Int64 now. This affected the `Q50` column too,
+  not only `Median` (#86)
+- A statistic missing for every row — the standard deviation of a one-row
+  column, say — raised `ArrowInvalid: Invalid null value` on a pyarrow
+  table, because Arrow types an all-null column as `null` rather than as an
+  absent float (#86)
+
+### Changed
+
+- **Breaking:** `requires-python` is now `>= 3.10`, up from `>= 3.8`, and the
+  minimum `narwhals` is 2.20.0. The two are linked: `requires-python` caps
+  which narwhals is installable at all — 1.42.1 and below need 3.8, 1.43.0
+  to 2.21.0 need 3.9, 2.21.2 and above need 3.10 — so claiming 3.8 pinned
+  the project to a narwhals nothing had ever been tested against. Python 3.8
+  and 3.9 are both past end of life. Four internal workarounds go with it:
+  `Expr.floor`, `Expr.ceil`, `str.len_chars` and chained `.when()` are used
+  directly now instead of being hand-rolled (#78)
+- **Breaking:** the numerical table now reads `Avg`, `Median`, `SD`, then the
+  extremes. The two measures of location sit together with the spread beside
+  them, rather than `SD` splitting them apart (#74)
+- **Breaking:** the row count moved from the first column's header to the
+  section rule — `-Numerical columns (N=1461)---` with the column simply
+  named `Col`. The header was usually wider than the variable names and
+  padded every row of the first column out to its own length: twelve
+  characters of `Col (N=1461)` against a seven-character `weather`, or
+  fifteen once N passes 100,000 and the count goes scientific. A side
+  benefit for callers of `make_stats_tbl`: the first column's name no longer
+  changes with the row count, so it can be addressed by name (#75)
+
 ## [0.2.0] - 2026-07-29
 
 ### Changed
