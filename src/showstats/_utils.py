@@ -115,6 +115,15 @@ def convert_df_scientific(df, varnames: Iterable[str], thr: int = 4):
     already_narwhals = isinstance(df, (nw.DataFrame, nw.LazyFrame))
     frame = df if already_narwhals else nw.from_native(df)
 
+    # Everything below treats these as floats, so make them floats. A
+    # statistic that is missing for every row — the standard deviation of a
+    # one-row column, say — arrives as an all-null column, and Arrow types
+    # that as `null` rather than as a float that happens to be absent.
+    # `fill_null` on a null-typed column then raises `ArrowInvalid: Invalid
+    # null value`, since there is no float to put there. A no-op on the
+    # backends that infer a float type anyway.
+    frame = frame.with_columns(nw.col(name).cast(nw.Float64) for name in varnames)
+
     exprs_ex = []
     name_exponents = []
     for varname in varnames:

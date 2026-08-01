@@ -150,30 +150,84 @@ def _blank_where_missing(name: str, rendered: nw.Expr) -> nw.Expr:
     return _branch((nw.col(name).is_null(), nw.lit("")), otherwise=rendered)
 
 
-def _median_expr(var: str, dtype) -> nw.Expr:
-    """Median of a column, for dtypes some backends refuse to take it on.
+def _is_temporal(dtype) -> bool:
+    return dtype == nw.Date or dtype == nw.Datetime or str(dtype).startswith("Datetime")
 
-    polars computes median() directly for booleans and datetimes, but the
-    pandas backend raises `median operation not supported for non-numeric
-    input type`. Casting to an integer, taking the median there and casting
-    back produces the same answer on every backend — for datetimes the cast
-    goes through the column's own dtype, so the time unit round-trips
-    correctly rather than being assumed.
 
-    Nulls are dropped before the cast, not left to median() to ignore.
-    pandas represents a missing datetime as NaT, and casting that to Int64
-    gives the int64 minimum rather than null — so the missing rows joined
-    the median as enormous negative numbers, and a column of two nulls and
-    the dates 2020-01-01, 2020-06-01, 2020-12-01 reported its median as
-    2020-01-01. Not blank; simply wrong, and plausible enough to go
-    unnoticed.
+# Integer widths that Int64 can hold, plus Boolean. Int64 and UInt64 are
+# absent on purpose: there is nothing wider to widen them to, and casting
+# a UInt64 past 2**63 into Int64 fails outright on polars and pyarrow.
+_WIDENABLE = (
+    nw.Boolean,
+    nw.Int8,
+    nw.Int16,
+    nw.Int32,
+    nw.UInt8,
+    nw.UInt16,
+    nw.UInt32,
+)
+
+
+def _widen_for_quantile(col: nw.Expr, dtype) -> nw.Expr:
+    """A column in a type a quantile can safely interpolate over.
+
+    A quantile lands between two values, and computing that in the
+    column's own width overflows: pandas answers 64.0 for the median of an
+    Int8 column holding 0 and -128, where it is -64.0. Booleans have no
+    quantile on any backend and need widening regardless.
+
+    Int64 rather than Float64, though the answer is a float either way.
+    Arrow refuses a lossy integer-to-float cast outright — `Integer value
+    9007199254740993 not in range: 0 to 9007199254740992` — so widening
+    through the float would fail on exactly the values that most need a
+    wider type.
     """
-    col = nw.col(var).drop_nulls()
-    if dtype == nw.Boolean:
-        return col.cast(nw.Int8).median()
-    if dtype == nw.Date or dtype == nw.Datetime or str(dtype).startswith("Datetime"):
-        return col.cast(nw.Int64).median().cast(dtype)
-    return col.median()
+    return col.cast(nw.Int64) if dtype in _WIDENABLE else col
+
+
+def _median_expr(var: str, dtype) -> nw.Expr:
+    """Median of a column, as the 50th percentile.
+
+    `median()` rather than `quantile(0.5)` would be the obvious call, but
+    narwhals maps it to Arrow's `approximate_median`, which is a t-digest:
+    for the two values 0.00 and 0.02 it answers 0.0 where the median is
+    0.01. `quantile(0.5, "linear")` is exact on all three backends, and it
+    is the same call the Q50 column makes — so Median and Q50 now agree by
+    construction rather than by coincidence.
+
+    Nulls are dropped rather than left to the aggregate to ignore, and the
+    column is widened first — see `_widen_for_quantile`. Temporal columns
+    do not come through here; see `_temporal_median`.
+    """
+    col = _widen_for_quantile(nw.col(var).drop_nulls(), dtype)
+    return col.quantile(0.5, interpolation="linear")
+
+
+def _temporal_median(series: nw.Series):
+    """Median of a date or datetime column, computed on the values.
+
+    Not an expression, because there is no expression that works. The
+    detour every backend needs is different: pandas cannot take median()
+    of a datetime at all, polars and pandas can cast temporal to Int64 and
+    back, and pyarrow can do neither — `Unsupported cast from date32[day]
+    to int64` — nor take a quantile of one. Casting through Int64 was the
+    old approach and it made pyarrow raise on any date column (#86).
+
+    Sorting and taking the middle works everywhere and needs no casts. For
+    an even count the answer is the midpoint of the two middle instants,
+    which is what the Int64 round-trip produced: `date + timedelta` keeps
+    whole days only, so a midpoint half a day along truncates down, and a
+    datetime keeps its full precision.
+
+    The column is sorted rather than listed out, so only the two middle
+    values are ever pulled into Python.
+    """
+    ordered = series.drop_nulls().sort()
+    count = len(ordered)
+    if count == 0:
+        return None
+    low, high = ordered[(count - 1) // 2], ordered[count // 2]
+    return low + (high - low) / 2
 
 
 def _std_expr(var: str, dtype) -> nw.Expr:
@@ -283,17 +337,22 @@ class _Table:
                     stat_name = f"{var}{sep}{function}"
                     if function.startswith(QUANTILE_PREFIX):
                         q = float(function[len(QUANTILE_PREFIX) :])
-                        col = nw.col(var)
-                        if vt == "num_bool":
-                            # narwhals has no quantile for booleans
-                            col = col.cast(nw.Int8)
+                        col = _widen_for_quantile(nw.col(var), schema[var])
                         # "linear" (numpy's and pandas' default) keeps the
                         # sequence self-consistent: Q0 == min, Q50 == median,
                         # Q100 == max. polars' own default of "nearest" would
                         # make Q50 disagree with the Median column.
                         expr = col.quantile(q, interpolation="linear").alias(stat_name)
                     elif function == "median":
-                        expr = _median_expr(var, schema[var]).alias(stat_name)
+                        # A temporal median has no expression that works on
+                        # every backend, so it is filled in below from the
+                        # values. The name is still registered here, since
+                        # make_dt reads the column order off stat_names_map.
+                        expr = (
+                            None
+                            if _is_temporal(schema[var])
+                            else _median_expr(var, schema[var]).alias(stat_name)
+                        )
                     elif function == "std":
                         expr = _std_expr(var, schema[var]).alias(stat_name)
                     elif function == "n_unique":
@@ -306,7 +365,8 @@ class _Table:
                         expr = nw.col(var).drop_nulls().n_unique().alias(stat_name)
                     else:
                         expr = getattr(nw.col(var), function)().alias(stat_name)
-                    expressions.append(expr)
+                    if expr is not None:
+                        expressions.append(expr)
                     stat_names_map[vt].append(stat_name)
         # Evaluate expressions.
         # Those conditions must always hold:
@@ -324,6 +384,10 @@ class _Table:
             stats = {}
         else:
             stats = df.select(expressions).rows(named=True)[0]
+
+        for vt in ("date", "datetime"):
+            for var in vars_map.get(vt, []):
+                stats[f"{var}{sep}median"] = _temporal_median(df[var])
 
         if "cat" in vars_map:
             # Top-3 counts likewise: one Series.value_counts per column,

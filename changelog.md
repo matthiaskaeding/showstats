@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Date and datetime columns raised `ArrowNotImplementedError: Unsupported
+  cast from date32[day] to int64` on a pyarrow table — every one of them.
+  The median went through Int64, which is the detour pandas needs, and Arrow
+  refuses that cast and has no quantile kernel for dates either. It is
+  computed from the sorted values now, which needs no cast (#86)
+- The median was approximate on pyarrow. `median()` maps to Arrow's
+  `approximate_median`, a t-digest: for the two values 0.00 and 0.02 it
+  answered 0.0. The median is the 50th percentile now, which is exact on
+  every backend — and the same call the `Q50` column makes, so the two agree
+  by construction rather than by coincidence (#86)
+- Quantiles of a narrow integer column overflowed: pandas answered 64.0 for
+  the median of an `Int8` column holding 0 and -128, where it is -64.0.
+  Interpolation happens in Int64 now. This affected the `Q50` column too,
+  not only `Median` (#86)
+- A statistic missing for every row — the standard deviation of a one-row
+  column, say — raised `ArrowInvalid: Invalid null value` on a pyarrow
+  table, because Arrow types an all-null column as `null` rather than as an
+  absent float (#86)
+
 ### Changed
 
 - **Breaking:** `requires-python` is now `>= 3.10`, up from `>= 3.8`, and the
