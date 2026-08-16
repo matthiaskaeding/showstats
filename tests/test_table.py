@@ -6,7 +6,16 @@ import polars as pl
 import pyarrow as pa
 import pytest
 
-from showstats._table import _WARNED_ONCE, _Table
+from showstats._table import (
+    _WARNED_ONCE,
+    _Table,
+    build_stat_expressions,
+    build_summary_plan,
+    compute_summary,
+    format_section,
+    format_tables,
+    normalize_config,
+)
 
 
 def as_native(frame):
@@ -20,6 +29,36 @@ def _reset_warning_registry():
     _WARNED_ONCE.clear()
     yield
     _WARNED_ONCE.clear()
+
+
+def test_summary_pipeline_stages_return_explicit_values():
+    frame = nw.from_native(pl.DataFrame({"amount": [1, 2, 3], "name": ["a", "b", "a"]}))
+    config = normalize_config("all", top_cols="amount", quantiles=[0.75, 0.25])
+
+    assert config.top_cols == ("amount",)
+    assert config.quantiles == (0.25, 0.75)
+
+    plan = build_summary_plan(frame.schema, config)
+    assert plan.vars_map == {"num_int": ("amount",), "cat": ("name",)}
+    assert build_stat_expressions(frame.schema, plan)
+
+    summary = compute_summary(frame, plan)
+    assert summary.stats["amount____mean"] == 2
+    assert summary.stats["name____n_unique"] == 2
+
+    numeric = format_section(summary, "num")
+    assert numeric["Col"].to_list() == ["amount"]
+    assert format_section(summary, "time") is None
+
+    tables = format_tables(summary)
+    assert tuple(tables) == ("num", "cat")
+
+
+def test_table_builds_tables_eagerly_without_form_stat_df():
+    table = _Table(pl.DataFrame({"amount": [1, 2, 3]}), "num")
+
+    built = table.stat_dfs["num"]
+    assert table.form_stat_df("num") is built
 
 
 def test_make_dt_num(sample_df):

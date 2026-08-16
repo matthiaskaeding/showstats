@@ -1,11 +1,17 @@
 # Central functions for table making
 from __future__ import annotations
 
-from typing import get_args
-
 from narwhals.typing import IntoDataFrame
 
-from showstats._table import TableType, _Table
+from showstats._table import (
+    TableType,
+    _check_input_maybe_try_transform,
+    build_summary_plan,
+    compute_summary,
+    format_tables,
+    normalize_config,
+    render_tables,
+)
 
 
 def show_stats(
@@ -44,15 +50,12 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in get_args(TableType):
-        raise ValueError(
-            f"table_type {table_type!r} not supported; "
-            f"expected one of {get_args(TableType)}"
-        )
-
-    _table = _Table(df, table_type, top_cols, quantiles, fold_quantiles)
-    _table.form_stat_df(table_type)
-    _table.show()
+    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+    frame = _check_input_maybe_try_transform(df)
+    plan = build_summary_plan(frame.schema, config)
+    summary = compute_summary(frame, plan)
+    tables = format_tables(summary)
+    render_tables(tables, config, summary.num_rows)
 
 
 def make_stats_tbl(
@@ -97,21 +100,19 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    if table_type not in get_args(TableType):
-        raise ValueError(
-            f"table_type {table_type!r} not supported; "
-            f"expected one of {get_args(TableType)}"
-        )
-    _table = _Table(df, table_type, top_cols, quantiles, fold_quantiles)
-    _table.form_stat_df(table_type)
+    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+    frame = _check_input_maybe_try_transform(df)
+    plan = build_summary_plan(frame.schema, config)
+    summary = compute_summary(frame, plan)
+    tables = format_tables(summary)
     if table_type == "all":
         return {
-            name: _table.stat_dfs[name].to_native()
+            name: tables[name].to_native()
             for name in ("time", "num", "cat")
-            if name in _table.stat_dfs
+            if name in tables
         }
     # Return None if no columns of this type were found
-    stat_df = _table.stat_dfs.get(table_type, None)
+    stat_df = tables.get(table_type)
     if stat_df is None:
         return None
     return stat_df.to_native()
