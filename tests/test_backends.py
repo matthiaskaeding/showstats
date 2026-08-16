@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 import pandas as pd
 import polars as pl
+import pyarrow as pa
 import pytest
 
 from showstats import show_stats
@@ -99,6 +100,62 @@ def test_pyarrow_backend_categorical_top_values():
 def test_pyarrow_backend_all_types(capsys):
     show_stats(MIXED_PA, "all")
     assert "int_col" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("frame", "native_type"),
+    [
+        pytest.param(
+            pl.DataFrame(
+                {
+                    "number": [1, 2],
+                    "category": ["a", "b"],
+                    "date": [date(2020, 1, 1), date(2020, 1, 2)],
+                }
+            ),
+            pl.DataFrame,
+            id="polars",
+        ),
+        pytest.param(
+            pd.DataFrame(
+                {
+                    "number": [1, 2],
+                    "category": ["a", "b"],
+                    "date": pd.to_datetime(["2020-01-01", "2020-01-02"]),
+                }
+            ),
+            pd.DataFrame,
+            id="pandas",
+        ),
+        pytest.param(
+            pa.table(
+                {
+                    "number": [1, 2],
+                    "category": ["a", "b"],
+                    "date": pa.array(
+                        [date(2020, 1, 1), date(2020, 1, 2)], type=pa.date32()
+                    ),
+                }
+            ),
+            pa.Table,
+            id="pyarrow",
+        ),
+    ],
+)
+def test_make_stats_tbl_all_returns_each_table_in_the_input_backend(frame, native_type):
+    result = make_stats_tbl(frame, "all")
+
+    assert list(result) == ["time", "num", "cat"]
+    assert all(isinstance(table, native_type) for table in result.values())
+    assert stats_frame(result["time"])["Col"].to_list() == ["date"]
+    assert stats_frame(result["num"])["Col"].to_list() == ["number"]
+    assert stats_frame(result["cat"])["Col"].to_list() == ["category"]
+
+
+def test_make_stats_tbl_all_omits_empty_table_types():
+    result = make_stats_tbl(pl.DataFrame({"number": [1, 2]}), "all")
+
+    assert list(result) == ["num"]
 
 
 @pytest.mark.parametrize(
