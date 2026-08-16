@@ -5,11 +5,17 @@
 vertical orientation.
 
 ``` python
+import pandas as pd
 import polars as pl
-from showstats import show_stats
+import pyarrow as pa
 
+from showstats import show_stats
+```
+
+``` python
 # Daily weather in Seattle, 2012-2015
-df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
+weather_path = "docs/data/seattle-weather.csv"
+df = pl.read_csv(weather_path, try_parse_dates=True)
 
 show_stats(df)
 ```
@@ -57,16 +63,31 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
      wind      0    3.24   3.0     1.44  0.4   1.7  5.2   9.5  
 
 ``` python
-# pandas, pyarrow and other narwhals-supported frames work the same way
-import pandas as pd
-
-show_stats(pd.read_csv("docs/data/seattle-weather.csv")[["temp_max", "wind"]])
+# pandas names the date columns to parse. Polars can detect them.
+pandas_df = pd.read_csv(weather_path, parse_dates=["date"])
+show_stats(pandas_df[["date", "temp_max", "wind"]])
 ```
 
+    -Date and datetime columns (N=1461)---------------------------------------------
+     Col   NA%  Median      Min         Max        
+     date  0    2013-12-31  2012-01-01  2015-12-31 
     -Numerical columns (N=1461)-----------------------------------------------------
      Col       NA%  Avg    Median  SD    Min   Max  
      temp_max  0    16.44  15.6    7.35  -1.6  35.6 
      wind      0    3.24   3.0     1.44  0.4   9.5  
+
+``` python
+# PyArrow tables work directly too.
+arrow_table = pa.Table.from_pandas(pandas_df[["date", "weather"]])
+show_stats(arrow_table)
+```
+
+    -Date and datetime columns (N=1461)---------------------------------------------
+     Col   NA%  Median               Min                  Max                 
+     date  0    2013-12-31 00:00:00  2012-01-01 00:00:00  2015-12-31 00:00:00 
+    -Categorical columns (N=1461)---------------------------------------------------
+     Col      NA%  Uniques  Top 1       Top 2      Top 3    
+     weather  0    5        rain (44%)  sun (44%)  fog (7%) 
 
 - **showstats** works with any data frame
   [narwhals](https://github.com/narwhals-dev/narwhals) supports —

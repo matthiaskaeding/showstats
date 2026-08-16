@@ -15,11 +15,17 @@ sys.path.append("src/")
 ```
 
 ```{python}
+import pandas as pd
 import polars as pl
-from showstats import show_stats
+import pyarrow as pa
 
+from showstats import show_stats
+```
+
+```{python}
 # Daily weather in Seattle, 2012-2015
-df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
+weather_path = "docs/data/seattle-weather.csv"
+df = pl.read_csv(weather_path, try_parse_dates=True)
 
 show_stats(df)
 ```
@@ -41,19 +47,23 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
 ```
 
 ```{python}
-# pandas, pyarrow and other narwhals-supported frames work the same way
-import pandas as pd
+# pandas names the date columns to parse. Polars can detect them.
+pandas_df = pd.read_csv(weather_path, parse_dates=["date"])
+show_stats(pandas_df[["date", "temp_max", "wind"]])
+```
 
-show_stats(pd.read_csv("docs/data/seattle-weather.csv")[["temp_max", "wind"]])
+```{python}
+# PyArrow tables work directly too.
+arrow_table = pa.Table.from_pandas(pandas_df[["date", "weather"]])
+show_stats(arrow_table)
 ```
 
 - **showstats** works with any data frame [narwhals](https://github.com/narwhals-dev/narwhals) supports — polars, pandas, pyarrow and more. They all work directly, with no extra installs or conversion step.
 
-- Heavily inspired by the great R-packages [skimr](https://github.com/ropensci/skimr) and [modelsummary](https://modelsummary.com/vignettes/datasummary.html). 
+- Heavily inspired by the great R-packages [skimr](https://github.com/ropensci/skimr) and [modelsummary](https://modelsummary.com/vignettes/datasummary.html).
 
 - Numbers with many digits are automatically converted to scientific notation.
 
 - The example above uses [Seattle daily weather](https://github.com/vega/vega-datasets/blob/main/data/seattle-weather.csv) from vega-datasets (BSD-3-Clause).
 
 - Fast: under a second to summarise a 1,000,000 &times; 1,000 data frame on an M1 MacBook.
- 
