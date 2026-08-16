@@ -29,7 +29,7 @@ requires-python = ">= 3.10"
 # Convenience extras for people who want a dataframe library installed
 # alongside showstats. None of them is required: showstats works with
 # whatever narwhals-compatible frame it is handed.
-pandas = ["pandas>=1.5.3", "pyarrow>=10.0.0"]
+pandas = ["pandas>=1.5.3", "pyarrow>=13.0.0"]
 polars = ["polars>=0.20.21"]
 
 

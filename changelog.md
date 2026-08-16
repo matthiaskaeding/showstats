@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CI now runs the stable suite with Python 3.10 and Narwhals 2.20.0, so the
+  declared minimum versions are checked on every PR. The pandas extra now
+  requires PyArrow 13, which is the minimum supported by Narwhals 2.20.0
+  (#78)
 - **Breaking:** `requires-python` is now `>= 3.10`, up from `>= 3.8`, and the
   minimum `narwhals` is 2.20.0. The two are linked: `requires-python` caps
   which narwhals is installable at all — 1.42.1 and below need 3.8, 1.43.0
