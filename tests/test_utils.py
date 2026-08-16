@@ -6,7 +6,6 @@ from showstats._table import (
     _check_input_maybe_try_transform,
     _map_cols_and_funs_for_var_type,
 )
-from showstats.showstats import make_stats_tbl
 
 
 @pytest.mark.parametrize("bad", [1, 1.0, None, [], {}, {"a": []}])
@@ -78,13 +77,6 @@ def test_lazy_input_is_collected():
     df = _check_input_maybe_try_transform(lf)
     assert isinstance(df, nw.DataFrame)
     assert df.shape == (3, 2)
-
-
-def test_lazy_input_gives_the_same_answer_as_eager():
-    data = {"num": [1.5, 2.5, None, 4.5], "cat": ["x", "y", "x", None]}
-    eager = pl.DataFrame(data)
-    assert make_stats_tbl(eager.lazy(), "num").equals(make_stats_tbl(eager, "num"))
-    assert make_stats_tbl(eager.lazy(), "cat").equals(make_stats_tbl(eager, "cat"))
 
 
 def test_an_empty_lazy_frame_is_still_rejected():

@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Lazy frames are accepted. `show_stats(df.lazy())` used to raise
   `TypeError: Cannot only use eager_only ... with polars.LazyFrame`; the
-  frame is collected at the door instead. Summarising is not a streaming
-  job — it reads every column several times over, once for the aggregate
-  row and again per categorical and temporal column — so collecting once up
-  front is what a lazy frame would end up doing anyway, without re-scanning
+  frame is collected at the door instead. `make_stats_tbl` therefore always
+  returns an eager frame. An eager input keeps its native type, while a lazy
+  input uses the eager backend chosen by narwhals. Summarising is not a
+  streaming job. It reads every column several times, once for the aggregate
+  row and again per categorical and temporal column. Collecting once up front
+  is what a lazy frame would end up doing anyway, without re-scanning
   for each pass (#85)
 
 ### Fixed

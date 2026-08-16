@@ -71,11 +71,14 @@ def make_stats_tbl(
     Builds table of summary statistics for the given DataFrame, configured
     for for optimal readability.
 
-    For a single table type, the result is a frame of the same kind as the
-    input. Polars gives polars back, pandas gives pandas, and so on. For
-    `table_type="all"`, the result is a dictionary containing each
-    nonempty table under its `"time"`, `"num"`, or `"cat"` key.
-    Returns None when the input has no columns of a requested single type.
+    The result is always eager. An eager input returns the same native frame
+    type. A lazy input returns the eager frame type chosen by narwhals when it
+    collects the input. For example, a polars LazyFrame returns a polars
+    DataFrame, while a DuckDB relation returns a pyarrow Table.
+
+    For `table_type="all"`, the result is a dictionary containing each
+    nonempty table under its `"time"`, `"num"`, or `"cat"` key. The function
+    returns None when the input has no columns of a requested single type.
 
     Args:
         df: The input frame — polars, pandas, pyarrow or any other

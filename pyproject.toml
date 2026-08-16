@@ -38,6 +38,7 @@ polars = ["polars>=0.20.21"]
 # `dev` group by default. Runtime deps stay in [project.dependencies] above.
 dev = [
   "build>=1.2.1",
+  "duckdb>=1.0.0",
   "hatchling>=1.25.0",
   "hypothesis>=6.113.0",
   "jupyter>=1.0.0",

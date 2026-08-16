@@ -36,6 +36,22 @@ def test_make_stats_tbl_quantiles(sample_df):
     assert "Q75" in res_num.columns
 
 
+@pytest.mark.parametrize("table_type", ["num", "cat"])
+def test_make_stats_tbl_collects_polars_lazy_input(table_type):
+    result = make_stats_tbl(MIXED_PL.lazy(), table_type)
+    assert isinstance(result, pl.DataFrame)
+    assert result.equals(make_stats_tbl(MIXED_PL, table_type))
+
+
+def test_make_stats_tbl_collects_deferred_scan(tmp_path):
+    path = tmp_path / "input.parquet"
+    MIXED_PL.write_parquet(path)
+
+    result = make_stats_tbl(pl.scan_parquet(path), "num")
+    assert isinstance(result, pl.DataFrame)
+    assert result.equals(make_stats_tbl(MIXED_PL, "num"))
+
+
 @pytest.mark.parametrize(("df", "native_type"), BACKENDS)
 def test_make_stats_tbl_returns_the_input_type(df, native_type):
     """The return follows the input, rather than always being polars.

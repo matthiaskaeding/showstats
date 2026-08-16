@@ -19,6 +19,7 @@ def lint(session):
 @nox.session(name="python_versions", python=["3.10", "3.11", "3.12"])
 def test(session):
     session.install(
+        "duckdb>=1.0.0",
         "pytest>=8.3.2",
         "hypothesis>=6.113.0",
         "polars>=0.20.21",
@@ -35,6 +36,7 @@ def test(session):
 @nox.session(name="polars_pandas", python="3.10")
 def test_polars_versions(session, polars_version, pandas_version):
     session.install(
+        "duckdb>=1.0.0",
         "pytest>=8.3.2",
         "hypothesis>=6.113.0",
         f"polars=={polars_version}",

@@ -41,6 +41,14 @@ def test_show_subsets(sample_df, capsys):
     assert "categorical_col" in captured.out
 
 
+def test_show_lazy_matches_eager_for_all_types(sample_df, capsys):
+    show_stats(sample_df.lazy(), "all")
+    lazy_output = capsys.readouterr().out
+
+    show_stats(sample_df, "all")
+    assert lazy_output == capsys.readouterr().out
+
+
 def test_show_empty(sample_df, capsys):
     show_stats(sample_df.select("U", "int_col"), "cat")
     captured = capsys.readouterr()
