@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, get_args
 
 import narwhals as nw
 from narwhals.typing import IntoDataFrame
@@ -18,6 +19,7 @@ from showstats._utils import (
 # The table types show_stats/make_stats_tbl accept. Runtime validation reads
 # the members off this alias via get_args, so the two cannot drift apart.
 TableType = Literal["all", "num", "cat", "time"]
+VarType = Literal["num_float", "num_int", "num_bool", "cat", "date", "datetime", "null"]
 
 # Advisory warnings are emitted at most once per session. showstats is
 # typically called repeatedly — in a loop, or over and over in a notebook
@@ -41,8 +43,8 @@ def _check_input_maybe_try_transform(input: IntoDataFrame) -> nw.DataFrame:
     return df
 
 
-def _get_cols_for_var_type(df, var_type):
-    schema = df.schema
+def _get_cols_for_var_type(df_or_schema, var_type):
+    schema = df_or_schema.schema if hasattr(df_or_schema, "schema") else df_or_schema
     matching_cols = []
 
     for col_name, dtype in schema.items():
@@ -257,8 +259,425 @@ def _map_table_type_to_var_types(table_type):
         raise ValueError("""Type must be either "all", "num" "time" or "cat" """)
 
 
+_STAT_SEPARATOR = "____"
+
+
+@dataclass(frozen=True)
+class SummaryConfig:
+    """Normalized options shared by every summary stage."""
+
+    table_type: TableType
+    top_cols: tuple[str, ...] | None
+    quantiles: tuple[float, ...]
+    fold_quantiles: bool
+    quantile_framing: bool
+
+
+@dataclass(frozen=True)
+class SummaryPlan:
+    """The columns and statistics that computation must produce."""
+
+    config: SummaryConfig
+    vars_map: Mapping[VarType, tuple[str, ...]]
+    funs_map: Mapping[VarType, tuple[str, ...]]
+    stat_names_map: Mapping[VarType, tuple[str, ...]]
+    quantile_stat_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SummaryResult:
+    """Computed values plus the metadata needed to format them."""
+
+    plan: SummaryPlan
+    backend: object
+    num_rows: int
+    stats: Mapping[str, object]
+
+
+def normalize_config(
+    table_type: TableType,
+    top_cols: Iterable | None = None,
+    quantiles: Iterable | None = None,
+    fold_quantiles: bool = True,
+) -> SummaryConfig:
+    """Validate and normalize public options without reading the frame."""
+    if table_type not in get_args(TableType):
+        raise ValueError(
+            f"table_type {table_type!r} not supported; "
+            f"expected one of {get_args(TableType)}"
+        )
+
+    if isinstance(top_cols, str):
+        normalized_top_cols = (top_cols,)
+    elif top_cols is None:
+        normalized_top_cols = None
+    else:
+        normalized_top_cols = tuple(top_cols)
+
+    requested_quantiles = quantiles if quantiles is not None else ()
+    normalized_quantiles = tuple(sorted(set(requested_quantiles)))
+    for quantile in normalized_quantiles:
+        if not 0 <= quantile <= 1:
+            raise ValueError(f"quantiles must lie in [0, 1], got {quantile}")
+
+    quantile_framing = bool(normalized_quantiles) and fold_quantiles
+    redundant = (
+        [q for q in normalized_quantiles if q in (0, 1)] if quantile_framing else []
+    )
+    if redundant:
+        _warn_once(
+            "redundant_quantiles",
+            f"quantiles {redundant} ignored: 0 and 1 are always shown "
+            "as Q0 and Q100 (the min and max). Pass "
+            "fold_quantiles=False to keep Min/Max/Median as separate "
+            "columns instead.",
+        )
+        normalized_quantiles = tuple(q for q in normalized_quantiles if q not in (0, 1))
+
+    return SummaryConfig(
+        table_type=table_type,
+        top_cols=normalized_top_cols,
+        quantiles=normalized_quantiles,
+        fold_quantiles=fold_quantiles,
+        quantile_framing=quantile_framing,
+    )
+
+
+def classify_columns(
+    schema: Mapping[str, object], table_type: TableType
+) -> dict[VarType, tuple[str, ...]]:
+    """Group schema columns by the statistic rules they use."""
+    classified = {}
+    for var_type in _map_table_type_to_var_types(table_type):
+        columns = _get_cols_for_var_type(schema, var_type)
+        if columns:
+            classified[var_type] = tuple(columns)
+    return classified
+
+
+def build_summary_plan(
+    schema: Mapping[str, object], config: SummaryConfig
+) -> SummaryPlan:
+    """Build a calculation plan from a schema and normalized options."""
+    vars_map = classify_columns(schema, config.table_type)
+    funs_map = {
+        var_type: _map_funs_to_var_type(var_type, config.quantiles)
+        for var_type in vars_map
+    }
+    stat_names_map = {
+        var_type: tuple(
+            f"{var}{_STAT_SEPARATOR}{function}"
+            for var in columns
+            for function in funs_map[var_type]
+        )
+        for var_type, columns in vars_map.items()
+    }
+    return SummaryPlan(
+        config=config,
+        vars_map=vars_map,
+        funs_map=funs_map,
+        stat_names_map=stat_names_map,
+        quantile_stat_names=tuple(_quantile_stat_name(q) for q in config.quantiles),
+    )
+
+
+def build_stat_expressions(
+    schema: Mapping[str, object], plan: SummaryPlan
+) -> tuple[nw.Expr, ...]:
+    """Return the backend-neutral aggregate expressions for a plan."""
+    expressions = []
+    for var_type, columns in plan.vars_map.items():
+        for var in columns:
+            for function in plan.funs_map[var_type]:
+                stat_name = f"{var}{_STAT_SEPARATOR}{function}"
+                if function.startswith(QUANTILE_PREFIX):
+                    q = float(function[len(QUANTILE_PREFIX) :])
+                    col = _widen_for_quantile(nw.col(var), schema[var])
+                    expr = col.quantile(q, interpolation="linear").alias(stat_name)
+                elif function == "median":
+                    expr = (
+                        None
+                        if _is_temporal(schema[var])
+                        else _median_expr(var, schema[var]).alias(stat_name)
+                    )
+                elif function == "std":
+                    expr = _std_expr(var, schema[var]).alias(stat_name)
+                elif function == "n_unique":
+                    expr = nw.col(var).drop_nulls().n_unique().alias(stat_name)
+                else:
+                    expr = getattr(nw.col(var), function)().alias(stat_name)
+                if expr is not None:
+                    expressions.append(expr)
+    return tuple(expressions)
+
+
+def compute_summary(df: nw.DataFrame, plan: SummaryPlan) -> SummaryResult:
+    """Execute a summary plan and return plain computed values."""
+    backend = nw.get_native_namespace(df)
+    num_rows = df.shape[0]
+    df = df.with_columns(
+        nw.col(name).cast(nw.Float64)
+        for name, dtype in df.schema.items()
+        if dtype == nw.Decimal
+    )
+    expressions = build_stat_expressions(df.schema, plan)
+    stats = df.select(expressions).rows(named=True)[0] if expressions else {}
+
+    for var_type in ("date", "datetime"):
+        for var in plan.vars_map.get(var_type, ()):
+            stats[f"{var}{_STAT_SEPARATOR}median"] = _temporal_median(df[var])
+
+    for var in plan.vars_map.get("cat", ()):
+        counts = df[var].drop_nulls().value_counts(sort=True)
+        observed = [row for row in counts.rows(named=True) if row["count"] > 0]
+        stats[f"top_3{_STAT_SEPARATOR}{var}"] = observed[:3]
+
+    return SummaryResult(
+        plan=plan,
+        backend=backend,
+        num_rows=num_rows,
+        stats=stats,
+    )
+
+
+def _top_value_columns(summary: SummaryResult) -> dict[str, list[str]]:
+    columns = {}
+    variables = summary.plan.vars_map["cat"]
+    for position, var_name in enumerate(variables):
+        frequency = summary.stats[f"top_3{_STAT_SEPARATOR}{var_name}"]
+        for index, value_count in enumerate(frequency):
+            value = value_count[var_name]
+            count = value_count["count"]
+            column = columns.setdefault(f"Top {index + 1}", [""] * len(variables))
+            column[position] = f"{value} ({count / summary.num_rows:.0%})"
+    return columns
+
+
+def format_var_type(summary: SummaryResult, var_type: VarType) -> nw.DataFrame:
+    """Format one row for each variable in a classification group."""
+    plan = summary.plan
+    data = {"Variable": plan.vars_map[var_type]}
+    data.update({function: [] for function in plan.funs_map[var_type]})
+    for name in plan.stat_names_map[var_type]:
+        _, function = name.split(_STAT_SEPARATOR, 1)
+        data[function].append(summary.stats[name])
+
+    top_names = ()
+    if var_type == "cat":
+        top_columns = _top_value_columns(summary)
+        top_names = tuple(top_columns)
+        data.update(top_columns)
+
+    frame = nw.from_dict(data, backend=summary.backend)
+    frame = frame.with_columns(
+        (nw.col("null_count") * 100 / summary.num_rows).ceil().cast(nw.Int16)
+    )
+
+    quantile_names = list(plan.quantile_stat_names)
+    if var_type == "num_float":
+        frame = convert_df_scientific(
+            frame, ["mean", "median", "min", "max", "std"] + quantile_names
+        )
+    elif var_type in ("num_int", "num_bool"):
+        frame = convert_df_scientific(
+            frame, ["mean", "median", "std"] + quantile_names
+        ).with_columns(
+            *(
+                _blank_where_missing(
+                    name, nw.col(name).cast(nw.String).str.to_lowercase()
+                ).alias(name)
+                for name in ("min", "max")
+            )
+        )
+    elif var_type in ("date", "datetime"):
+        frame = frame.select(
+            "Variable",
+            "null_count",
+            *(
+                _blank_where_missing(
+                    name, nw.col(name).cast(nw.String).str.slice(0, 19)
+                ).alias(name)
+                for name in ("median", "min", "max")
+            ),
+        )
+    elif var_type == "null":
+        frame = frame.with_columns(
+            nw.lit("").alias("mean"),
+            nw.lit("").alias("std"),
+            nw.lit("").alias("median"),
+            nw.lit("").alias("min"),
+            nw.lit("").alias("max"),
+            *(nw.lit("").alias(name) for name in quantile_names),
+        )
+    elif var_type == "cat":
+        frame = frame.select(
+            "Variable",
+            nw.col("null_count").alias("NA%"),
+            nw.col("n_unique").alias("Uniques"),
+            *top_names,
+        )
+    return frame
+
+
+def order_rows(
+    frame: nw.DataFrame,
+    top_cols: tuple[str, ...] | None,
+    columns_in_order: Iterable[str],
+) -> list[int] | None:
+    """Return the requested row permutation before names are truncated."""
+    if top_cols is None:
+        return None
+    new_order = [
+        *top_cols,
+        *(name for name in columns_in_order if name not in top_cols),
+    ]
+    position = {name: index for index, name in enumerate(new_order)}
+    names = frame["Col"].to_list()
+    return sorted(range(len(names)), key=lambda index: position[names[index]])
+
+
+def _rebuild_frame(
+    frame: nw.DataFrame, backend: object, row_order: list[int] | None = None
+) -> nw.DataFrame:
+    columns = {name: frame[name].to_list() for name in frame.columns}
+    if row_order is not None:
+        columns = {
+            name: [values[index] for index in row_order]
+            for name, values in columns.items()
+        }
+    return nw.from_dict(columns, schema=frame.schema, backend=backend)
+
+
+def format_section(
+    summary: SummaryResult, table_type: Literal["num", "cat", "time"]
+) -> nw.DataFrame | None:
+    """Build one final table without mutating the computed summary."""
+    subframes = [
+        format_var_type(summary, var_type)
+        for var_type in _map_table_type_to_var_types(table_type)
+        if var_type in summary.plan.vars_map
+    ]
+    if not subframes:
+        return None
+
+    frame = nw.concat(subframes, how="vertical")
+    config = summary.plan.config
+    if table_type == "num":
+        if config.quantile_framing:
+            median_col = (
+                [] if 0.5 in config.quantiles else [nw.col("median").alias("Median")]
+            )
+            tail_cols = [
+                nw.col("min").alias("Q0"),
+                *(
+                    nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
+                    for q in config.quantiles
+                ),
+                nw.col("max").alias("Q100"),
+            ]
+        else:
+            median_col = [nw.col("median").alias("Median")]
+            tail_cols = [
+                *(
+                    nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
+                    for q in config.quantiles
+                ),
+                nw.col("min").alias("Min"),
+                nw.col("max").alias("Max"),
+            ]
+        frame = frame.select(
+            nw.col("Variable").alias("Col"),
+            nw.col("null_count").alias("NA%"),
+            nw.col("mean").alias("Avg"),
+            *median_col,
+            nw.col("std").alias("SD"),
+            *tail_cols,
+        )
+    elif table_type == "cat":
+        frame = frame.rename({"Variable": "Col"})
+    else:
+        frame = frame.select(
+            nw.col("Variable").alias("Col"),
+            nw.col("null_count").alias("NA%"),
+            nw.col("median").alias("Median"),
+            nw.col("min").alias("Min"),
+            nw.col("max").alias("Max"),
+        )
+
+    columns_in_order = (
+        name
+        for var_type in summary.plan.vars_map
+        for name in summary.plan.vars_map[var_type]
+    )
+    row_order = order_rows(frame, config.top_cols, columns_in_order)
+    frame = frame.with_columns(
+        _truncate_long_strings(nw.col("Col").cast(nw.String)).alias("Col")
+    )
+    return _rebuild_frame(frame, summary.backend, row_order)
+
+
+def format_tables(summary: SummaryResult) -> dict[str, nw.DataFrame]:
+    """Return every requested final table, keyed by section name."""
+    requested = (
+        ("time", "num", "cat")
+        if summary.plan.config.table_type == "all"
+        else (summary.plan.config.table_type,)
+    )
+    tables = {}
+    for table_type in requested:
+        table = format_section(summary, table_type)
+        if table is not None:
+            tables[table_type] = table
+    return tables
+
+
+def row_count(num_rows: int) -> str:
+    """Format the row count shown in a section header."""
+    if num_rows < 100_000:
+        return str(num_rows)
+    return f"{Decimal(num_rows):.2E}"
+
+
+def section_header(table_type: str, num_rows: int) -> str:
+    """Return the fixed-width header for one table section."""
+    names = {
+        "time": "Date and datetime columns",
+        "cat": "Categorical columns",
+        "num": "Numerical columns",
+    }
+    lhs = f"-{names[table_type]} (N={row_count(num_rows)})"
+    return f"{lhs}{'-' * (TABLE_WIDTH - len(lhs))}"
+
+
+def render_tables(
+    tables: Mapping[str, nw.DataFrame], config: SummaryConfig, num_rows: int
+) -> None:
+    """Print final tables and empty-section messages."""
+    if config.table_type != "all":
+        table = tables.get(config.table_type)
+        if table is None:
+            messages = {
+                "num": "No numerical columns found",
+                "cat": "No categorical columns found",
+                "time": "No date or datetime columns found",
+            }
+            print(messages[config.table_type])
+            return
+        print(section_header(config.table_type, num_rows))
+        print(render_table(table), end="")
+        return
+
+    if not tables:
+        print("No summarisable columns found")
+        return
+    for table_type in ("time", "num", "cat"):
+        if table_type in tables:
+            print(section_header(table_type, num_rows))
+            print(render_table(tables[table_type]), end="")
+
+
 class _Table:
-    """Models the metadata of a table"""
+    """Eager compatibility wrapper around the functional summary pipeline."""
 
     def __init__(
         self,
@@ -268,433 +687,53 @@ class _Table:
         quantiles: Iterable | None = None,
         fold_quantiles: bool = True,
     ):
-        df = _check_input_maybe_try_transform(df)
-        if isinstance(top_cols, str):
-            top_cols = [top_cols]
-        # Min, max and median *are* the 0th, 100th and 50th percentiles, so by
-        # default they are relabelled and folded into the quantile sequence
-        # rather than sitting alongside it under a second name. Setting
-        # fold_quantiles=False keeps the column names stable regardless of
-        # which quantiles are asked for, which matters for callers of
-        # make_stats_tbl that index the result by column name.
-        quantile_framing = bool(quantiles) and fold_quantiles
-        if quantiles is not None:
-            quantiles = sorted(set(quantiles))
-            for q in quantiles:
-                if not (0 <= q <= 1):
-                    raise ValueError(f"quantiles must lie in [0, 1], got {q}")
-            # 0 and 1 are only redundant when folding is on — that is what
-            # makes them appear as Q0/Q100 already.
-            redundant = (
-                [q for q in quantiles if q in (0, 1)] if quantile_framing else []
-            )
-            if redundant:
-                _warn_once(
-                    "redundant_quantiles",
-                    f"quantiles {redundant} ignored: 0 and 1 are always shown "
-                    "as Q0 and Q100 (the min and max). Pass "
-                    "fold_quantiles=False to keep Min/Max/Median as separate "
-                    "columns instead.",
-                )
-                quantiles = [q for q in quantiles if q not in (0, 1)]
-        self.type = table_type
-        # Remembered so the formatted table can be rebuilt in the same
-        # backend the caller handed in, rather than in polars.
-        self.backend = nw.get_native_namespace(df)
-        self.stat_dfs = {}
-        self.top_cols = top_cols
-        self.quantiles = quantiles
-        self.quantile_framing = quantile_framing
-        self.num_rows = df.shape[0]
-        vars_map = {}  # Maps var-type to columns in df
-        funs_map = {}  # Maps var-type to functions
-        stat_names_map = {}  # Maps var-type to names of computed statistics
-        for var_type in _map_table_type_to_var_types(table_type):
-            vars_vt, funs_vt = _map_cols_and_funs_for_var_type(df, var_type, quantiles)
-            if vars_vt:
-                vars_map[var_type] = vars_vt
-                funs_map[var_type] = funs_vt
-                stat_names_map[var_type] = []
-        self.funs_map = funs_map
-        # Decimal columns are summarised as floats. Their statistics come
-        # back as Decimals otherwise, and a frame holding a Decimal column
-        # beside an ordinary float one then built a mixed list of Decimal
-        # and float — which nw.from_dict rejects: "unexpected value while
-        # building Series of type Decimal(38, 2); found value of type
-        # Float64". A Decimal alone worked, which is why it went unnoticed.
-        df = df.with_columns(
-            nw.col(name).cast(nw.Float64)
-            for name, dtype in df.schema.items()
-            if dtype == nw.Decimal
-        )
-        schema = df.schema
-        expressions = []
-        sep = "____"
-        for vt, vars_vt in vars_map.items():
-            functions_vt = funs_map[vt]
-            for var in vars_vt:
-                for function in functions_vt:
-                    stat_name = f"{var}{sep}{function}"
-                    if function.startswith(QUANTILE_PREFIX):
-                        q = float(function[len(QUANTILE_PREFIX) :])
-                        col = _widen_for_quantile(nw.col(var), schema[var])
-                        # "linear" (numpy's and pandas' default) keeps the
-                        # sequence self-consistent: Q0 == min, Q50 == median,
-                        # Q100 == max. polars' own default of "nearest" would
-                        # make Q50 disagree with the Median column.
-                        expr = col.quantile(q, interpolation="linear").alias(stat_name)
-                    elif function == "median":
-                        # A temporal median has no expression that works on
-                        # every backend, so it is filled in below from the
-                        # values. The name is still registered here, since
-                        # make_dt reads the column order off stat_names_map.
-                        expr = (
-                            None
-                            if _is_temporal(schema[var])
-                            else _median_expr(var, schema[var]).alias(stat_name)
-                        )
-                    elif function == "std":
-                        expr = _std_expr(var, schema[var]).alias(stat_name)
-                    elif function == "n_unique":
-                        # Nulls dropped first: they are already reported as
-                        # NA%, and the Top N columns beside this one count
-                        # only real values — so leaving them in made
-                        # Uniques disagree with both of its neighbours. A
-                        # column of "a", "b" and two nulls read as three
-                        # uniques with only two ever listed.
-                        expr = nw.col(var).drop_nulls().n_unique().alias(stat_name)
-                    else:
-                        expr = getattr(nw.col(var), function)().alias(stat_name)
-                    if expr is not None:
-                        expressions.append(expr)
-                    stat_names_map[vt].append(stat_name)
-        # Evaluate expressions.
-        # Those conditions must always hold:
-        # (1) Stats is a dict.
-        # (2) Each value in stats is one summary statistic.
-        # (3) Each list in stat_names_mp is sorted by variable name.
-        #
-        # One path for every backend: narwhals' rows() reads the single
-        # aggregate row as a dict of Python values whatever the frame is
-        # made of. This used to branch on isinstance(native, pl.DataFrame)
-        # and fall back to pandas' .iloc[0] — a fallback that treated
-        # "not polars" as "pandas", so pyarrow input reached .iloc and
-        # raised AttributeError despite being accepted at the door.
-        if len(expressions) == 0:
-            stats = {}
-        else:
-            stats = df.select(expressions).rows(named=True)[0]
+        frame = _check_input_maybe_try_transform(df)
+        config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+        plan = build_summary_plan(frame.schema, config)
+        summary = compute_summary(frame, plan)
 
-        for vt in ("date", "datetime"):
-            for var in vars_map.get(vt, []):
-                stats[f"{var}{sep}median"] = _temporal_median(df[var])
+        self.config = config
+        self.plan = plan
+        self.summary = summary
+        self.stat_dfs = format_tables(summary)
 
-        if "cat" in vars_map:
-            # Top-3 counts likewise: one Series.value_counts per column,
-            # replacing a polars-selector expression and a hand-rolled
-            # pandas loop that had to agree with each other by inspection.
-            # The frames it yields are already named [<column>, "count"],
-            # which is the shape make_dt reads.
-            #
-            # Counts of zero are dropped: a pandas Categorical remembers
-            # every category it was declared with, and value_counts reports
-            # the unobserved ones at 0. An enum column holding one value
-            # therefore listed "alpha (67%)", "beta (0%)", "gamma (0%)" as
-            # its top three, and an all-null one listed its whole
-            # vocabulary. polars reports only what is present.
-            for var in vars_map["cat"]:
-                counts = df[var].drop_nulls().value_counts(sort=True)
-                observed = [row for row in counts.rows(named=True) if row["count"] > 0]
-                stats[f"top_3{sep}{var}"] = observed[:3]
-        self.stat_names_map = stat_names_map
-        self.stats = stats
-        self.vars_map = vars_map
-        self.sep = sep
-        self.quantile_stat_names = (
-            [_quantile_stat_name(q) for q in quantiles] if quantiles else []
-        )
+        # Keep the old read-only attributes while internal callers migrate.
+        self.type = config.table_type
+        self.backend = summary.backend
+        self.top_cols = list(config.top_cols) if config.top_cols is not None else None
+        self.quantiles = list(config.quantiles)
+        self.quantile_framing = config.quantile_framing
+        self.num_rows = summary.num_rows
+        self.funs_map = plan.funs_map
+        self.stat_names_map = plan.stat_names_map
+        self.stats = summary.stats
+        self.vars_map = plan.vars_map
+        self.sep = _STAT_SEPARATOR
+        self.quantile_stat_names = list(plan.quantile_stat_names)
 
-    def make_dt(self, var_type: str):
-        """One row per variable of `var_type`, formatted for printing.
+    def make_dt(self, var_type: VarType) -> nw.DataFrame:
+        return format_var_type(self.summary, var_type)
 
-        Returns a frame of the input's own backend — the statistics have
-        been Python values since `__init__` read them out, so the frame is
-        rebuilt here, and rebuilding it in polars was the last thing
-        forcing polars on a pandas or pyarrow user.
-        """
-        data = {}
-        data["Variable"] = self.vars_map[var_type]
-        for fun_name in self.funs_map[var_type]:
-            data[fun_name] = []
-        stat_names = self.stat_names_map[var_type]
-        for name in stat_names:
-            _, fun_name = name.split(self.sep, 1)
-            stat_value = self.stats[name]
-            data[fun_name].append(stat_value)
-
-        top_names = ()
-        if var_type == "cat":
-            top_cols = self._top_value_columns()
-            top_names = tuple(top_cols)
-            data.update(top_cols)
-
-        df = nw.from_dict(data, backend=self.backend)
-        # Multiplied before dividing, which is not a stylistic choice: the
-        # other order rounds twice, and polars evaluates `count / rows * 100`
-        # for 6 of 10 as 60.00000000000001, so a column exactly 60% missing
-        # was reported as 61%. Checked exhaustively over every count/rows
-        # pair up to 60 rows on all three backends — 35 wrong answers this
-        # way round, none the other.
-        df = df.with_columns(
-            (nw.col("null_count") * 100 / self.num_rows).ceil().cast(nw.Int16)
-        )
-
-        # Some special cases
-        if var_type == "num_float":
-            df = convert_df_scientific(
-                df, ["mean", "median", "min", "max", "std"] + self.quantile_stat_names
-            )
-        elif var_type in ("num_int", "num_bool"):
-            df = convert_df_scientific(
-                df, ["mean", "median", "std"] + self.quantile_stat_names
-            ).with_columns(
-                # Lowercased because pandas renders a boolean as "True" where
-                # polars and pyarrow give "true", and the printed table must
-                # not depend on which backend held the value. A no-op on the
-                # integers that share this branch.
-                #
-                # fill_null because a statistic that does not exist — the
-                # minimum of an all-null column — is blank everywhere else in
-                # the table. Casting a null to String leaves it null, so this
-                # one branch was handing back None where the float branch,
-                # which goes through convert_df_scientific, gives "".
-                *(
-                    _blank_where_missing(
-                        name, nw.col(name).cast(nw.String).str.to_lowercase()
-                    ).alias(name)
-                    for name in ("min", "max")
-                )
-            )
-        elif var_type == "date" or var_type == "datetime":
-            df = df.select(
-                "Variable",
-                "null_count",
-                *(
-                    _blank_where_missing(
-                        name, nw.col(name).cast(nw.String).str.slice(0, 19)
-                    ).alias(name)
-                    for name in ("median", "min", "max")
-                ),
-            )
-        elif var_type == "null":
-            df = df.with_columns(
-                nw.lit("").alias("mean"),
-                nw.lit("").alias("std"),
-                nw.lit("").alias("median"),
-                nw.lit("").alias("min"),
-                nw.lit("").alias("max"),
-                *(nw.lit("").alias(name) for name in self.quantile_stat_names),
-            )
-        elif var_type == "cat":
-            df = df.select(
-                "Variable",
-                nw.col("null_count").alias("NA%"),
-                nw.col("n_unique").alias("Uniques"),
-                *top_names,
-            )
-        return df
-
-    def _top_value_columns(self) -> dict:
-        """ "Top 1".."Top 3" columns, as plain Python lists.
-
-        One entry per categorical variable, each already rendered as
-        "<value> (<share>%)". Variables with fewer than three distinct
-        values leave the later columns blank — the polars version got there
-        by building a ragged frame and filling its nulls, which needs a
-        second frame; padding the lists reaches the same place and keeps
-        every column a plain string column on every backend.
-        """
-        columns = {}
-        variables = self.vars_map["cat"]
-        for position, var_name in enumerate(variables):
-            freq_list = self.stats[f"top_3{self.sep}{var_name}"]
-            for i, dd in enumerate(freq_list):
-                val, count = dd[var_name], dd["count"]
-                column = columns.setdefault(f"Top {i + 1}", [""] * len(variables))
-                column[position] = f"{val} ({count / self.num_rows:.0%})"
-        return columns
-
-    def form_stat_df(self, table_type):
-        """
-        Makes the final data frame
-        """
+    def form_stat_df(self, table_type: TableType):
+        """Return the already-built table without changing object state."""
         if table_type == "all":
-            self.form_stat_df("time")
-            self.form_stat_df("num")
-            self.form_stat_df("cat")
-            return
+            return self.stat_dfs
+        return self.stat_dfs.get(table_type)
 
-        # Just "Col". The row count used to live here, and since it is
-        # usually wider than the variable names it padded every row of the
-        # first column out to its own length — 12 characters of "Col
-        # (N=1461)" against a 7-character "weather". It moved to the
-        # section rule, which is 80 characters of dashes with room to
-        # spare (#75). A side benefit: this column's name no longer
-        # changes with the row count, so callers of make_stats_tbl can
-        # address it by name.
-        name_var = "Col"
-        subdfs = []
-
-        for var_type in _map_table_type_to_var_types(table_type):
-            if var_type in self.vars_map:
-                subdfs.append(self.make_dt(var_type))
-
-        if len(subdfs) == 0:
-            return
-        stat_df = nw.concat(subdfs, how="vertical")
-
-        if table_type == "num":
-            if self.quantile_framing:
-                # min/max become the endpoints of the quantile sequence, so
-                # the whole block reads in ascending order: Q0 … Q100. An
-                # explicit 0.5 replaces the Median column outright, since Q50
-                # is the same statistic under the same interpolation.
-                median_col = (
-                    [] if 0.5 in self.quantiles else [nw.col("median").alias("Median")]
-                )
-                tail_cols = [
-                    nw.col("min").alias("Q0"),
-                    *(
-                        nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
-                        for q in self.quantiles
-                    ),
-                    nw.col("max").alias("Q100"),
-                ]
-            else:
-                # Named stats keep their names; any requested quantiles are
-                # appended alongside them. Min and Max sit last: they are the
-                # extremes, so the central statistics come first.
-                median_col = [nw.col("median").alias("Median")]
-                tail_cols = [
-                    *(
-                        nw.col(_quantile_stat_name(q)).alias(_quantile_label(q))
-                        for q in (self.quantiles or [])
-                    ),
-                    nw.col("min").alias("Min"),
-                    nw.col("max").alias("Max"),
-                ]
-            # Avg, Median, SD, then the extremes (#74): the two measures of
-            # location sit together, with the spread beside them, rather
-            # than SD splitting them apart.
-            stat_df = stat_df.select(
-                nw.col("Variable").alias(name_var),
-                nw.col("null_count").alias("NA%"),
-                nw.col("mean").alias("Avg"),
-                *median_col,
-                nw.col("std").alias("SD"),
-                *tail_cols,
-            )
+    def show_one_table(self, table_type: str) -> None:
+        table = self.stat_dfs.get(table_type)
+        if table is not None:
+            print(render_table(table), end="")
+        elif table_type == "num":
+            print("No numerical columns found")
         elif table_type == "cat":
-            stat_df = stat_df.rename({"Variable": name_var})
-        elif table_type == "time":
-            stat_df = stat_df.select(
-                nw.col("Variable").alias(name_var),
-                nw.col("null_count").alias("NA%"),
-                nw.col("median").alias("Median"),
-                nw.col("min").alias("Min"),
-                nw.col("max").alias("Max"),
-            )
-
-        row_order = None
-        if self.top_cols is not None:  # Put top_cols at front
-            all_columns_in_order = []
-            for vt in self.vars_map:
-                all_columns_in_order.extend(self.vars_map[vt])
-            new_order = self.top_cols + [
-                var for var in all_columns_in_order if var not in self.top_cols
-            ]
-            # The polars version cast the name column to pl.Enum(new_order)
-            # and sorted on it, letting the categorical ordering do the
-            # work. narwhals has no equivalent, and its nearest thing,
-            # replace_strict, needs polars >= 1 — which would put a floor on
-            # a library that is no longer even required. So the permutation
-            # is worked out in Python and applied to the rebuild below,
-            # which materialises the table anyway. Computed before the
-            # truncation on the next line, since a truncated name would no
-            # longer match its entry in new_order.
-            position = {name: i for i, name in enumerate(new_order)}
-            names = stat_df[name_var].to_list()
-            row_order = sorted(range(len(names)), key=lambda i: position[names[i]])
-
-        stat_df = stat_df.with_columns(
-            _truncate_long_strings(nw.col(name_var).cast(nw.String)).alias(name_var)
-        )
-
-        # Rebuilt so the row labels are fresh. pandas carries each
-        # subframe's own index through a vertical concat, so the assembled
-        # table came back indexed (0, 0, 0) — three rows all addressed as
-        # row 0. Cheap: one row per column of the input.
-        columns = {name: stat_df[name].to_list() for name in stat_df.columns}
-        if row_order is not None:
-            columns = {
-                name: [values[i] for i in row_order] for name, values in columns.items()
-            }
-        self.stat_dfs[table_type] = nw.from_dict(
-            columns, schema=stat_df.schema, backend=self.backend
-        )
-
-    def show_one_table(self, table_type):
-        if table_type in self.stat_dfs:
-            print(render_table(self.stat_dfs[table_type]), end="")
-        else:
-            if table_type == "num":
-                print("No numerical columns found")
-            elif table_type == "cat":
-                print("No categorical columns found")
+            print("No categorical columns found")
 
     def row_count(self) -> str:
-        """The row count as the header shows it.
+        return row_count(self.num_rows)
 
-        Scientific past 100,000, where the exact figure is noise and the
-        digits would only widen the line.
-        """
-        if self.num_rows < 100_000:
-            return str(self.num_rows)
-        return f"{Decimal(self.num_rows):.2E}"
+    def print_header(self, table_type: str) -> None:
+        print(section_header(table_type, self.num_rows))
 
-    def print_header(self, type_):
-        if type_ == "time":
-            name = "Date and datetime columns"
-        elif type_ == "cat":
-            name = "Categorical columns"
-        elif type_ == "num":
-            name = "Numerical columns"
-        lhs = f"-{name} (N={self.row_count()})"
-        rhs = "-" * (TABLE_WIDTH - len(lhs))
-        print(f"{lhs}{rhs}")
-
-    def show(self):
-        if self.type in ("num", "cat", "time"):
-            if self.type not in self.stat_dfs:
-                if self.type == "num":
-                    print("No numerical columns found")
-                elif self.type == "cat":
-                    print("No categorical columns found")
-                else:
-                    print("No date or datetime columns found")
-            else:
-                self.print_header(self.type)
-                self.show_one_table(self.type)
-        elif self.type == "all":
-            if not self.stat_dfs:
-                # Every other branch says why it has nothing to show; this
-                # one printed absolute silence, which reads as a hang or a
-                # swallowed exception. Reachable whenever no column has a
-                # dtype showstats summarises — a frame of pandas `object`
-                # columns, say.
-                print("No summarisable columns found")
-                return
-            for type_ in ["time", "num", "cat"]:
-                if type_ in self.stat_dfs:
-                    self.print_header(type_)
-                    self.show_one_table(type_)
+    def show(self) -> None:
+        render_tables(self.stat_dfs, self.config, self.num_rows)
