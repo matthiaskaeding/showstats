@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `make_stats_tbl(..., table_type="all")` now returns a dictionary of the
+  nonempty numerical, categorical, and temporal tables instead of returning
+  `None`.
+
+### Fixed
+
 - Date and datetime columns raised `ArrowNotImplementedError: Unsupported
   cast from date32[day] to int64` on a pyarrow table — every one of them.
   The median went through Int64, which is the detour pandas needs, and Arrow
