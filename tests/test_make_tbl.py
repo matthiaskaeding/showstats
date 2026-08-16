@@ -52,6 +52,15 @@ def test_make_stats_tbl_collects_deferred_scan(tmp_path):
     assert result.equals(make_stats_tbl(MIXED_PL, "num"))
 
 
+def test_make_stats_tbl_collects_lazy_input_for_all_tables():
+    result = make_stats_tbl(MIXED_PL.lazy(), "all")
+    expected = make_stats_tbl(MIXED_PL, "all")
+
+    assert list(result) == ["num", "cat"]
+    assert all(isinstance(table, pl.DataFrame) for table in result.values())
+    assert all(result[name].equals(expected[name]) for name in expected)
+
+
 @pytest.mark.parametrize(("df", "native_type"), BACKENDS)
 def test_make_stats_tbl_returns_the_input_type(df, native_type):
     """The return follows the input, rather than always being polars.
