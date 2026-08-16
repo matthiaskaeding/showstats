@@ -259,6 +259,27 @@ def test_temporal_median_of_an_even_count_is_the_midpoint():
     assert row["Median"] == "2020-01-01 12:00:00"
 
 
+def test_show_stats_accepts_pyarrow_date_and_datetime(capsys):
+    """Pin the public API reproduction from #86."""
+    frame = pl.DataFrame(
+        {
+            "date_col": [date(2020, 1, 1), date(2020, 6, 1)],
+            "dt_col": [
+                datetime(2020, 1, 1),  # noqa: DTZ001
+                datetime(2020, 1, 2),  # noqa: DTZ001
+            ],
+        }
+    ).to_arrow()
+
+    show_stats(frame, "time")
+
+    output = capsys.readouterr().out
+    assert "date_col" in output
+    assert "2020-01-01" in output
+    assert "dt_col" in output
+    assert "2020-01-01 12:00:00" in output
+
+
 def test_polars_vs_pandas_numeric_stats():
     """Test that numeric statistics are consistent between polars and pandas"""
     # Create identical data in both formats
