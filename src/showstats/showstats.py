@@ -6,6 +6,7 @@ from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
     SummaryConfig,
+    TableOneType,
     TableType,
     build_summary_plan,
     compute_summary,
@@ -22,9 +23,12 @@ def _build_tables(
     top_cols: list[str] | str | None,
     quantiles: list[float] | None,
     fold_quantiles: bool,
+    table_one: TableOneType | None,
 ) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
     """Build formatted tables and the information needed to render them."""
-    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+    config = normalize_config(
+        table_type, top_cols, quantiles, fold_quantiles, table_one
+    )
     prepared = prepare_input(df)
     plan = build_summary_plan(prepared.schema, config)
     summary = compute_summary(prepared.frame, plan)
@@ -37,6 +41,7 @@ def show_stats(
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
+    table_one: TableOneType | None = None,
 ) -> None:
     """
     Print a table of summary statistics for the given DataFrame, configured
@@ -58,6 +63,8 @@ def show_stats(
             statistic under two names. Set to False to keep Min/Max/Median as
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
+        table_one: Combine numerical location and spread in one column. Use
+            "mean_sd", "median_mad", or "median_iqr". Defaults to None.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
             requested quantile is outside [0, 1].
@@ -70,7 +77,7 @@ def show_stats(
         - Datetime columns are formatted as strings in the output.
     """
     tables, config, num_rows = _build_tables(
-        df, table_type, top_cols, quantiles, fold_quantiles
+        df, table_type, top_cols, quantiles, fold_quantiles, table_one
     )
     render_tables(tables, config, num_rows)
 
@@ -81,6 +88,7 @@ def make_stats_tbl(
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
+    table_one: TableOneType | None = None,
 ) -> IntoDataFrame | dict[str, IntoDataFrame] | None:
     """
     Builds table of summary statistics for the given DataFrame, configured
@@ -111,6 +119,8 @@ def make_stats_tbl(
             statistic under two names. Set to False to keep Min/Max/Median as
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
+        table_one: Combine numerical location and spread in one column. Use
+            "mean_sd", "median_mad", or "median_iqr". Defaults to None.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
             requested quantile is outside [0, 1].
@@ -122,7 +132,9 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    tables, _, _ = _build_tables(df, table_type, top_cols, quantiles, fold_quantiles)
+    tables, _, _ = _build_tables(
+        df, table_type, top_cols, quantiles, fold_quantiles, table_one
+    )
     if table_type == "all":
         return {
             name: tables[name].to_native()

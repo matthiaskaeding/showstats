@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   temporal medians use small queries that collect no more than three rows per
   column. `make_stats_tbl` always returns an eager frame, but showstats does
   not materialize the full lazy input (#85)
+- Numerical tables can combine location and spread in one column with
+  `table_one="mean_sd"`, `table_one="median_mad"`, or
+  `table_one="median_iqr"`.
 
 ### Fixed
 

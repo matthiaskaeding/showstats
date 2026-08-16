@@ -19,6 +19,7 @@ from showstats._utils import (
 # The table types show_stats/make_stats_tbl accept. Runtime validation reads
 # the members off this alias via get_args, so the two cannot drift apart.
 TableType = Literal["all", "num", "cat", "time"]
+TableOneType = Literal["mean_sd", "median_mad", "median_iqr"]
 VarType = Literal["num_float", "num_int", "num_bool", "cat", "date", "datetime", "null"]
 
 # Advisory warnings are emitted at most once per session. showstats is
@@ -110,11 +111,17 @@ def _quantile_label(q: float) -> str:
     return f"Q{pct_str}"
 
 
-def _map_funs_to_var_type(var_type, quantiles: Iterable | None = None) -> tuple[str]:
+def _map_funs_to_var_type(
+    var_type,
+    quantiles: Iterable | None = None,
+    table_one: TableOneType | None = None,
+) -> tuple[str]:
     if var_type in ("num_float", "num_int", "num_bool"):
         funs = ["null_count", "mean", "std", "median", "min", "max"]
         if quantiles:
             funs.extend(_quantile_stat_name(q) for q in quantiles)
+        if table_one == "median_mad":
+            funs.append("mad")
         return tuple(funs)
     elif var_type == "cat":
         return ("null_count", "n_unique")
@@ -242,6 +249,12 @@ def _temporal_median(series: nw.Series):
     return low + (high - low) / 2
 
 
+def _median_absolute_deviation_expr(var: str, dtype, center) -> nw.Expr:
+    """Return the median distance from a previously computed median."""
+    col = _widen_for_quantile(nw.col(var), dtype)
+    return (col - center).abs().quantile(0.5, interpolation="linear")
+
+
 def _std_expr(var: str, dtype) -> nw.Expr:
     """Standard deviation, for the one dtype pyarrow will not take it on.
 
@@ -289,6 +302,7 @@ class SummaryConfig:
     quantiles: tuple[float, ...]
     fold_quantiles: bool
     quantile_framing: bool
+    table_one: TableOneType | None
 
 
 @dataclass(frozen=True)
@@ -318,6 +332,7 @@ def normalize_config(
     top_cols: Iterable | None = None,
     quantiles: Iterable | None = None,
     fold_quantiles: bool = True,
+    table_one: TableOneType | None = None,
 ) -> SummaryConfig:
     """Validate and normalize public options without reading the frame."""
     if table_type not in get_args(TableType):
@@ -326,6 +341,15 @@ def normalize_config(
             f"expected one of {get_args(TableType)}"
         )
 
+    if table_one not in get_args(TableOneType) + (None,):
+        raise ValueError(
+            "table_one must be one of 'mean_sd', 'median_mad', or 'median_iqr'"
+        )
+    if table_one is not None and table_type not in ("all", "num"):
+        raise ValueError("table_one is only available for numerical tables")
+    if table_one is not None and quantiles:
+        raise ValueError("table_one and quantiles cannot be used together")
+
     if isinstance(top_cols, str):
         normalized_top_cols = (top_cols,)
     elif top_cols is None:
@@ -333,13 +357,21 @@ def normalize_config(
     else:
         normalized_top_cols = tuple(top_cols)
 
-    requested_quantiles = quantiles if quantiles is not None else ()
+    requested_quantiles = (
+        (0.25, 0.75)
+        if table_one == "median_iqr"
+        else quantiles
+        if quantiles is not None
+        else ()
+    )
     normalized_quantiles = tuple(sorted(set(requested_quantiles)))
     for quantile in normalized_quantiles:
         if not 0 <= quantile <= 1:
             raise ValueError(f"quantiles must lie in [0, 1], got {quantile}")
 
-    quantile_framing = bool(normalized_quantiles) and fold_quantiles
+    quantile_framing = (
+        bool(normalized_quantiles) and fold_quantiles and table_one is None
+    )
     redundant = (
         [q for q in normalized_quantiles if q in (0, 1)] if quantile_framing else []
     )
@@ -359,6 +391,7 @@ def normalize_config(
         quantiles=normalized_quantiles,
         fold_quantiles=fold_quantiles,
         quantile_framing=quantile_framing,
+        table_one=table_one,
     )
 
 
@@ -380,7 +413,7 @@ def build_summary_plan(
     """Build a calculation plan from a schema and normalized options."""
     vars_map = classify_columns(schema, config.table_type)
     funs_map = {
-        var_type: _map_funs_to_var_type(var_type, config.quantiles)
+        var_type: _map_funs_to_var_type(var_type, config.quantiles, config.table_one)
         for var_type in vars_map
     }
     stat_names_map = {
@@ -420,6 +453,8 @@ def build_stat_expressions(
                         if _is_temporal(schema[var])
                         else _median_expr(var, schema[var]).alias(stat_name)
                     )
+                elif function == "mad":
+                    expr = None
                 elif function == "std":
                     expr = _std_expr(var, schema[var]).alias(stat_name)
                 elif function == "mean":
@@ -542,6 +577,27 @@ def compute_summary(df: Frame, plan: SummaryPlan) -> SummaryResult:
                 df, var, non_null_count, row_index
             )
 
+    if plan.config.table_one == "median_mad":
+        mad_stats = {}
+        mad_expressions = []
+        for var_type in ("num_float", "num_int", "num_bool"):
+            for var in plan.vars_map.get(var_type, ()):
+                stat_name = f"{var}{_STAT_SEPARATOR}mad"
+                center = stats[f"{var}{_STAT_SEPARATOR}median"]
+                if center is None:
+                    mad_stats[stat_name] = None
+                    continue
+                mad_expressions.append(
+                    _median_absolute_deviation_expr(
+                        var, expression_schema[var], center
+                    ).alias(stat_name)
+                )
+        if mad_expressions:
+            mad_stats.update(
+                _collect_if_lazy(df.select(*mad_expressions)).rows(named=True)[0]
+            )
+        stats.update(mad_stats)
+
     for var in plan.vars_map.get("cat", ()):
         stats[f"top_3{_STAT_SEPARATOR}{var}"] = _top_counts_for_frame(
             df, var, row_index
@@ -589,13 +645,15 @@ def format_var_type(summary: SummaryResult, var_type: VarType) -> nw.DataFrame:
     )
 
     quantile_names = list(plan.quantile_stat_names)
+    mad_names = ["mad"] if plan.config.table_one == "median_mad" else []
     if var_type == "num_float":
         frame = convert_df_scientific(
-            frame, ["mean", "median", "min", "max", "std"] + quantile_names
+            frame,
+            ["mean", "median", "min", "max", "std"] + quantile_names + mad_names,
         )
     elif var_type in ("num_int", "num_bool"):
         frame = convert_df_scientific(
-            frame, ["mean", "median", "std"] + quantile_names
+            frame, ["mean", "median", "std"] + quantile_names + mad_names
         ).with_columns(
             *(
                 _blank_where_missing(
@@ -623,6 +681,7 @@ def format_var_type(summary: SummaryResult, var_type: VarType) -> nw.DataFrame:
             nw.lit("").alias("min"),
             nw.lit("").alias("max"),
             *(nw.lit("").alias(name) for name in quantile_names),
+            *(nw.lit("").alias(name) for name in mad_names),
         )
     elif var_type == "cat":
         frame = frame.select(
@@ -678,7 +737,57 @@ def format_section(
     frame = nw.concat(subframes, how="vertical")
     config = summary.plan.config
     if table_type == "num":
-        if config.quantile_framing:
+        if config.table_one == "mean_sd":
+            label = "Avg (SD)"
+            combined = _branch(
+                (nw.col("mean") == "", nw.lit("")),
+                (nw.col("std") == "", nw.col("mean")),
+                otherwise=nw.concat_str(
+                    [nw.col("mean"), nw.lit(" ("), nw.col("std"), nw.lit(")")]
+                ),
+            ).alias(label)
+        elif config.table_one == "median_mad":
+            label = "Median (MAD)"
+            combined = _branch(
+                (nw.col("median") == "", nw.lit("")),
+                (nw.col("mad") == "", nw.col("median")),
+                otherwise=nw.concat_str(
+                    [
+                        nw.col("median"),
+                        nw.lit(" ("),
+                        nw.col("mad"),
+                        nw.lit(")"),
+                    ]
+                ),
+            ).alias(label)
+        elif config.table_one == "median_iqr":
+            label = "Median [Q1, Q3]"
+            q1 = _quantile_stat_name(0.25)
+            q3 = _quantile_stat_name(0.75)
+            combined = _branch(
+                (nw.col("median") == "", nw.lit("")),
+                ((nw.col(q1) == "") | (nw.col(q3) == ""), nw.col("median")),
+                otherwise=nw.concat_str(
+                    [
+                        nw.col("median"),
+                        nw.lit(" ["),
+                        nw.col(q1),
+                        nw.lit(", "),
+                        nw.col(q3),
+                        nw.lit("]"),
+                    ]
+                ),
+            ).alias(label)
+        else:
+            combined = None
+
+        if combined is not None:
+            frame = frame.select(
+                nw.col("Variable").alias("Col"),
+                nw.col("null_count").alias("NA%"),
+                combined,
+            )
+        elif config.quantile_framing:
             median_col = (
                 [] if 0.5 in config.quantiles else [nw.col("median").alias("Median")]
             )
@@ -700,14 +809,15 @@ def format_section(
                 nw.col("min").alias("Min"),
                 nw.col("max").alias("Max"),
             ]
-        frame = frame.select(
-            nw.col("Variable").alias("Col"),
-            nw.col("null_count").alias("NA%"),
-            nw.col("mean").alias("Avg"),
-            *median_col,
-            nw.col("std").alias("SD"),
-            *tail_cols,
-        )
+        if combined is None:
+            frame = frame.select(
+                nw.col("Variable").alias("Col"),
+                nw.col("null_count").alias("NA%"),
+                nw.col("mean").alias("Avg"),
+                *median_col,
+                nw.col("std").alias("SD"),
+                *tail_cols,
+            )
     elif table_type == "cat":
         frame = frame.rename({"Variable": "Col"})
     else:
@@ -801,9 +911,12 @@ class _Table:
         top_cols: Iterable | None = None,
         quantiles: Iterable | None = None,
         fold_quantiles: bool = True,
+        table_one: TableOneType | None = None,
     ):
         prepared = prepare_input(df)
-        config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+        config = normalize_config(
+            table_type, top_cols, quantiles, fold_quantiles, table_one
+        )
         plan = build_summary_plan(prepared.schema, config)
         summary = compute_summary(prepared.frame, plan)
 
@@ -818,6 +931,7 @@ class _Table:
         self.top_cols = list(config.top_cols) if config.top_cols is not None else None
         self.quantiles = list(config.quantiles)
         self.quantile_framing = config.quantile_framing
+        self.table_one = config.table_one
         self.num_rows = summary.num_rows
         self.funs_map = plan.funs_map
         self.stat_names_map = plan.stat_names_map

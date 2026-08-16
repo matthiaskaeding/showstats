@@ -100,3 +100,46 @@ def test_public_api_rejects_empty_dataframes(api, empty):
 def test_public_api_rejects_out_of_range_quantiles(api):
     with pytest.raises(ValueError, match=r"quantiles must lie in \[0, 1\]"):
         api(MIXED, table_type="num", quantiles=[1.01])
+
+
+@pytest.mark.parametrize(
+    ("style", "column", "expected"),
+    [
+        pytest.param("mean_sd", "Avg (SD)", "26.5 (49.01)", id="mean-sd"),
+        pytest.param("median_mad", "Median (MAD)", "2.5 (1.0)", id="median-mad"),
+        pytest.param(
+            "median_iqr",
+            "Median [Q1, Q3]",
+            "2.5 [1.75, 27.25]",
+            id="median-iqr",
+        ),
+    ],
+)
+def test_table_one_combines_location_and_spread(style, column, expected):
+    table = make_stats_tbl(
+        pl.DataFrame({"x": [1.0, 2.0, 3.0, 100.0]}),
+        table_type="num",
+        table_one=style,
+    )
+
+    assert table.columns == ["Col", "NA%", column]
+    assert table[column].item() == expected
+
+
+@pytest.mark.parametrize("style", ["mean_sd", "median_mad", "median_iqr"])
+def test_table_one_accepts_lazy_input(style):
+    frame = pl.DataFrame({"x": [1.0, 2.0, None, 4.0]})
+
+    eager = make_stats_tbl(frame, table_type="num", table_one=style)
+    lazy = make_stats_tbl(frame.lazy(), table_type="num", table_one=style)
+
+    assert lazy.equals(eager)
+
+
+def test_table_one_rejects_conflicting_or_unsupported_options():
+    with pytest.raises(ValueError, match="table_one must be one of"):
+        make_stats_tbl(MIXED, "num", table_one="unknown")
+    with pytest.raises(ValueError, match="cannot be used together"):
+        make_stats_tbl(MIXED, "num", table_one="mean_sd", quantiles=[0.5])
+    with pytest.raises(ValueError, match="only available for numerical"):
+        make_stats_tbl(MIXED, "cat", table_one="mean_sd")

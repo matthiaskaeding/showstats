@@ -189,6 +189,17 @@ def test_make_stats_tbl_all_omits_empty_table_types():
             {"table_type": "num", "quantiles": [0.5], "fold_quantiles": False},
             id="unfolded",
         ),
+        pytest.param(
+            {"table_type": "num", "table_one": "mean_sd"}, id="table-one-mean-sd"
+        ),
+        pytest.param(
+            {"table_type": "num", "table_one": "median_mad"},
+            id="table-one-median-mad",
+        ),
+        pytest.param(
+            {"table_type": "num", "table_one": "median_iqr"},
+            id="table-one-median-iqr",
+        ),
     ],
 )
 def test_rendering_does_not_depend_on_the_input_backend(capsys, df, kwargs):
