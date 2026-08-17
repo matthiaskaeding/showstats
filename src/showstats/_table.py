@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Literal, get_args
 
 import narwhals as nw
-from narwhals.typing import IntoFrame
+from narwhals.typing import Frame, IntoFrame
 
 from showstats._utils import (
     TABLE_WIDTH,
@@ -34,24 +34,28 @@ def _warn_once(key: str, message: str) -> None:
     warnings.warn(message, stacklevel=3)
 
 
-# Basic idea of these helper functions:
-#   table_type --> var_types --> functions
-def _check_input_maybe_try_transform(input: IntoFrame) -> nw.DataFrame:
-    """The input as an eager narwhals frame, collecting a lazy one.
+@dataclass(frozen=True)
+class PreparedFrame:
+    """A Narwhals frame and the schema used to plan its summary."""
 
-    Lazy frames are accepted and collected here rather than rejected
-    (#85). Summarising is not a streaming job — it reads every column
-    several times over: once for the aggregate row, again per categorical
-    column for its top values, again per temporal column for its median.
-    Collecting once up front is what a lazy frame would end up doing
-    anyway, only without re-scanning for each pass.
-    """
-    df = nw.from_native(input)
-    if isinstance(df, nw.LazyFrame):
-        df = df.collect()
-    if df.shape[0] == 0 or df.shape[1] == 0:
+    frame: Frame
+    schema: Mapping[str, object]
+
+
+def prepare_input(input: IntoFrame) -> PreparedFrame:
+    """Convert an input frame and read its schema without collecting its rows."""
+    frame = nw.from_native(input)
+    schema = frame.collect_schema()
+    if len(schema) == 0:
         raise ValueError("Input data frame must have rows and columns")
-    return df
+    if isinstance(frame, nw.DataFrame) and frame.shape[0] == 0:
+        raise ValueError("Input data frame must have rows and columns")
+    return PreparedFrame(frame=frame, schema=schema)
+
+
+def _check_input_maybe_try_transform(input: IntoFrame) -> Frame:
+    """Compatibility wrapper that returns the prepared Narwhals frame."""
+    return prepare_input(input).frame
 
 
 def _get_cols_for_var_type(df_or_schema, var_type):
@@ -208,11 +212,11 @@ def _median_expr(var: str, dtype) -> nw.Expr:
     is the same call the Q50 column makes — so Median and Q50 now agree by
     construction rather than by coincidence.
 
-    Nulls are dropped rather than left to the aggregate to ignore, and the
-    column is widened first — see `_widen_for_quantile`. Temporal columns
-    do not come through here; see `_temporal_median`.
+    The aggregate ignores nulls, and the column is widened first. See
+    `_widen_for_quantile`. Temporal columns do not come through here. See
+    `_temporal_median`.
     """
-    col = _widen_for_quantile(nw.col(var).drop_nulls(), dtype)
+    col = _widen_for_quantile(nw.col(var), dtype)
     return col.quantile(0.5, interpolation="linear")
 
 
@@ -256,6 +260,14 @@ def _std_expr(var: str, dtype) -> nw.Expr:
     return col.std()
 
 
+def _mean_expr(var: str, dtype) -> nw.Expr:
+    """Mean with Boolean values represented as zero and one."""
+    col = nw.col(var)
+    if dtype == nw.Boolean:
+        return col.cast(nw.Int8).mean()
+    return col.mean()
+
+
 def _map_table_type_to_var_types(table_type):
     """Maps table type to var types"""
     if table_type == "all":
@@ -289,6 +301,7 @@ class SummaryPlan:
     """The columns and statistics that computation must produce."""
 
     config: SummaryConfig
+    schema: Mapping[str, object]
     vars_map: Mapping[VarType, tuple[str, ...]]
     funs_map: Mapping[VarType, tuple[str, ...]]
     stat_names_map: Mapping[VarType, tuple[str, ...]]
@@ -385,6 +398,7 @@ def build_summary_plan(
     }
     return SummaryPlan(
         config=config,
+        schema=dict(schema),
         vars_map=vars_map,
         funs_map=funs_map,
         stat_names_map=stat_names_map,
@@ -413,8 +427,19 @@ def build_stat_expressions(
                     )
                 elif function == "std":
                     expr = _std_expr(var, schema[var]).alias(stat_name)
+                elif function == "mean":
+                    expr = _mean_expr(var, schema[var]).alias(stat_name)
                 elif function == "n_unique":
-                    expr = nw.col(var).drop_nulls().n_unique().alias(stat_name)
+                    expr = (
+                        (
+                            nw.col(var).n_unique()
+                            - nw.col(var).is_null().any().cast(nw.Int64)
+                        )
+                        .cast(nw.Int64)
+                        .alias(stat_name)
+                    )
+                elif function == "null_count":
+                    expr = nw.col(var).null_count().cast(nw.Int64).alias(stat_name)
                 else:
                     expr = getattr(nw.col(var), function)().alias(stat_name)
                 if expr is not None:
@@ -422,30 +447,114 @@ def build_stat_expressions(
     return tuple(expressions)
 
 
-def compute_summary(df: nw.DataFrame, plan: SummaryPlan) -> SummaryResult:
-    """Execute a summary plan and return plain computed values."""
-    backend = nw.get_native_namespace(df)
-    num_rows = df.shape[0]
-    df = df.with_columns(
-        nw.col(name).cast(nw.Float64)
-        for name, dtype in df.schema.items()
-        if dtype == nw.Decimal
+_ROW_COUNT_STAT = "__showstats_row_count"
+_ROW_INDEX = "__showstats_row_index"
+
+
+def _collect_if_lazy(frame: Frame) -> nw.DataFrame:
+    return frame.collect() if isinstance(frame, nw.LazyFrame) else frame
+
+
+def _temporal_median_for_frame(df: Frame, var: str, count: int, row_index: str):
+    if count == 0:
+        return None
+    if isinstance(df, nw.DataFrame):
+        return _temporal_median(df[var])
+
+    low_index = (count - 1) // 2
+    high_index = count // 2
+    middle = (
+        df.select(var)
+        .drop_nulls(var)
+        .with_row_index(row_index, order_by=var)
+        .filter(nw.col(row_index).is_in([low_index, high_index]))
+        .sort(row_index)
+        .collect()
     )
-    expressions = build_stat_expressions(df.schema, plan)
-    stats = df.select(expressions).rows(named=True)[0] if expressions else {}
+    low, high = middle[var][0], middle[var][-1]
+    return low + (high - low) / 2
+
+
+def _top_counts_for_frame(
+    df: Frame, var: str, row_index: str
+) -> list[dict[str, object]]:
+    if isinstance(df, nw.DataFrame):
+        counts = df[var].drop_nulls().value_counts(sort=True)
+        return [row for row in counts.rows(named=True) if row["count"] > 0][:3]
+
+    native = df.to_native()
+    namespace = nw.get_native_namespace(df).__name__
+    if namespace == "polars":
+        indexed = nw.from_native(native.with_row_index(row_index))
+    elif namespace == "duckdb":
+        indexed = nw.from_native(
+            native.project(f"*, row_number() over () - 1 AS {row_index}")
+        )
+    else:
+        indexed = None
+
+    if indexed is None:
+        counts = (
+            df.group_by(var, drop_null_keys=True)
+            .agg(nw.len().alias("count"))
+            .sort(["count", var], descending=[True, False])
+            .head(3)
+            .collect()
+        )
+    else:
+        counts = (
+            indexed.group_by(var, drop_null_keys=True)
+            .agg(
+                nw.len().alias("count"),
+                nw.col(row_index).min().alias(row_index),
+            )
+            .sort(["count", row_index], descending=[True, False])
+            .head(3)
+            .select(var, "count")
+            .collect()
+        )
+    return counts.rows(named=True)
+
+
+def compute_summary(df: Frame, plan: SummaryPlan) -> SummaryResult:
+    """Collect computed summary values without collecting a lazy input."""
+    decimal_columns = [
+        name for name, dtype in plan.schema.items() if dtype == nw.Decimal
+    ]
+    if decimal_columns:
+        df = df.with_columns(nw.col(name).cast(nw.Float64) for name in decimal_columns)
+    expression_schema = {
+        name: nw.Float64 if name in decimal_columns else dtype
+        for name, dtype in plan.schema.items()
+    }
+    expressions = build_stat_expressions(expression_schema, plan)
+    aggregate = _collect_if_lazy(
+        df.select(nw.len().alias(_ROW_COUNT_STAT), *expressions)
+    )
+    stats = aggregate.rows(named=True)[0]
+    num_rows = stats.pop(_ROW_COUNT_STAT)
+    if num_rows == 0:
+        raise ValueError("Input data frame must have rows and columns")
+
+    row_index = _ROW_INDEX
+    while row_index in plan.schema:
+        row_index = f"{row_index}_"
 
     for var_type in ("date", "datetime"):
         for var in plan.vars_map.get(var_type, ()):
-            stats[f"{var}{_STAT_SEPARATOR}median"] = _temporal_median(df[var])
+            non_null_count = num_rows - stats[f"{var}{_STAT_SEPARATOR}null_count"]
+            stats[f"{var}{_STAT_SEPARATOR}median"] = _temporal_median_for_frame(
+                df, var, non_null_count, row_index
+            )
 
     for var in plan.vars_map.get("cat", ()):
-        counts = df[var].drop_nulls().value_counts(sort=True)
-        observed = [row for row in counts.rows(named=True) if row["count"] > 0]
-        stats[f"top_3{_STAT_SEPARATOR}{var}"] = observed[:3]
+        stats[f"top_3{_STAT_SEPARATOR}{var}"] = _top_counts_for_frame(
+            df, var, row_index
+        )
 
     return SummaryResult(
         plan=plan,
-        backend=backend,
+        backend=nw.get_native_namespace(aggregate),
         num_rows=num_rows,
         stats=stats,
     )
@@ -698,10 +807,10 @@ class _Table:
         quantiles: Iterable | None = None,
         fold_quantiles: bool = True,
     ):
-        frame = _check_input_maybe_try_transform(df)
+        prepared = prepare_input(df)
         config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
-        plan = build_summary_plan(frame.schema, config)
-        summary = compute_summary(frame, plan)
+        plan = build_summary_plan(prepared.schema, config)
+        summary = compute_summary(prepared.frame, plan)
 
         self.config = config
         self.plan = plan

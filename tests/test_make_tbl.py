@@ -52,6 +52,23 @@ def test_make_stats_tbl_collects_deferred_scan(tmp_path):
     assert result.equals(make_stats_tbl(MIXED_PL, "num"))
 
 
+def test_lazy_numeric_input_collects_only_the_summary(monkeypatch):
+    collected_source_shapes = []
+    original_collect = pl.LazyFrame.collect
+
+    def record_source_collection(frame, *args, **kwargs):
+        plan = frame.explain()
+        result = original_collect(frame, *args, **kwargs)
+        if "__showstats_row_count" in plan:
+            collected_source_shapes.append(result.shape)
+        return result
+
+    monkeypatch.setattr(pl.LazyFrame, "collect", record_source_collection)
+    make_stats_tbl(MIXED_PL.lazy(), "num")
+
+    assert collected_source_shapes == [(1, 13)]
+
+
 def test_make_stats_tbl_collects_lazy_input_for_all_tables():
     result = make_stats_tbl(MIXED_PL.lazy(), "all")
     expected = make_stats_tbl(MIXED_PL, "all")

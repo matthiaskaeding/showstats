@@ -5,11 +5,11 @@ from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
     TableType,
-    _check_input_maybe_try_transform,
     build_summary_plan,
     compute_summary,
     format_tables,
     normalize_config,
+    prepare_input,
     render_tables,
 )
 
@@ -26,9 +26,9 @@ def show_stats(
     for for optimal readability.
 
     Args:
-        df: The input frame — polars, pandas, pyarrow or any other
-            narwhals-compatible frame. Lazy frames are accepted and
-            collected.
+        df: The input frame. Polars, pandas, PyArrow, and other
+            Narwhals compatible frames are accepted. For a lazy input,
+            only the planned summary results are collected.
         top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
@@ -53,9 +53,9 @@ def show_stats(
         - Datetime columns are formatted as strings in the output.
     """
     config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
-    frame = _check_input_maybe_try_transform(df)
-    plan = build_summary_plan(frame.schema, config)
-    summary = compute_summary(frame, plan)
+    prepared = prepare_input(df)
+    plan = build_summary_plan(prepared.schema, config)
+    summary = compute_summary(prepared.frame, plan)
     tables = format_tables(summary)
     render_tables(tables, config, summary.num_rows)
 
@@ -72,18 +72,18 @@ def make_stats_tbl(
     for for optimal readability.
 
     The result is always eager. An eager input returns the same native frame
-    type. A lazy input returns the eager frame type chosen by narwhals when it
-    collects the input. For example, a polars LazyFrame returns a polars
-    DataFrame, while a DuckDB relation returns a pyarrow Table.
+    type. A lazy input returns the eager frame type chosen by Narwhals when it
+    collects the summary results. For example, a Polars LazyFrame returns a
+    Polars DataFrame, while a DuckDB relation returns a PyArrow table.
 
     For `table_type="all"`, the result is a dictionary containing each
     nonempty table under its `"time"`, `"num"`, or `"cat"` key. The function
     returns None when the input has no columns of a requested single type.
 
     Args:
-        df: The input frame — polars, pandas, pyarrow or any other
-            narwhals-compatible frame. Lazy frames are accepted and
-            collected.
+        df: The input frame. Polars, pandas, PyArrow, and other
+            Narwhals compatible frames are accepted. For a lazy input,
+            only the planned summary results are collected.
         top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
@@ -108,9 +108,9 @@ def make_stats_tbl(
         - Datetime columns are formatted as strings in the output.
     """
     config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
-    frame = _check_input_maybe_try_transform(df)
-    plan = build_summary_plan(frame.schema, config)
-    summary = compute_summary(frame, plan)
+    prepared = prepare_input(df)
+    plan = build_summary_plan(prepared.schema, config)
+    summary = compute_summary(prepared.frame, plan)
     tables = format_tables(summary)
     if table_type == "all":
         return {
