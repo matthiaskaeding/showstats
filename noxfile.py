@@ -35,6 +35,7 @@ def test(session):
 def test_minimum_versions(session):
     """Run the stable suite at the Python and narwhals floors."""
     session.install(
+        "duckdb>=1.0.0",
         "pytest==8.3.2",
         "hypothesis>=6.113.0",
         "polars>=0.20.21",
