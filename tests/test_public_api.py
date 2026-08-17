@@ -103,26 +103,26 @@ def test_public_api_rejects_out_of_range_quantiles(api):
 
 
 @pytest.mark.parametrize(
-    ("style", "column", "expected"),
+    ("style", "label", "expected"),
     [
-        pytest.param("mean_sd", "Avg (SD)", "26.5 (49.01)", id="mean-sd"),
-        pytest.param("median_mad", "Median (MAD)", "2.5 (1.0)", id="median-mad"),
+        pytest.param("mean_sd", "mean (SD)", "26.5 (49.01)", id="mean-sd"),
+        pytest.param("median_mad", "median (MAD)", "2.5 (1.0)", id="median-mad"),
         pytest.param(
             "median_iqr",
-            "Median [Q1, Q3]",
+            "median [Q1, Q3]",
             "2.5 [1.75, 27.25]",
             id="median-iqr",
         ),
     ],
 )
-def test_table_one_combines_location_and_spread(capsys, style, column, expected):
+def test_table_one_combines_location_and_spread(capsys, style, label, expected):
     table_one(
         pl.DataFrame({"x": [1.0, 2.0, 3.0, 100.0]}),
         style=style,
     )
 
     output = capsys.readouterr().out
-    assert f"Col  NA%  {column}" in output
+    assert f"x ({label})" in output
     assert expected in output
 
 
@@ -147,7 +147,7 @@ def test_table_one_includes_percent_missing(capsys):
 
     output = capsys.readouterr().out
     assert "NA%" in output
-    assert "x    25" in output
+    assert "x (mean (SD))  25" in output
 
 
 def test_table_one_can_hide_percent_missing(capsys):
@@ -163,16 +163,15 @@ def test_table_one_can_hide_percent_missing(capsys):
 
     output = capsys.readouterr().out
     assert "NA%" not in output
-    assert "x    2.33 (1.53)" in output
+    assert "x (mean (SD))  2.33 (1.53)" in output
 
 
 def test_table_one_shows_three_categories_by_default(capsys):
     table_one(pl.DataFrame({"group": ["a", "b", "c", "d"]}))
 
     output = capsys.readouterr().out
-    assert all(label in output for label in ("Top 1", "Top 2", "Top 3"))
-    assert "Top 4" not in output
-    assert "group  0    4        a (25%)  b (25%)  c (25%)" in output
+    assert all(f"group = {value} (%)" in output for value in ("a", "b", "c"))
+    assert "group = d (%)" not in output
 
 
 def test_table_one_controls_the_number_of_categories(capsys):
@@ -182,9 +181,8 @@ def test_table_one_controls_the_number_of_categories(capsys):
     )
 
     output = capsys.readouterr().out
-    assert all(label in output for label in ("Top 1", "Top 2"))
-    assert "Top 3" not in output
-    assert "a (25%)  b (25%)" in output
+    assert all(f"group = {value} (%)" in output for value in ("a", "b"))
+    assert "group = c (%)" not in output
 
 
 def test_table_one_rejects_an_unsupported_style():

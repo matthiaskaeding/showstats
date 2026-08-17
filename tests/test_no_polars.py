@@ -123,7 +123,7 @@ def test_table_one_renders_without_polars():
         assert "polars" not in sys.modules
     """)
     assert result.returncode == 0, result.stderr
-    assert "Median [Q1, Q3]" in result.stdout
+    assert "median [Q1, Q3]" in result.stdout
     assert "NA%" not in result.stdout
 
 

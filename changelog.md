@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the `mean_sd`, `median_mad`, or `median_iqr` style. It also summarizes
   categorical columns and shows their three most common values by default.
   Pass `n_categories` to change that number. It includes the `NA%` column by
-  default, and `show_missing=False` omits that column.
+  default, and `show_missing=False` omits that column. The output has one
+  `Overall` column. Each numerical variable name includes its summary format,
+  and each categorical value has its own row.
 
 ### Fixed
 

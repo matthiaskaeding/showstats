@@ -44,7 +44,8 @@ Use the standalone `table_one` function to combine each numerical summary into
 one column. Set `style` to `mean_sd`, `median_mad`, or `median_iqr`. The `NA%`
 column gives the percentage of missing values. Pass `show_missing=False` to
 omit it. Categorical columns show their three most common values by default.
-Use `n_categories` to change that number.
+Use `n_categories` to change that number. Each numerical variable name includes
+its summary format, and each categorical value appears on its own row.
 
 ```{python}
 table_one_df = pl.DataFrame(

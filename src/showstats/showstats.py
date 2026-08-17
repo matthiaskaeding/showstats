@@ -6,15 +6,37 @@ from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
     SummaryConfig,
+    SummaryResult,
     TableOneType,
     TableType,
     build_summary_plan,
     compute_summary,
+    format_table_one,
     format_tables,
     normalize_config,
     prepare_input,
+    render_table_one,
     render_tables,
 )
+
+
+def _build_summary(
+    df: IntoFrame,
+    table_type: TableType,
+    top_cols: list[str] | str | None,
+    quantiles: list[float] | None,
+    fold_quantiles: bool,
+    table_one: TableOneType | None = None,
+    n_categories: int = 3,
+) -> tuple[SummaryResult, SummaryConfig]:
+    """Compute a summary and return its normalized configuration."""
+    config = normalize_config(
+        table_type, top_cols, quantiles, fold_quantiles, table_one, n_categories
+    )
+    prepared = prepare_input(df)
+    plan = build_summary_plan(prepared.schema, config)
+    summary = compute_summary(prepared.frame, plan)
+    return summary, config
 
 
 def _build_tables(
@@ -27,12 +49,15 @@ def _build_tables(
     n_categories: int = 3,
 ) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
     """Build formatted tables and the information needed to render them."""
-    config = normalize_config(
-        table_type, top_cols, quantiles, fold_quantiles, table_one, n_categories
+    summary, config = _build_summary(
+        df,
+        table_type,
+        top_cols,
+        quantiles,
+        fold_quantiles,
+        table_one,
+        n_categories,
     )
-    prepared = prepare_input(df)
-    plan = build_summary_plan(prepared.schema, config)
-    summary = compute_summary(prepared.frame, plan)
     return format_tables(summary), config, summary.num_rows
 
 
@@ -165,7 +190,7 @@ def table_one(
             not supported, or if n_categories is less than 1.
         TypeError: If n_categories is not an integer.
     """
-    tables, config, num_rows = _build_tables(
+    summary, _ = _build_summary(
         df,
         table_type="all",
         top_cols=None,
@@ -174,12 +199,5 @@ def table_one(
         table_one=style,
         n_categories=n_categories,
     )
-    tables.pop("time", None)
-    if not show_missing:
-        for table_type in ("num", "cat"):
-            if table_type in tables:
-                table = tables[table_type]
-                tables[table_type] = table.select(
-                    *(column for column in table.columns if column != "NA%")
-                )
-    render_tables(tables, config, num_rows)
+    table = format_table_one(summary, show_missing)
+    render_table_one(table, summary.num_rows)

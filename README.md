@@ -61,7 +61,8 @@ summary into one column. Set `style` to `mean_sd`, `median_mad`, or
 `median_iqr`. The `NA%` column gives the percentage of missing values.
 Pass `show_missing=False` to omit it. Categorical columns show their
 three most common values by default. Use `n_categories` to change that
-number.
+number. Each numerical variable name includes its summary format, and
+each categorical value appears on its own row.
 
 ``` python
 table_one_df = pl.DataFrame(
@@ -75,13 +76,13 @@ table_one_df = pl.DataFrame(
 table_one(table_one_df, style="mean_sd", n_categories=3)
 ```
 
-    -Numerical columns (N=4)--------------------------------------------------------
-     Col    NA%  Avg (SD)     
-     age    25   43.67 (9.07) 
-     score  0    8.0 (1.08)   
-    -Categorical columns (N=4)------------------------------------------------------
-     Col    NA%  Uniques  Top 1          Top 2          Top 3         
-     group  0    3        control (50%)  treated (25%)  placebo (25%) 
+    -Table 1 (N=4)------------------------------------------------------------------
+     Col                  NA%  Overall      
+     age (mean (SD))      25   43.67 (9.07) 
+     score (mean (SD))    0    8.0 (1.08)   
+     group = control (%)  0    2 (50%)      
+     group = treated (%)  0    1 (25%)      
+     group = placebo (%)  0    1 (25%)      
 
 ``` python
 # pandas, pyarrow and other narwhals-supported frames work the same way

@@ -864,6 +864,65 @@ def format_tables(summary: SummaryResult) -> dict[str, nw.DataFrame]:
     return tables
 
 
+def format_table_one(
+    summary: SummaryResult, show_missing: bool = True
+) -> nw.DataFrame | None:
+    """Build one classical Table 1 from numerical and categorical columns."""
+    frames = []
+    numerical = format_section(summary, "num")
+    if numerical is not None:
+        statistic = {
+            "mean_sd": "mean (SD)",
+            "median_mad": "median (MAD)",
+            "median_iqr": "median [Q1, Q3]",
+        }[summary.plan.config.table_one]
+        value_column = numerical.columns[-1]
+        frames.append(
+            numerical.select(
+                nw.concat_str(
+                    [nw.col("Col"), nw.lit(" ("), nw.lit(statistic), nw.lit(")")]
+                ).alias("Col"),
+                nw.col("NA%"),
+                nw.col(value_column).alias("Overall"),
+            )
+        )
+
+    categorical_rows = {"Col": [], "NA%": [], "Overall": []}
+    for var in summary.plan.vars_map.get("cat", ()):
+        missing = summary.stats[f"{var}{_STAT_SEPARATOR}null_count"]
+        missing_pct = -(-missing * 100 // summary.num_rows)
+        frequencies = summary.stats[f"{_TOP_VALUES_STAT}{_STAT_SEPARATOR}{var}"]
+        if not frequencies:
+            categorical_rows["Col"].append(f"{var} (%)")
+            categorical_rows["NA%"].append(missing_pct)
+            categorical_rows["Overall"].append("")
+            continue
+        for value_count in frequencies:
+            value = value_count[var]
+            count = value_count["count"]
+            categorical_rows["Col"].append(f"{var} = {value} (%)")
+            categorical_rows["NA%"].append(missing_pct)
+            categorical_rows["Overall"].append(
+                f"{count} ({count / summary.num_rows:.0%})"
+            )
+
+    if categorical_rows["Col"]:
+        frames.append(
+            nw.from_dict(
+                categorical_rows,
+                schema={"Col": nw.String, "NA%": nw.Int16, "Overall": nw.String},
+                backend=summary.backend,
+            )
+        )
+
+    if not frames:
+        return None
+    table = nw.concat(frames, how="vertical")
+    if not show_missing:
+        table = table.select("Col", "Overall")
+    return table
+
+
 def row_count(num_rows: int) -> str:
     """Format the row count shown in a section header."""
     if num_rows < 100_000:
@@ -877,6 +936,7 @@ def section_header(table_type: str, num_rows: int) -> str:
         "time": "Date and datetime columns",
         "cat": "Categorical columns",
         "num": "Numerical columns",
+        "table_one": "Table 1",
     }
     lhs = f"-{names[table_type]} (N={row_count(num_rows)})"
     return f"{lhs}{'-' * (TABLE_WIDTH - len(lhs))}"
@@ -907,6 +967,15 @@ def render_tables(
         if table_type in tables:
             print(section_header(table_type, num_rows))
             print(render_table(tables[table_type]), end="")
+
+
+def render_table_one(table: nw.DataFrame | None, num_rows: int) -> None:
+    """Print a formatted Table 1 or an empty input message."""
+    if table is None:
+        print("No numerical or categorical columns found")
+        return
+    print(section_header("table_one", num_rows))
+    print(render_table(table), end="")
 
 
 class _Table:

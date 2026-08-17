@@ -99,11 +99,11 @@ TOP_COLS = (
 )
 
 TABLE_ONE = (
-    "-Numerical columns (N=4)--------------------------------------------------------\n"
-    " Col    NA%  Avg (SD)     \n"
-    " age    25   43.67 (9.07) \n"
-    " score  0    8.0 (1.08)   \n"
-    "-Categorical columns (N=4)------------------------------------------------------\n"
-    " Col    NA%  Uniques  Top 1          Top 2          Top 3         \n"
-    " group  0    3        control (50%)  treated (25%)  placebo (25%) \n"
+    "-Table 1 (N=4)------------------------------------------------------------------\n"
+    " Col                  NA%  Overall      \n"
+    " age (mean (SD))      25   43.67 (9.07) \n"
+    " score (mean (SD))    0    8.0 (1.08)   \n"
+    " group = control (%)  0    2 (50%)      \n"
+    " group = treated (%)  0    1 (25%)      \n"
+    " group = placebo (%)  0    1 (25%)      \n"
 )
