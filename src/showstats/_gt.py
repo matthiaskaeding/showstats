@@ -6,7 +6,7 @@ import narwhals as nw
 
 from showstats._table import SummaryConfig, row_count
 
-_HIGH_MISSING_PERCENTAGE = 20
+_HIGH_MISSING_PERCENTAGE = 25
 
 
 def _great_tables_api():
