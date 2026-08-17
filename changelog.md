@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Lazy frames are accepted. `show_stats(df.lazy())` used to raise
+  `TypeError: Cannot only use eager_only ... with polars.LazyFrame`; the
+  schema is read once and used to build the summary plan. Scalar statistics
+  and the row count are collected as one row. Categorical top values and
+  temporal medians use small queries that collect no more than three rows per
+  column. `make_stats_tbl` always returns an eager frame, but showstats does
+  not materialize the full lazy input (#85)
+
 ### Fixed
 
 - `make_stats_tbl(..., table_type="all")` now returns a dictionary of the

@@ -4,6 +4,7 @@ Tests to verify showstats works correctly with different dataframe backends.
 
 from datetime import date, datetime
 
+import duckdb
 import pandas as pd
 import polars as pl
 import pyarrow as pa
@@ -79,8 +80,7 @@ def test_pandas_backend_basic():
 def test_pyarrow_backend_basic():
     """pyarrow input, which used to be accepted at the door and then die.
 
-    `_check_input_maybe_try_transform` has always taken pyarrow tables
-    (test_utils.py::test_input_check_pyarrow), but `_Table.__init__` read
+    `prepare_input` accepts pyarrow tables, but `_Table.__init__` read
     the aggregate row with `.iloc[0]` whenever the frame was not polars —
     treating "not polars" as "pandas". Every pyarrow table therefore
     raised AttributeError.
@@ -100,6 +100,22 @@ def test_pyarrow_backend_categorical_top_values():
 def test_pyarrow_backend_all_types(capsys):
     show_stats(MIXED_PA, "all")
     assert "int_col" in capsys.readouterr().out
+
+
+def test_duckdb_lazy_input_collects_to_pyarrow(capsys):
+    relation = duckdb.from_arrow(MIXED_PA)
+
+    result = make_stats_tbl(relation, "num")
+    assert isinstance(result, pa.Table)
+    assert (
+        stats_frame(result).rows()
+        == stats_frame(make_stats_tbl(MIXED_PA, "num")).rows()
+    )
+
+    show_stats(relation, "all")
+    lazy_output = capsys.readouterr().out
+    show_stats(MIXED_PA, "all")
+    assert lazy_output == capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

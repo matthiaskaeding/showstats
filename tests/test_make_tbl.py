@@ -36,6 +36,48 @@ def test_make_stats_tbl_quantiles(sample_df):
     assert "Q75" in res_num.columns
 
 
+@pytest.mark.parametrize("table_type", ["num", "cat"])
+def test_make_stats_tbl_collects_polars_lazy_input(table_type):
+    result = make_stats_tbl(MIXED_PL.lazy(), table_type)
+    assert isinstance(result, pl.DataFrame)
+    assert result.equals(make_stats_tbl(MIXED_PL, table_type))
+
+
+def test_make_stats_tbl_collects_deferred_scan(tmp_path):
+    path = tmp_path / "input.parquet"
+    MIXED_PL.write_parquet(path)
+
+    result = make_stats_tbl(pl.scan_parquet(path), "num")
+    assert isinstance(result, pl.DataFrame)
+    assert result.equals(make_stats_tbl(MIXED_PL, "num"))
+
+
+def test_lazy_numeric_input_collects_only_the_summary(monkeypatch):
+    collected_source_shapes = []
+    original_collect = pl.LazyFrame.collect
+
+    def record_source_collection(frame, *args, **kwargs):
+        plan = frame.explain()
+        result = original_collect(frame, *args, **kwargs)
+        if "__showstats_row_count" in plan:
+            collected_source_shapes.append(result.shape)
+        return result
+
+    monkeypatch.setattr(pl.LazyFrame, "collect", record_source_collection)
+    make_stats_tbl(MIXED_PL.lazy(), "num")
+
+    assert collected_source_shapes == [(1, 13)]
+
+
+def test_make_stats_tbl_collects_lazy_input_for_all_tables():
+    result = make_stats_tbl(MIXED_PL.lazy(), "all")
+    expected = make_stats_tbl(MIXED_PL, "all")
+
+    assert list(result) == ["num", "cat"]
+    assert all(isinstance(table, pl.DataFrame) for table in result.values())
+    assert all(result[name].equals(expected[name]) for name in expected)
+
+
 @pytest.mark.parametrize(("df", "native_type"), BACKENDS)
 def test_make_stats_tbl_returns_the_input_type(df, native_type):
     """The return follows the input, rather than always being polars.

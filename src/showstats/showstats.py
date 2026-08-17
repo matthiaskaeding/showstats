@@ -1,21 +1,38 @@
 # Central functions for table making
 from __future__ import annotations
 
-from narwhals.typing import IntoDataFrame
+import narwhals as nw
+from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
+    SummaryConfig,
     TableType,
-    _check_input_maybe_try_transform,
     build_summary_plan,
     compute_summary,
     format_tables,
     normalize_config,
+    prepare_input,
     render_tables,
 )
 
 
+def _build_tables(
+    df: IntoFrame,
+    table_type: TableType,
+    top_cols: list[str] | str | None,
+    quantiles: list[float] | None,
+    fold_quantiles: bool,
+) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
+    """Build formatted tables and the information needed to render them."""
+    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+    prepared = prepare_input(df)
+    plan = build_summary_plan(prepared.schema, config)
+    summary = compute_summary(prepared.frame, plan)
+    return format_tables(summary), config, summary.num_rows
+
+
 def show_stats(
-    df: IntoDataFrame,
+    df: IntoFrame,
     table_type: TableType = "all",
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
@@ -26,7 +43,9 @@ def show_stats(
     for for optimal readability.
 
     Args:
-        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
+        df: The input frame. Polars, pandas, PyArrow, and other
+            Narwhals compatible frames are accepted. For a lazy input,
+            only the planned summary results are collected.
         top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
@@ -50,16 +69,14 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
-    frame = _check_input_maybe_try_transform(df)
-    plan = build_summary_plan(frame.schema, config)
-    summary = compute_summary(frame, plan)
-    tables = format_tables(summary)
-    render_tables(tables, config, summary.num_rows)
+    tables, config, num_rows = _build_tables(
+        df, table_type, top_cols, quantiles, fold_quantiles
+    )
+    render_tables(tables, config, num_rows)
 
 
 def make_stats_tbl(
-    df: IntoDataFrame,
+    df: IntoFrame,
     table_type: TableType = "num",
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
@@ -69,14 +86,19 @@ def make_stats_tbl(
     Builds table of summary statistics for the given DataFrame, configured
     for for optimal readability.
 
-    For a single table type, the result is a frame of the same kind as the
-    input. Polars gives polars back, pandas gives pandas, and so on. For
-    `table_type="all"`, the result is a dictionary containing each
-    nonempty table under its `"time"`, `"num"`, or `"cat"` key.
-    Returns None when the input has no columns of a requested single type.
+    The result is always eager. An eager input returns the same native frame
+    type. A lazy input returns the eager frame type chosen by Narwhals when it
+    collects the summary results. For example, a Polars LazyFrame returns a
+    Polars DataFrame, while a DuckDB relation returns a PyArrow table.
+
+    For `table_type="all"`, the result is a dictionary containing each
+    nonempty table under its `"time"`, `"num"`, or `"cat"` key. The function
+    returns None when the input has no columns of a requested single type.
 
     Args:
-        df: The input DataFrame (supports polars, pandas, and other narwhals-compatible dataframes).
+        df: The input frame. Polars, pandas, PyArrow, and other
+            Narwhals compatible frames are accepted. For a lazy input,
+            only the planned summary results are collected.
         top_cols (list[str] | str | None, optional): Column or list of columns
             that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
@@ -100,11 +122,7 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
-    frame = _check_input_maybe_try_transform(df)
-    plan = build_summary_plan(frame.schema, config)
-    summary = compute_summary(frame, plan)
-    tables = format_tables(summary)
+    tables, _, _ = _build_tables(df, table_type, top_cols, quantiles, fold_quantiles)
     if table_type == "all":
         return {
             name: tables[name].to_native()
