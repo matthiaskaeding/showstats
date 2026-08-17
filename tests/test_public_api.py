@@ -100,3 +100,8 @@ def test_public_api_rejects_empty_dataframes(api, empty):
 def test_public_api_rejects_out_of_range_quantiles(api):
     with pytest.raises(ValueError, match=r"quantiles must lie in \[0, 1\]"):
         api(MIXED, table_type="num", quantiles=[1.01])
+
+
+def test_show_stats_rejects_an_invalid_output():
+    with pytest.raises(ValueError, match="output 'html' not supported"):
+        show_stats(MIXED, output="html")

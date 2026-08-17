@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `show_stats(..., output="gt")` returns styled Great Tables output. Great
+  Tables is available through the optional `gt` extra. The `NA%` cells use a
+  white to red color scale, and values of 20 percent or more use bold text
+  (#103).
 - Lazy frames are accepted. `show_stats(df.lazy())` used to raise
   `TypeError: Cannot only use eager_only ... with polars.LazyFrame`; the
   schema is read once and used to build the summary plan. Scalar statistics
