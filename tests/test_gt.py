@@ -40,6 +40,8 @@ def test_gt_output_supports_input_backends(frame, capsys):
     assert "20 rows" in html
     assert '<td class="gt_row gt_right">20</td>' in html
     assert '<td style="font-weight: bold;" class="gt_row gt_right">25</td>' in html
+    assert '<td class="gt_row gt_right">9.5</td>' in html
+    assert 'gt_columns_bottom_border gt_right" rowspan="1"' in html
 
 
 def test_gt_output_returns_one_table_per_section(capsys):

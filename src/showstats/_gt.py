@@ -47,6 +47,8 @@ def make_gt_table(table: nw.DataFrame, table_type: str, num_rows: int):
             data_row_padding_horizontal="8px",
         )
     )
+    if table_type == "num":
+        result = result.cols_align(align="right", columns=table.columns[1:])
     if high_missing_rows:
         result = result.tab_style(
             style=style.text(weight="bold"),

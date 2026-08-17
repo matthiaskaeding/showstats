@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `show_stats(..., out="gt")` returns styled Great Tables output. Great Tables
   is available through the optional `gt` extra. `NA%` values of 25 percent or
-  more use bold text (#103).
+  more use bold text, and numerical statistics are right aligned (#103).
 - Lazy frames are accepted. `show_stats(df.lazy())` used to raise
   `TypeError: Cannot only use eager_only ... with polars.LazyFrame`; the
   schema is read once and used to build the summary plan. Scalar statistics
