@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `show_stats(..., out="gt")` returns styled Great Tables output. Great Tables
+- `show_stats(..., fmt="gt")` returns styled Great Tables output. Great Tables
   is available through the optional `gt` extra. `NA%` values of 25 percent or
   more use bold text, and numerical statistics are right aligned (#103).
 - Lazy frames are accepted. `show_stats(df.lazy())` used to raise

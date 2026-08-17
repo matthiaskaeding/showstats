@@ -55,7 +55,7 @@ Missing percentages of 25 percent or more use bold text.
 
 ```{python}
 # | eval: false
-table = show_stats(df, "num", out="gt")
+table = show_stats(df, "num", fmt="gt")
 table
 ```
 

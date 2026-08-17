@@ -75,7 +75,7 @@ Install the optional output package with `uv add "showstats[gt]"`. The
 notebook. Missing percentages of 25 percent or more use bold text.
 
 ``` python
-table = show_stats(df, "num", out="gt")
+table = show_stats(df, "num", fmt="gt")
 table
 ```
 
