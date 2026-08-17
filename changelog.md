@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not materialize the full lazy input (#85)
 - Numerical tables can combine location and spread in one column with
   `table_one="mean_sd"`, `table_one="median_mad"`, or
-  `table_one="median_iqr"`.
+  `table_one="median_iqr"`. These tables keep the `NA%` column for the
+  percentage of missing values.
 
 ### Fixed
 

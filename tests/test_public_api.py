@@ -136,6 +136,16 @@ def test_table_one_accepts_lazy_input(style):
     assert lazy.equals(eager)
 
 
+def test_table_one_includes_percent_missing():
+    table = make_stats_tbl(
+        pl.DataFrame({"x": [1.0, 2.0, None, 4.0]}),
+        table_type="num",
+        table_one="mean_sd",
+    )
+
+    assert table["NA%"].item() == 25
+
+
 def test_table_one_rejects_conflicting_or_unsupported_options():
     with pytest.raises(ValueError, match="table_one must be one of"):
         make_stats_tbl(MIXED, "num", table_one="unknown")

@@ -56,6 +56,25 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
      temp_max  0    16.44  15.6    7.35  -1.6  7.2  26.7  35.6 
      wind      0    3.24   3.0     1.44  0.4   1.7  5.2   9.5  
 
+Use `table_one` to combine each numerical summary into one column. The
+`NA%` column gives the percentage of missing values.
+
+``` python
+table_one_df = pl.DataFrame(
+    {
+        "age": [34.0, 45.0, None, 52.0],
+        "score": [7.5, 8.0, 9.5, 7.0],
+    }
+)
+
+show_stats(table_one_df, "num", table_one="mean_sd")
+```
+
+    -Numerical columns (N=4)--------------------------------------------------------
+     Col    NA%  Avg (SD)     
+     age    25   43.67 (9.07) 
+     score  0    8.0 (1.08)   
+
 ``` python
 # pandas, pyarrow and other narwhals-supported frames work the same way
 import pandas as pd

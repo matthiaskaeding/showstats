@@ -64,7 +64,9 @@ def show_stats(
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
         table_one: Combine numerical location and spread in one column. Use
-            "mean_sd", "median_mad", or "median_iqr". Defaults to None.
+            "mean_sd", "median_mad", or "median_iqr". The numerical table
+            keeps its NA% column, which gives the percentage of missing values.
+            Defaults to None.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
             requested quantile is outside [0, 1].
@@ -120,7 +122,9 @@ def make_stats_tbl(
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
         table_one: Combine numerical location and spread in one column. Use
-            "mean_sd", "median_mad", or "median_iqr". Defaults to None.
+            "mean_sd", "median_mad", or "median_iqr". The numerical table
+            keeps its NA% column, which gives the percentage of missing values.
+            Defaults to None.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
             requested quantile is outside [0, 1].

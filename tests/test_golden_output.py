@@ -84,6 +84,13 @@ NULLS = pl.DataFrame({"null_col": [None] * 5, "int_col": [1, 2, 3, 4, 5]})
 
 MANY_ROWS = pl.DataFrame({"int_col": range(150_000)})
 
+TABLE_ONE = pl.DataFrame(
+    {
+        "age": [34.0, 45.0, None, 52.0],
+        "score": [7.5, 8.0, 9.5, 7.0],
+    }
+)
+
 
 def render(capsys, df, **kwargs) -> str:
     show_stats(df, **kwargs)
@@ -116,6 +123,12 @@ CASES = [
         _golden.TOP_COLS,
         ALL,
         {"table_type": "num", "top_cols": "int_col"},
+    ),
+    (
+        "table one with percent missing",
+        _golden.TABLE_ONE,
+        TABLE_ONE,
+        {"table_type": "num", "table_one": "mean_sd"},
     ),
 ]
 
