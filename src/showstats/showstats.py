@@ -23,7 +23,7 @@ def _build_tables(
     top_cols: list[str] | str | None,
     quantiles: list[float] | None,
     fold_quantiles: bool,
-    table_one: TableOneType | None,
+    table_one: TableOneType | None = None,
 ) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
     """Build formatted tables and the information needed to render them."""
     config = normalize_config(
@@ -41,7 +41,6 @@ def show_stats(
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
-    table_one: TableOneType | None = None,
 ) -> None:
     """
     Print a table of summary statistics for the given DataFrame, configured
@@ -63,10 +62,6 @@ def show_stats(
             statistic under two names. Set to False to keep Min/Max/Median as
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
-        table_one: Combine numerical location and spread in one column. Use
-            "mean_sd", "median_mad", or "median_iqr". The numerical table
-            keeps its NA% column, which gives the percentage of missing values.
-            Defaults to None.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
             requested quantile is outside [0, 1].
@@ -79,7 +74,7 @@ def show_stats(
         - Datetime columns are formatted as strings in the output.
     """
     tables, config, num_rows = _build_tables(
-        df, table_type, top_cols, quantiles, fold_quantiles, table_one
+        df, table_type, top_cols, quantiles, fold_quantiles
     )
     render_tables(tables, config, num_rows)
 
@@ -90,7 +85,6 @@ def make_stats_tbl(
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
-    table_one: TableOneType | None = None,
 ) -> IntoDataFrame | dict[str, IntoDataFrame] | None:
     """
     Builds table of summary statistics for the given DataFrame, configured
@@ -121,10 +115,6 @@ def make_stats_tbl(
             statistic under two names. Set to False to keep Min/Max/Median as
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
-        table_one: Combine numerical location and spread in one column. Use
-            "mean_sd", "median_mad", or "median_iqr". The numerical table
-            keeps its NA% column, which gives the percentage of missing values.
-            Defaults to None.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
             requested quantile is outside [0, 1].
@@ -136,9 +126,7 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    tables, _, _ = _build_tables(
-        df, table_type, top_cols, quantiles, fold_quantiles, table_one
-    )
+    tables, _, _ = _build_tables(df, table_type, top_cols, quantiles, fold_quantiles)
     if table_type == "all":
         return {
             name: tables[name].to_native()
@@ -150,3 +138,39 @@ def make_stats_tbl(
     if stat_df is None:
         return None
     return stat_df.to_native()
+
+
+def table_one(
+    df: IntoFrame,
+    style: TableOneType = "mean_sd",
+    show_missing: bool = True,
+) -> None:
+    """Print a compact numerical Table 1 summary.
+
+    Args:
+        df: The input frame. Polars, pandas, PyArrow, and other Narwhals
+            compatible frames are accepted. Lazy frames stay lazy while the
+            summary statistics are computed.
+        style: The location and spread to show. Use "mean_sd", "median_mad",
+            or "median_iqr". Defaults to "mean_sd".
+        show_missing: Show the NA% column with the percentage of missing values.
+            Set this to False to omit the column. Defaults to True.
+
+    Raises:
+        ValueError: If the input frame has no rows or columns, or if the style
+            is not supported.
+    """
+    tables, config, num_rows = _build_tables(
+        df,
+        table_type="num",
+        top_cols=None,
+        quantiles=None,
+        fold_quantiles=True,
+        table_one=style,
+    )
+    if not show_missing and "num" in tables:
+        table = tables["num"]
+        tables["num"] = table.select(
+            *(column for column in table.columns if column != "NA%")
+        )
+    render_tables(tables, config, num_rows)

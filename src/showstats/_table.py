@@ -343,7 +343,7 @@ def normalize_config(
 
     if table_one not in get_args(TableOneType) + (None,):
         raise ValueError(
-            "table_one must be one of 'mean_sd', 'median_mad', or 'median_iqr'"
+            "table_one style must be one of 'mean_sd', 'median_mad', or 'median_iqr'"
         )
     if table_one is not None and table_type not in ("all", "num"):
         raise ValueError("table_one is only available for numerical tables")

@@ -10,7 +10,7 @@ import polars as pl
 import pyarrow as pa
 import pytest
 
-from showstats import show_stats
+from showstats import show_stats, table_one
 from showstats.showstats import make_stats_tbl
 from tests.helpers import cell, row_for, stats_frame
 
@@ -189,17 +189,6 @@ def test_make_stats_tbl_all_omits_empty_table_types():
             {"table_type": "num", "quantiles": [0.5], "fold_quantiles": False},
             id="unfolded",
         ),
-        pytest.param(
-            {"table_type": "num", "table_one": "mean_sd"}, id="table-one-mean-sd"
-        ),
-        pytest.param(
-            {"table_type": "num", "table_one": "median_mad"},
-            id="table-one-median-mad",
-        ),
-        pytest.param(
-            {"table_type": "num", "table_one": "median_iqr"},
-            id="table-one-median-iqr",
-        ),
     ],
 )
 def test_rendering_does_not_depend_on_the_input_backend(capsys, df, kwargs):
@@ -226,6 +215,18 @@ def test_rendering_does_not_depend_on_the_input_backend(capsys, df, kwargs):
     show_stats(df, **kwargs)
     from_backend = capsys.readouterr().out
     show_stats(MIXED_PL, **kwargs)
+    assert from_backend == capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "df",
+    [pytest.param(MIXED_PD, id="pandas"), pytest.param(MIXED_PA, id="pyarrow")],
+)
+@pytest.mark.parametrize("style", ["mean_sd", "median_mad", "median_iqr"])
+def test_table_one_rendering_does_not_depend_on_the_input_backend(capsys, df, style):
+    table_one(df, style=style)
+    from_backend = capsys.readouterr().out
+    table_one(MIXED_PL, style=style)
     assert from_backend == capsys.readouterr().out
 
 

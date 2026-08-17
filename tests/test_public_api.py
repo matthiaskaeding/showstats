@@ -5,7 +5,7 @@ from datetime import date
 import polars as pl
 import pytest
 
-from showstats import make_stats_tbl, show_stats
+from showstats import make_stats_tbl, show_stats, table_one
 
 MIXED = pl.DataFrame(
     {
@@ -115,41 +115,47 @@ def test_public_api_rejects_out_of_range_quantiles(api):
         ),
     ],
 )
-def test_table_one_combines_location_and_spread(style, column, expected):
-    table = make_stats_tbl(
+def test_table_one_combines_location_and_spread(capsys, style, column, expected):
+    table_one(
         pl.DataFrame({"x": [1.0, 2.0, 3.0, 100.0]}),
-        table_type="num",
-        table_one=style,
+        style=style,
     )
 
-    assert table.columns == ["Col", "NA%", column]
-    assert table[column].item() == expected
+    output = capsys.readouterr().out
+    assert f"Col  NA%  {column}" in output
+    assert expected in output
 
 
 @pytest.mark.parametrize("style", ["mean_sd", "median_mad", "median_iqr"])
-def test_table_one_accepts_lazy_input(style):
+def test_table_one_accepts_lazy_input(capsys, style):
     frame = pl.DataFrame({"x": [1.0, 2.0, None, 4.0]})
 
-    eager = make_stats_tbl(frame, table_type="num", table_one=style)
-    lazy = make_stats_tbl(frame.lazy(), table_type="num", table_one=style)
+    table_one(frame.lazy(), style=style)
+    lazy_output = capsys.readouterr().out
+    table_one(frame, style=style)
 
-    assert lazy.equals(eager)
+    assert lazy_output == capsys.readouterr().out
 
 
-def test_table_one_includes_percent_missing():
-    table = make_stats_tbl(
+def test_table_one_includes_percent_missing(capsys):
+    table_one(pl.DataFrame({"x": [1.0, 2.0, None, 4.0]}))
+
+    output = capsys.readouterr().out
+    assert "NA%" in output
+    assert "x    25" in output
+
+
+def test_table_one_can_hide_percent_missing(capsys):
+    table_one(
         pl.DataFrame({"x": [1.0, 2.0, None, 4.0]}),
-        table_type="num",
-        table_one="mean_sd",
+        show_missing=False,
     )
 
-    assert table["NA%"].item() == 25
+    output = capsys.readouterr().out
+    assert "NA%" not in output
+    assert "x    2.33 (1.53)" in output
 
 
-def test_table_one_rejects_conflicting_or_unsupported_options():
-    with pytest.raises(ValueError, match="table_one must be one of"):
-        make_stats_tbl(MIXED, "num", table_one="unknown")
-    with pytest.raises(ValueError, match="cannot be used together"):
-        make_stats_tbl(MIXED, "num", table_one="mean_sd", quantiles=[0.5])
-    with pytest.raises(ValueError, match="only available for numerical"):
-        make_stats_tbl(MIXED, "cat", table_one="mean_sd")
+def test_table_one_rejects_an_unsupported_style():
+    with pytest.raises(ValueError, match="style must be one of"):
+        table_one(MIXED, style="unknown")

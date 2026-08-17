@@ -6,7 +6,7 @@ vertical orientation.
 
 ``` python
 import polars as pl
-from showstats import show_stats
+from showstats import show_stats, table_one
 
 # Daily weather in Seattle, 2012-2015
 df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
@@ -56,8 +56,10 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
      temp_max  0    16.44  15.6    7.35  -1.6  7.2  26.7  35.6 
      wind      0    3.24   3.0     1.44  0.4   1.7  5.2   9.5  
 
-Use `table_one` to combine each numerical summary into one column. The
-`NA%` column gives the percentage of missing values.
+Use the standalone `table_one` function to combine each numerical
+summary into one column. Set `style` to `mean_sd`, `median_mad`, or
+`median_iqr`. The `NA%` column gives the percentage of missing values.
+Pass `show_missing=False` to omit it.
 
 ``` python
 table_one_df = pl.DataFrame(
@@ -67,7 +69,7 @@ table_one_df = pl.DataFrame(
     }
 )
 
-show_stats(table_one_df, "num", table_one="mean_sd")
+table_one(table_one_df, style="mean_sd")
 ```
 
     -Numerical columns (N=4)--------------------------------------------------------

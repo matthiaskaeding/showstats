@@ -35,7 +35,7 @@ from datetime import date, datetime
 import polars as pl
 import pytest
 
-from showstats.showstats import show_stats
+from showstats.showstats import show_stats, table_one
 from tests import _golden
 
 MIXED = pl.DataFrame(
@@ -124,12 +124,6 @@ CASES = [
         ALL,
         {"table_type": "num", "top_cols": "int_col"},
     ),
-    (
-        "table one with percent missing",
-        _golden.TABLE_ONE,
-        TABLE_ONE,
-        {"table_type": "num", "table_one": "mean_sd"},
-    ),
 ]
 
 
@@ -139,6 +133,11 @@ CASES = [
 )
 def test_rendered_output_matches_golden(capsys, expected, df, kwargs):
     assert render(capsys, df, **kwargs) == expected
+
+
+def test_table_one_rendered_output_matches_golden(capsys):
+    table_one(TABLE_ONE)
+    assert capsys.readouterr().out == _golden.TABLE_ONE
 
 
 def test_every_row_of_a_table_is_the_same_width(capsys):

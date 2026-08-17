@@ -11,11 +11,12 @@ data frames. Core logic lives in `src/showstats/`:
   num_int, num_bool, cat, date, datetime, null) and builds the stat
   DataFrame.
 - `_utils.py` — scientific-notation formatting (`convert_df_scientific`).
-- `showstats.py` — public `show_stats` / `make_stats_tbl` functions.
+- `showstats.py` — public `show_stats`, `make_stats_tbl`, and `table_one`
+  functions.
 
-`show_stats` and `make_stats_tbl` are the whole public API — there is no
-DataFrame accessor. A polars-only `.stats` namespace existed until #53 and
-was removed as incompatible with the narwhals direction.
+`show_stats`, `make_stats_tbl`, and `table_one` are the whole public API.
+There is no DataFrame accessor. A polars-only `.stats` namespace existed
+until #53 and was removed as incompatible with the narwhals direction.
 
 Input and statistic computation go through `narwhals`, so any
 narwhals-compatible frame (polars, pandas, pyarrow, ...) is accepted
