@@ -50,17 +50,16 @@ show_stats(pd.read_csv("docs/data/seattle-weather.csv")[["temp_max", "wind"]])
 ## Optional Great Tables output
 
 Install the optional output package with `uv add "showstats[gt]"`. The `gt`
-output returns a Great Tables object that displays as HTML in a notebook. The
-missing percentage uses a white to red scale, and values of 20 percent or more
-use bold text.
+output returns a Great Tables object that displays as HTML in a notebook.
+Missing percentages of 20 percent or more use bold text.
 
 ```{python}
 # | eval: false
-table = show_stats(df, "num", output="gt")
+table = show_stats(df, "num", out="gt")
 table
 ```
 
-![Great Tables output with colored missing percentages](docs/images/gt-output.png)
+![Great Tables output with bold missing percentages](docs/images/gt-output.png)
 
 - **showstats** works with any data frame [narwhals](https://github.com/narwhals-dev/narwhals) supports — polars, pandas, pyarrow and more. They all work directly, with no extra installs or conversion step.
 

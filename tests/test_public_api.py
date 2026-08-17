@@ -103,5 +103,5 @@ def test_public_api_rejects_out_of_range_quantiles(api):
 
 
 def test_show_stats_rejects_an_invalid_output():
-    with pytest.raises(ValueError, match="output 'html' not supported"):
-        show_stats(MIXED, output="html")
+    with pytest.raises(ValueError, match="out 'html' not supported"):
+        show_stats(MIXED, out="html")

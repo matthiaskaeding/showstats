@@ -40,13 +40,6 @@ def make_gt_table(table: nw.DataFrame, table_type: str, num_rows: int):
         GT(table.to_native(), rowname_col="Col")
         .tab_header(title=titles[table_type], subtitle=f"{row_count(num_rows)} rows")
         .tab_stubhead(label="Column")
-        .data_color(
-            columns="NA%",
-            palette=["#FFFFFF", "#F4D35E", "#B91C1C"],
-            domain=[0, 100],
-            autocolor_text=True,
-            truncate=True,
-        )
         .opt_align_table_header(align="left")
         .tab_options(
             table_font_size="14px",
