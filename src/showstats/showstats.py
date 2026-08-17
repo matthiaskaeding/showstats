@@ -1,9 +1,11 @@
 # Central functions for table making
 from __future__ import annotations
 
+import narwhals as nw
 from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
+    SummaryConfig,
     TableType,
     build_summary_plan,
     compute_summary,
@@ -12,6 +14,21 @@ from showstats._table import (
     prepare_input,
     render_tables,
 )
+
+
+def _build_tables(
+    df: IntoFrame,
+    table_type: TableType,
+    top_cols: list[str] | str | None,
+    quantiles: list[float] | None,
+    fold_quantiles: bool,
+) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
+    """Build formatted tables and the information needed to render them."""
+    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+    prepared = prepare_input(df)
+    plan = build_summary_plan(prepared.schema, config)
+    summary = compute_summary(prepared.frame, plan)
+    return format_tables(summary), config, summary.num_rows
 
 
 def show_stats(
@@ -52,12 +69,10 @@ def show_stats(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
-    prepared = prepare_input(df)
-    plan = build_summary_plan(prepared.schema, config)
-    summary = compute_summary(prepared.frame, plan)
-    tables = format_tables(summary)
-    render_tables(tables, config, summary.num_rows)
+    tables, config, num_rows = _build_tables(
+        df, table_type, top_cols, quantiles, fold_quantiles
+    )
+    render_tables(tables, config, num_rows)
 
 
 def make_stats_tbl(
@@ -107,11 +122,7 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
-    prepared = prepare_input(df)
-    plan = build_summary_plan(prepared.schema, config)
-    summary = compute_summary(prepared.frame, plan)
-    tables = format_tables(summary)
+    tables, _, _ = _build_tables(df, table_type, top_cols, quantiles, fold_quantiles)
     if table_type == "all":
         return {
             name: tables[name].to_native()
