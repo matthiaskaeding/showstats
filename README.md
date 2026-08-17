@@ -59,23 +59,29 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
 Use the standalone `table_one` function to combine each numerical
 summary into one column. Set `style` to `mean_sd`, `median_mad`, or
 `median_iqr`. The `NA%` column gives the percentage of missing values.
-Pass `show_missing=False` to omit it.
+Pass `show_missing=False` to omit it. Categorical columns show their
+three most common values by default. Use `n_categories` to change that
+number.
 
 ``` python
 table_one_df = pl.DataFrame(
     {
         "age": [34.0, 45.0, None, 52.0],
         "score": [7.5, 8.0, 9.5, 7.0],
+        "group": ["control", "treated", "control", "placebo"],
     }
 )
 
-table_one(table_one_df, style="mean_sd")
+table_one(table_one_df, style="mean_sd", n_categories=3)
 ```
 
     -Numerical columns (N=4)--------------------------------------------------------
      Col    NA%  Avg (SD)     
      age    25   43.67 (9.07) 
      score  0    8.0 (1.08)   
+    -Categorical columns (N=4)------------------------------------------------------
+     Col    NA%  Uniques  Top 1          Top 2          Top 3         
+     group  0    3        control (50%)  treated (25%)  placebo (25%) 
 
 ``` python
 # pandas, pyarrow and other narwhals-supported frames work the same way

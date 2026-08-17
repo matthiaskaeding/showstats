@@ -103,4 +103,7 @@ TABLE_ONE = (
     " Col    NA%  Avg (SD)     \n"
     " age    25   43.67 (9.07) \n"
     " score  0    8.0 (1.08)   \n"
+    "-Categorical columns (N=4)------------------------------------------------------\n"
+    " Col    NA%  Uniques  Top 1          Top 2          Top 3         \n"
+    " group  0    3        control (50%)  treated (25%)  placebo (25%) \n"
 )

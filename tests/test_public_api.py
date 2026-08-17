@@ -128,7 +128,12 @@ def test_table_one_combines_location_and_spread(capsys, style, column, expected)
 
 @pytest.mark.parametrize("style", ["mean_sd", "median_mad", "median_iqr"])
 def test_table_one_accepts_lazy_input(capsys, style):
-    frame = pl.DataFrame({"x": [1.0, 2.0, None, 4.0]})
+    frame = pl.DataFrame(
+        {
+            "x": [1.0, 2.0, None, 4.0],
+            "group": ["a", "b", "a", None],
+        }
+    )
 
     table_one(frame.lazy(), style=style)
     lazy_output = capsys.readouterr().out
@@ -147,7 +152,12 @@ def test_table_one_includes_percent_missing(capsys):
 
 def test_table_one_can_hide_percent_missing(capsys):
     table_one(
-        pl.DataFrame({"x": [1.0, 2.0, None, 4.0]}),
+        pl.DataFrame(
+            {
+                "x": [1.0, 2.0, None, 4.0],
+                "group": ["a", "b", None, "a"],
+            }
+        ),
         show_missing=False,
     )
 
@@ -156,6 +166,39 @@ def test_table_one_can_hide_percent_missing(capsys):
     assert "x    2.33 (1.53)" in output
 
 
+def test_table_one_shows_three_categories_by_default(capsys):
+    table_one(pl.DataFrame({"group": ["a", "b", "c", "d"]}))
+
+    output = capsys.readouterr().out
+    assert all(label in output for label in ("Top 1", "Top 2", "Top 3"))
+    assert "Top 4" not in output
+    assert "group  0    4        a (25%)  b (25%)  c (25%)" in output
+
+
+def test_table_one_controls_the_number_of_categories(capsys):
+    table_one(
+        pl.DataFrame({"group": ["a", "b", "c", "d"]}),
+        n_categories=2,
+    )
+
+    output = capsys.readouterr().out
+    assert all(label in output for label in ("Top 1", "Top 2"))
+    assert "Top 3" not in output
+    assert "a (25%)  b (25%)" in output
+
+
 def test_table_one_rejects_an_unsupported_style():
     with pytest.raises(ValueError, match="style must be one of"):
         table_one(MIXED, style="unknown")
+
+
+@pytest.mark.parametrize("n_categories", [0, -1])
+def test_table_one_rejects_too_few_categories(n_categories):
+    with pytest.raises(ValueError, match="at least 1"):
+        table_one(MIXED, n_categories=n_categories)
+
+
+@pytest.mark.parametrize("n_categories", [1.5, True])
+def test_table_one_rejects_a_noninteger_category_count(n_categories):
+    with pytest.raises(TypeError, match="must be an integer"):
+        table_one(MIXED, n_categories=n_categories)

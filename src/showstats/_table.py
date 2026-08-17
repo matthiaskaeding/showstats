@@ -291,6 +291,7 @@ def _map_table_type_to_var_types(table_type):
 
 
 _STAT_SEPARATOR = "____"
+_TOP_VALUES_STAT = "top_values"
 
 
 @dataclass(frozen=True)
@@ -303,6 +304,7 @@ class SummaryConfig:
     fold_quantiles: bool
     quantile_framing: bool
     table_one: TableOneType | None
+    n_categories: int
 
 
 @dataclass(frozen=True)
@@ -333,6 +335,7 @@ def normalize_config(
     quantiles: Iterable | None = None,
     fold_quantiles: bool = True,
     table_one: TableOneType | None = None,
+    n_categories: int = 3,
 ) -> SummaryConfig:
     """Validate and normalize public options without reading the frame."""
     if table_type not in get_args(TableType):
@@ -349,6 +352,10 @@ def normalize_config(
         raise ValueError("table_one is only available for numerical tables")
     if table_one is not None and quantiles:
         raise ValueError("table_one and quantiles cannot be used together")
+    if isinstance(n_categories, bool) or not isinstance(n_categories, int):
+        raise TypeError("n_categories must be an integer")
+    if n_categories < 1:
+        raise ValueError("n_categories must be at least 1")
 
     if isinstance(top_cols, str):
         normalized_top_cols = (top_cols,)
@@ -392,6 +399,7 @@ def normalize_config(
         fold_quantiles=fold_quantiles,
         quantile_framing=quantile_framing,
         table_one=table_one,
+        n_categories=n_categories,
     )
 
 
@@ -506,11 +514,11 @@ def _temporal_median_for_frame(df: Frame, var: str, count: int, row_index: str):
 
 
 def _top_counts_for_frame(
-    df: Frame, var: str, row_index: str
+    df: Frame, var: str, row_index: str, limit: int
 ) -> list[dict[str, object]]:
     if isinstance(df, nw.DataFrame):
         counts = df[var].drop_nulls().value_counts(sort=True)
-        return [row for row in counts.rows(named=True) if row["count"] > 0][:3]
+        return [row for row in counts.rows(named=True) if row["count"] > 0][:limit]
 
     native = df.to_native()
     namespace = nw.get_native_namespace(df).__name__
@@ -528,7 +536,7 @@ def _top_counts_for_frame(
             df.group_by(var, drop_null_keys=True)
             .agg(nw.len().alias("count"))
             .sort(["count", var], descending=[True, False])
-            .head(3)
+            .head(limit)
             .collect()
         )
     else:
@@ -539,7 +547,7 @@ def _top_counts_for_frame(
                 nw.col(row_index).min().alias(row_index),
             )
             .sort(["count", row_index], descending=[True, False])
-            .head(3)
+            .head(limit)
             .select(var, "count")
             .collect()
         )
@@ -599,8 +607,8 @@ def compute_summary(df: Frame, plan: SummaryPlan) -> SummaryResult:
         stats.update(mad_stats)
 
     for var in plan.vars_map.get("cat", ()):
-        stats[f"top_3{_STAT_SEPARATOR}{var}"] = _top_counts_for_frame(
-            df, var, row_index
+        stats[f"{_TOP_VALUES_STAT}{_STAT_SEPARATOR}{var}"] = _top_counts_for_frame(
+            df, var, row_index, plan.config.n_categories
         )
 
     return SummaryResult(
@@ -615,7 +623,7 @@ def _top_value_columns(summary: SummaryResult) -> dict[str, list[str]]:
     columns = {}
     variables = summary.plan.vars_map["cat"]
     for position, var_name in enumerate(variables):
-        frequency = summary.stats[f"top_3{_STAT_SEPARATOR}{var_name}"]
+        frequency = summary.stats[f"{_TOP_VALUES_STAT}{_STAT_SEPARATOR}{var_name}"]
         for index, value_count in enumerate(frequency):
             value = value_count[var_name]
             count = value_count["count"]

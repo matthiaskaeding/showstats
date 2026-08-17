@@ -24,10 +24,11 @@ def _build_tables(
     quantiles: list[float] | None,
     fold_quantiles: bool,
     table_one: TableOneType | None = None,
+    n_categories: int = 3,
 ) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
     """Build formatted tables and the information needed to render them."""
     config = normalize_config(
-        table_type, top_cols, quantiles, fold_quantiles, table_one
+        table_type, top_cols, quantiles, fold_quantiles, table_one, n_categories
     )
     prepared = prepare_input(df)
     plan = build_summary_plan(prepared.schema, config)
@@ -144,8 +145,9 @@ def table_one(
     df: IntoFrame,
     style: TableOneType = "mean_sd",
     show_missing: bool = True,
+    n_categories: int = 3,
 ) -> None:
-    """Print a compact numerical Table 1 summary.
+    """Print a compact numerical and categorical Table 1 summary.
 
     Args:
         df: The input frame. Polars, pandas, PyArrow, and other Narwhals
@@ -155,22 +157,29 @@ def table_one(
             or "median_iqr". Defaults to "mean_sd".
         show_missing: Show the NA% column with the percentage of missing values.
             Set this to False to omit the column. Defaults to True.
+        n_categories: The maximum number of categorical values to show for each
+            categorical column. Defaults to 3.
 
     Raises:
-        ValueError: If the input frame has no rows or columns, or if the style
-            is not supported.
+        ValueError: If the input frame has no rows or columns, if the style is
+            not supported, or if n_categories is less than 1.
+        TypeError: If n_categories is not an integer.
     """
     tables, config, num_rows = _build_tables(
         df,
-        table_type="num",
+        table_type="all",
         top_cols=None,
         quantiles=None,
         fold_quantiles=True,
         table_one=style,
+        n_categories=n_categories,
     )
-    if not show_missing and "num" in tables:
-        table = tables["num"]
-        tables["num"] = table.select(
-            *(column for column in table.columns if column != "NA%")
-        )
+    tables.pop("time", None)
+    if not show_missing:
+        for table_type in ("num", "cat"):
+            if table_type in tables:
+                table = tables[table_type]
+                tables[table_type] = table.select(
+                    *(column for column in table.columns if column != "NA%")
+                )
     render_tables(tables, config, num_rows)

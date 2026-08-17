@@ -17,8 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   column. `make_stats_tbl` always returns an eager frame, but showstats does
   not materialize the full lazy input (#85)
 - The standalone `table_one` function combines numerical location and spread
-  with the `mean_sd`, `median_mad`, or `median_iqr` style. It includes the
-  `NA%` column by default. Pass `show_missing=False` to omit that column.
+  with the `mean_sd`, `median_mad`, or `median_iqr` style. It also summarizes
+  categorical columns and shows their three most common values by default.
+  Pass `n_categories` to change that number. It includes the `NA%` column by
+  default, and `show_missing=False` omits that column.
 
 ### Fixed
 

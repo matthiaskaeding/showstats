@@ -88,6 +88,7 @@ TABLE_ONE = pl.DataFrame(
     {
         "age": [34.0, 45.0, None, 52.0],
         "score": [7.5, 8.0, 9.5, 7.0],
+        "group": ["control", "treated", "control", "placebo"],
     }
 )
 
