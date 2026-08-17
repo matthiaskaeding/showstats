@@ -53,11 +53,6 @@ def prepare_input(input: IntoFrame) -> PreparedFrame:
     return PreparedFrame(frame=frame, schema=schema)
 
 
-def _check_input_maybe_try_transform(input: IntoFrame) -> Frame:
-    """Compatibility wrapper that returns the prepared Narwhals frame."""
-    return prepare_input(input).frame
-
-
 def _get_cols_for_var_type(df_or_schema, var_type):
     schema = df_or_schema.schema if hasattr(df_or_schema, "schema") else df_or_schema
     matching_cols = []

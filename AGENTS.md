@@ -19,9 +19,9 @@ was removed as incompatible with the narwhals direction.
 
 Input and statistic computation go through `narwhals`, so any
 narwhals-compatible frame (polars, pandas, pyarrow, ...) is accepted
-directly. Note that `_check_input_maybe_try_transform` returns a
-`nw.DataFrame`, not a polars one, and raises `TypeError` for plain Python
-literals (list/dict) — those are not narwhals-native frames.
+directly. `prepare_input` returns the Narwhals frame and its schema. It keeps
+lazy inputs lazy and raises `TypeError` for plain Python literals such as lists
+and dictionaries, because they are not Narwhals frames.
 
 Formatting, table assembly and rendering are still polars-internal
 (`make_dt`, `form_stat_df` and `show_one_table` build a `pl.LazyFrame`

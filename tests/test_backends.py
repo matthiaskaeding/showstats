@@ -80,8 +80,7 @@ def test_pandas_backend_basic():
 def test_pyarrow_backend_basic():
     """pyarrow input, which used to be accepted at the door and then die.
 
-    `_check_input_maybe_try_transform` has always taken pyarrow tables
-    (test_utils.py::test_input_check_pyarrow), but `_Table.__init__` read
+    `prepare_input` accepts pyarrow tables, but `_Table.__init__` read
     the aggregate row with `.iloc[0]` whenever the frame was not polars —
     treating "not polars" as "pandas". Every pyarrow table therefore
     raised AttributeError.
