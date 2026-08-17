@@ -2873,7 +2873,7 @@ requires-dist = [
     { name = "narwhals", specifier = ">=2.20.0" },
     { name = "pandas", marker = "extra == 'pandas'", specifier = ">=1.5.3" },
     { name = "polars", marker = "extra == 'polars'", specifier = ">=0.20.21" },
-    { name = "pyarrow", marker = "extra == 'pandas'", specifier = ">=10.0.0" },
+    { name = "pyarrow", marker = "extra == 'pandas'", specifier = ">=13.0.0" },
 ]
 provides-extras = ["pandas", "polars"]
 

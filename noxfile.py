@@ -24,11 +24,28 @@ def test(session):
         "hypothesis>=6.113.0",
         "polars>=0.20.21",
         "pandas>=1.5.3",
-        "pyarrow>=10.0.0",
+        "pyarrow>=13.0.0",
         "narwhals>=2.20.0",
     )
 
     session.run("pytest", "tests/")
+
+
+@nox.session(name="minimum_versions", python="3.10")
+def test_minimum_versions(session):
+    """Run the stable suite at the Python and narwhals floors."""
+    session.install(
+        "pytest==8.3.2",
+        "hypothesis>=6.113.0",
+        "polars>=0.20.21",
+        "pandas>=1.5.3",
+        "pyarrow>=13.0.0",
+        "narwhals==2.20.0",
+    )
+    # Property tests check statistical behavior against random data. They do
+    # not exercise a separate Narwhals API surface, so the ordinary CI job
+    # runs them once with the locked environment.
+    session.run("pytest", "tests/", "--ignore=tests/test_properties.py")
 
 
 @nox.parametrize("polars_version", ["0.20.21", "1.4.1"])
@@ -41,7 +58,7 @@ def test_polars_versions(session, polars_version, pandas_version):
         "hypothesis>=6.113.0",
         f"polars=={polars_version}",
         f"pandas>={pandas_version}",
-        "pyarrow>=10.0.0",
+        "pyarrow>=13.0.0",
         "narwhals>=2.20.0",
     )
     session.run("pytest", "tests/")
