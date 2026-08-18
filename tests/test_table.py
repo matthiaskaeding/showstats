@@ -160,8 +160,6 @@ def test_that_statistics_are_correct(sample_df):
     assert stat_df.filter(var_0 == "float_max_17").item(0, "Max") == "17.0"
 
 
-
-
 def test_single_columns():
     null_df = pl.DataFrame({"null_col": [None] * 10})
     mt = _Table(null_df, "num")

@@ -37,7 +37,7 @@ def test_show_stats_runs_end_to_end_from_the_package(capsys):
 
 def test_make_stats_tbl_runs_end_to_end_from_the_package():
     tables = make_stats_tbl(
-        MIXED.select("first_number", pl.all().exclude("first_number") ),
+        MIXED.select("first_number", pl.all().exclude("first_number")),
         table_type="all",
         quantiles=[0.25],
         fold_quantiles=False,

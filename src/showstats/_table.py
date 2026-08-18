@@ -624,7 +624,6 @@ def format_var_type(summary: SummaryResult, var_type: VarType) -> nw.DataFrame:
     return frame
 
 
-
 def _rebuild_frame(
     frame: nw.DataFrame, backend: object, row_order: list[int] | None = None
 ) -> nw.DataFrame:

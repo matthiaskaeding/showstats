@@ -97,5 +97,3 @@ def test_make_stats_tbl_pandas_result_is_indexed_from_zero():
     """
     result = make_stats_tbl(MIXED_PL.to_pandas(), "num")
     assert list(result.index) == [0, 1]
-
-
