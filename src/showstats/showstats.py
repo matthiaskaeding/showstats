@@ -26,12 +26,11 @@ Format = Literal["text", "gt"]
 def _build_tables(
     df: IntoFrame,
     table_type: TableType,
-    top_cols: list[str] | str | None,
     quantiles: list[float] | None,
     fold_quantiles: bool,
 ) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
     """Build formatted tables and the information needed to render them."""
-    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+    config = normalize_config(table_type, quantiles, fold_quantiles)
     prepared = prepare_input(df)
     plan = build_summary_plan(prepared.schema, config)
     summary = compute_summary(prepared.frame, plan)
@@ -41,7 +40,6 @@ def _build_tables(
 def show_stats(
     df: IntoFrame,
     table_type: TableType = "all",
-    top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
     fmt: Format = "text",
@@ -95,9 +93,7 @@ def show_stats(
     if color_missing and fmt != "gt":
         raise ValueError('color_missing=True requires fmt="gt"')
 
-    tables, config, num_rows = _build_tables(
-        df, table_type, top_cols, quantiles, fold_quantiles
-    )
+    tables, config, num_rows = _build_tables(df, table_type, quantiles, fold_quantiles)
     if fmt == "gt":
         from showstats._gt import make_gt_tables
 
@@ -153,7 +149,7 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    tables, _, _ = _build_tables(df, table_type, top_cols, quantiles, fold_quantiles)
+    tables, _, _ = _build_tables(df, table_type, quantiles, fold_quantiles)
     if table_type == "all":
         return {
             name: tables[name].to_native()

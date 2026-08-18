@@ -285,7 +285,6 @@ class SummaryConfig:
     """Normalized options shared by every summary stage."""
 
     table_type: TableType
-    top_cols: tuple[str, ...] | None
     quantiles: tuple[float, ...]
     fold_quantiles: bool
     quantile_framing: bool
@@ -315,7 +314,6 @@ class SummaryResult:
 
 def normalize_config(
     table_type: TableType,
-    top_cols: Iterable | None = None,
     quantiles: Iterable | None = None,
     fold_quantiles: bool = True,
 ) -> SummaryConfig:
@@ -325,13 +323,6 @@ def normalize_config(
             f"table_type {table_type!r} not supported; "
             f"expected one of {get_args(TableType)}"
         )
-
-    if isinstance(top_cols, str):
-        normalized_top_cols = (top_cols,)
-    elif top_cols is None:
-        normalized_top_cols = None
-    else:
-        normalized_top_cols = tuple(top_cols)
 
     requested_quantiles = quantiles if quantiles is not None else ()
     normalized_quantiles = tuple(sorted(set(requested_quantiles)))
@@ -355,7 +346,6 @@ def normalize_config(
 
     return SummaryConfig(
         table_type=table_type,
-        top_cols=normalized_top_cols,
         quantiles=normalized_quantiles,
         fold_quantiles=fold_quantiles,
         quantile_framing=quantile_framing,
