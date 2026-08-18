@@ -51,7 +51,6 @@ def _build_summary(
 def _build_tables(
     df: IntoFrame,
     table_type: TableType,
-    top_cols: list[str] | str | None,
     quantiles: list[float] | None,
     fold_quantiles: bool,
     table_one: TableOneType | None = None,
@@ -61,11 +60,10 @@ def _build_tables(
     summary, config = _build_summary(
         df,
         table_type,
-        top_cols,
-        quantiles,
-        fold_quantiles,
-        table_one,
-        n_categories,
+        quantiles=quantiles,
+        fold_quantiles=fold_quantiles,
+        table_one=table_one,
+        n_categories=n_categories,
     )
     return format_tables(summary), config, summary.num_rows
 
@@ -107,7 +105,7 @@ def show_stats(
         - Datetime columns are formatted as strings in the output.
     """
     tables, config, num_rows = _build_tables(
-        df, table_type, top_cols, quantiles, fold_quantiles
+        df, table_type, quantiles, fold_quantiles
     )
     render_tables(tables, config, num_rows)
     return None
@@ -199,7 +197,6 @@ def table_one(
     summary, _ = _build_summary(
         df,
         table_type="all",
-        top_cols=None,
         quantiles=None,
         fold_quantiles=True,
         table_one=style,

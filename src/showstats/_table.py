@@ -355,12 +355,6 @@ def normalize_config(
     if n_categories < 1:
         raise ValueError("n_categories must be at least 1")
 
-    if isinstance(top_cols, str):
-        normalized_top_cols = (top_cols,)
-    elif top_cols is None:
-        normalized_top_cols = None
-    else:
-        normalized_top_cols = tuple(top_cols)
 
     requested_quantiles = (
         (0.25, 0.75)
