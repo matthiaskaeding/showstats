@@ -20,6 +20,7 @@ def lint(session):
 def test(session):
     session.install(
         "duckdb>=1.0.0",
+        "great-tables>=0.23.0",
         "pytest>=8.3.2",
         "hypothesis>=6.113.0",
         "polars>=0.20.21",
@@ -35,6 +36,8 @@ def test(session):
 def test_minimum_versions(session):
     """Run the stable suite at the Python and narwhals floors."""
     session.install(
+        "duckdb>=1.0.0",
+        "great-tables>=0.23.0",
         "pytest==8.3.2",
         "hypothesis>=6.113.0",
         "polars>=0.20.21",
@@ -54,6 +57,7 @@ def test_minimum_versions(session):
 def test_polars_versions(session, polars_version, pandas_version):
     session.install(
         "duckdb>=1.0.0",
+        "great-tables>=0.23.0",
         "pytest>=8.3.2",
         "hypothesis>=6.113.0",
         f"polars=={polars_version}",

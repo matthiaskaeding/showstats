@@ -31,6 +31,7 @@ requires-python = ">= 3.10"
 # whatever narwhals-compatible frame it is handed.
 pandas = ["pandas>=1.5.3", "pyarrow>=13.0.0"]
 polars = ["polars>=0.20.21"]
+gt = ["great-tables>=0.23.0"]
 
 
 [dependency-groups]
@@ -39,6 +40,7 @@ polars = ["polars>=0.20.21"]
 dev = [
   "build>=1.2.1",
   "duckdb>=1.0.0",
+  "great-tables>=0.23.0",
   "hatchling>=1.25.0",
   "hypothesis>=6.113.0",
   "jupyter>=1.0.0",
