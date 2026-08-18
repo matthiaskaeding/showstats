@@ -119,12 +119,6 @@ CASES = [
         MIXED,
         {"table_type": "num", "quantiles": [0.25], "fold_quantiles": False},
     ),
-    (
-        "top_cols ordering",
-        _golden.TOP_COLS,
-        ALL,
-        {"table_type": "num", "top_cols": "int_col"},
-    ),
 ]
 
 

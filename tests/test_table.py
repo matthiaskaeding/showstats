@@ -33,9 +33,8 @@ def _reset_warning_registry():
 
 def test_summary_pipeline_stages_return_explicit_values():
     frame = nw.from_native(pl.DataFrame({"amount": [1, 2, 3], "name": ["a", "b", "a"]}))
-    config = normalize_config("all", top_cols="amount", quantiles=[0.75, 0.25])
+    config = normalize_config("all", quantiles=[0.75, 0.25])
 
-    assert config.top_cols == ("amount",)
     assert config.quantiles == (0.25, 0.75)
 
     plan = build_summary_plan(frame.schema, config)
@@ -159,38 +158,6 @@ def test_that_statistics_are_correct(sample_df):
     assert stat_df.filter(var_0 == "float_std_2").item(0, "SD") == "2.0"
     assert stat_df.filter(var_0 == "float_min_-7").item(0, "Min") == "-7.0"
     assert stat_df.filter(var_0 == "float_max_17").item(0, "Max") == "17.0"
-
-
-def test_top_cols(sample_df):
-    table_no_top_cols = _Table(sample_df, "num")
-    table_no_top_cols.form_stat_df("num")
-    table_top_cols = _Table(sample_df, "num", top_cols="U")
-    table_top_cols.form_stat_df("num")
-
-    assert table_top_cols.stat_dfs["num"].item(0, 0) == "U"
-
-    table_top_cols = _Table(sample_df, "num", top_cols=["bool_col", "int_col"])
-    table_top_cols.form_stat_df("num")
-    assert table_top_cols.stat_dfs["num"].item(0, 0) == "bool_col"
-    assert table_top_cols.stat_dfs["num"].item(1, 0) == "int_col"
-    assert (
-        table_top_cols.stat_dfs["num"].shape == table_no_top_cols.stat_dfs["num"].shape
-    )
-
-    name_col_0 = table_top_cols.stat_dfs["num"].columns[0]
-    col_0_top_cols = table_top_cols.stat_dfs["num"].get_column(name_col_0)
-    col_0_no_top_cols = table_no_top_cols.stat_dfs["num"].get_column(name_col_0)
-    assert col_0_top_cols.to_list() != col_0_no_top_cols.to_list()
-    assert sorted(col_0_top_cols.to_list()) == sorted(col_0_no_top_cols.to_list())
-
-    assert (
-        table_no_top_cols.stat_dfs["num"].shape[0]
-        == sample_df.select(
-            pl.selectors.exclude(
-                pl.Enum, pl.String, pl.Categorical, pl.Date, pl.Datetime
-            )
-        ).width
-    ), "Each row in table_no_top_cols-stat_df must be one column in sample_df"
 
 
 def test_single_columns():

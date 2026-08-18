@@ -21,7 +21,6 @@ def test_show_stats_runs_end_to_end_from_the_package(capsys):
     show_stats(
         MIXED,
         table_type="all",
-        top_cols="first_number",
         quantiles=[0.25],
         fold_quantiles=False,
     )
@@ -38,9 +37,8 @@ def test_show_stats_runs_end_to_end_from_the_package(capsys):
 
 def test_make_stats_tbl_runs_end_to_end_from_the_package():
     tables = make_stats_tbl(
-        MIXED,
+        MIXED.select("first_number", pl.all().exclude("first_number")),
         table_type="all",
-        top_cols="first_number",
         quantiles=[0.25],
         fold_quantiles=False,
     )
@@ -227,3 +225,13 @@ def test_table_one_color_missing_requires_the_missing_column():
         ValueError, match="color_missing=True requires show_missing=True"
     ):
         table_one(MIXED, fmt="gt", show_missing=False, color_missing=True)
+
+
+def test_show_stats_rejects_an_invalid_format():
+    with pytest.raises(ValueError, match="fmt 'html' not supported"):
+        show_stats(MIXED, fmt="html")
+
+
+def test_color_missing_requires_gt_output():
+    with pytest.raises(ValueError, match='color_missing=True requires fmt="gt"'):
+        show_stats(MIXED, color_missing=True)

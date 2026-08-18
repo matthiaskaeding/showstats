@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nonempty numerical, categorical, and temporal tables instead of returning
   `None`.
 
+### Removed
+
+- Argument top_cols - this is not necessary
+
 ### Fixed
 
 - Date and datetime columns raised `ArrowNotImplementedError: Unsupported
