@@ -285,7 +285,6 @@ class SummaryConfig:
     """Normalized options shared by every summary stage."""
 
     table_type: TableType
-    top_cols: tuple[str, ...] | None
     quantiles: tuple[float, ...]
     fold_quantiles: bool
     quantile_framing: bool
@@ -315,7 +314,6 @@ class SummaryResult:
 
 def normalize_config(
     table_type: TableType,
-    top_cols: Iterable | None = None,
     quantiles: Iterable | None = None,
     fold_quantiles: bool = True,
 ) -> SummaryConfig:
@@ -325,13 +323,6 @@ def normalize_config(
             f"table_type {table_type!r} not supported; "
             f"expected one of {get_args(TableType)}"
         )
-
-    if isinstance(top_cols, str):
-        normalized_top_cols = (top_cols,)
-    elif top_cols is None:
-        normalized_top_cols = None
-    else:
-        normalized_top_cols = tuple(top_cols)
 
     requested_quantiles = quantiles if quantiles is not None else ()
     normalized_quantiles = tuple(sorted(set(requested_quantiles)))
@@ -355,7 +346,6 @@ def normalize_config(
 
     return SummaryConfig(
         table_type=table_type,
-        top_cols=normalized_top_cols,
         quantiles=normalized_quantiles,
         fold_quantiles=fold_quantiles,
         quantile_framing=quantile_framing,
@@ -634,23 +624,6 @@ def format_var_type(summary: SummaryResult, var_type: VarType) -> nw.DataFrame:
     return frame
 
 
-def order_rows(
-    frame: nw.DataFrame,
-    top_cols: tuple[str, ...] | None,
-    columns_in_order: Iterable[str],
-) -> list[int] | None:
-    """Return the requested row permutation before names are truncated."""
-    if top_cols is None:
-        return None
-    new_order = [
-        *top_cols,
-        *(name for name in columns_in_order if name not in top_cols),
-    ]
-    position = {name: index for index, name in enumerate(new_order)}
-    names = frame["Col"].to_list()
-    return sorted(range(len(names)), key=lambda index: position[names[index]])
-
-
 def _rebuild_frame(
     frame: nw.DataFrame, backend: object, row_order: list[int] | None = None
 ) -> nw.DataFrame:
@@ -719,16 +692,10 @@ def format_section(
             nw.col("max").alias("Max"),
         )
 
-    columns_in_order = (
-        name
-        for var_type in summary.plan.vars_map
-        for name in summary.plan.vars_map[var_type]
-    )
-    row_order = order_rows(frame, config.top_cols, columns_in_order)
     frame = frame.with_columns(
         _truncate_long_strings(nw.col("Col").cast(nw.String)).alias("Col")
     )
-    return _rebuild_frame(frame, summary.backend, row_order)
+    return _rebuild_frame(frame, summary.backend, None)
 
 
 def format_tables(summary: SummaryResult) -> dict[str, nw.DataFrame]:
@@ -798,12 +765,11 @@ class _Table:
         self,
         df: IntoFrame,
         table_type: TableType,
-        top_cols: Iterable | None = None,
         quantiles: Iterable | None = None,
         fold_quantiles: bool = True,
     ):
         prepared = prepare_input(df)
-        config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+        config = normalize_config(table_type, quantiles, fold_quantiles)
         plan = build_summary_plan(prepared.schema, config)
         summary = compute_summary(prepared.frame, plan)
 
@@ -815,7 +781,6 @@ class _Table:
         # Keep the old read-only attributes while internal callers migrate.
         self.type = config.table_type
         self.backend = summary.backend
-        self.top_cols = list(config.top_cols) if config.top_cols is not None else None
         self.quantiles = list(config.quantiles)
         self.quantile_framing = config.quantile_framing
         self.num_rows = summary.num_rows
