@@ -694,11 +694,6 @@ def format_section(
             nw.col("max").alias("Max"),
         )
 
-    columns_in_order = (
-        name
-        for var_type in summary.plan.vars_map
-        for name in summary.plan.vars_map[var_type]
-    )
     frame = frame.with_columns(
         _truncate_long_strings(nw.col("Col").cast(nw.String)).alias("Col")
     )
