@@ -72,16 +72,16 @@ show_stats(pd.read_csv("docs/data/seattle-weather.csv")[["temp_max", "wind"]])
 
 Install the optional output package with `uv add "showstats[gt]"`. The
 `gt` output returns a Great Tables object that displays as HTML in a
-notebook. The `NA%` background changes from white to dark gray as the
-missing share increases. Missing percentages of 25 percent or more also
-use bold text.
+notebook. Missing percentages of 25 percent or more use bold text. Set
+`color_missing=True` to add an optional white to dark gray background
+scale.
 
 ``` python
 table = show_stats(df, "num", fmt="gt")
 table
 ```
 
-![Great Tables output with grayscale missing
+![Great Tables output with bold missing
 percentages](docs/images/gt-output.png)
 
 - **showstats** works with any data frame

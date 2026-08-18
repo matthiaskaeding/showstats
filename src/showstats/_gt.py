@@ -22,7 +22,12 @@ def _great_tables_api():
     return GT, loc, style
 
 
-def make_gt_table(table: nw.DataFrame, table_type: str, num_rows: int):
+def make_gt_table(
+    table: nw.DataFrame,
+    table_type: str,
+    num_rows: int,
+    color_missing: bool = False,
+):
     """Build one styled Great Tables object from a formatted summary table."""
     GT, loc, style = _great_tables_api()
     titles = {
@@ -49,13 +54,14 @@ def make_gt_table(table: nw.DataFrame, table_type: str, num_rows: int):
     )
     if table_type == "num":
         result = result.cols_align(align="right", columns=table.columns[1:])
-    result = result.data_color(
-        columns="NA%",
-        palette=["#FFFFFF", "#4A4A4A"],
-        domain=[0, 100],
-        autocolor_text=True,
-        truncate=True,
-    )
+    if color_missing:
+        result = result.data_color(
+            columns="NA%",
+            palette=["#FFFFFF", "#4A4A4A"],
+            domain=[0, 100],
+            autocolor_text=True,
+            truncate=True,
+        )
     if high_missing_rows:
         result = result.tab_style(
             style=style.text(weight="bold"),
@@ -65,17 +71,22 @@ def make_gt_table(table: nw.DataFrame, table_type: str, num_rows: int):
 
 
 def make_gt_tables(
-    tables: Mapping[str, nw.DataFrame], config: SummaryConfig, num_rows: int
+    tables: Mapping[str, nw.DataFrame],
+    config: SummaryConfig,
+    num_rows: int,
+    color_missing: bool = False,
 ):
     """Return one GT object, or a section dictionary for ``table_type='all'``."""
     if config.table_type != "all":
         table = tables.get(config.table_type)
         if table is None:
             return None
-        return make_gt_table(table, config.table_type, num_rows)
+        return make_gt_table(table, config.table_type, num_rows, color_missing)
 
     return {
-        table_type: make_gt_table(tables[table_type], table_type, num_rows)
+        table_type: make_gt_table(
+            tables[table_type], table_type, num_rows, color_missing
+        )
         for table_type in ("time", "num", "cat")
         if table_type in tables
     }

@@ -105,3 +105,8 @@ def test_public_api_rejects_out_of_range_quantiles(api):
 def test_show_stats_rejects_an_invalid_format():
     with pytest.raises(ValueError, match="fmt 'html' not supported"):
         show_stats(MIXED, fmt="html")
+
+
+def test_color_missing_requires_gt_output():
+    with pytest.raises(ValueError, match='color_missing=True requires fmt="gt"'):
+        show_stats(MIXED, color_missing=True)

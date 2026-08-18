@@ -38,6 +38,20 @@ def test_gt_output_supports_input_backends(frame, capsys):
     html = result.as_raw_html()
     assert "Numerical columns" in html
     assert "20 rows" in html
+    assert '<td class="gt_row gt_right">20</td>' in html
+    assert '<td style="font-weight: bold;" class="gt_row gt_right">25</td>' in html
+    assert '<td class="gt_row gt_right">9.5</td>' in html
+    assert 'gt_columns_bottom_border gt_right" rowspan="1"' in html
+
+
+def test_gt_output_can_color_missing_percentages():
+    html = show_stats(
+        pl.DataFrame(MISSING),
+        table_type="num",
+        fmt="gt",
+        color_missing=True,
+    ).as_raw_html()
+
     assert (
         '<td style="color: #000000; background-color: #dbdbdb;" '
         'class="gt_row gt_right">20</td>' in html
@@ -50,8 +64,6 @@ def test_gt_output_supports_input_backends(frame, capsys):
         '<td style="color: #FFFFFF; background-color: #6e6e6e; '
         'font-weight: bold;" class="gt_row gt_right">80</td>' in html
     )
-    assert '<td class="gt_row gt_right">9.5</td>' in html
-    assert 'gt_columns_bottom_border gt_right" rowspan="1"' in html
 
 
 def test_gt_output_returns_one_table_per_section(capsys):

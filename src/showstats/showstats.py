@@ -45,6 +45,7 @@ def show_stats(
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
     fmt: Format = "text",
+    color_missing: bool = False,
 ) -> None | GT | dict[str, GT]:
     """
     Show compact summary statistics for the given frame.
@@ -72,6 +73,8 @@ def show_stats(
             ``"gt"`` for a styled Great Tables object. ``table_type="all"``
             returns one Great Tables object per nonempty section. Defaults to
             ``"text"``.
+        color_missing (bool): For Great Tables output, show ``NA%`` on a white
+            to dark gray background scale. Defaults to False.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
             requested quantile is outside [0, 1], or if output is unsupported.
@@ -80,8 +83,8 @@ def show_stats(
 
     Note:
         - Text output uses a fixed-width table with left-aligned cells.
-        - Great Tables output shows ``NA%`` on a white to dark gray background
-          scale and uses bold text for values of 25 percent or more.
+        - Great Tables output uses bold text for ``NA%`` values of 25 percent
+          or more. Set ``color_missing=True`` to add a white to dark gray scale.
         - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
         - Datetime columns are formatted as strings in the output.
     """
@@ -89,6 +92,8 @@ def show_stats(
         raise ValueError(
             f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
         )
+    if color_missing and fmt != "gt":
+        raise ValueError('color_missing=True requires fmt="gt"')
 
     tables, config, num_rows = _build_tables(
         df, table_type, top_cols, quantiles, fold_quantiles
@@ -96,7 +101,7 @@ def show_stats(
     if fmt == "gt":
         from showstats._gt import make_gt_tables
 
-        return make_gt_tables(tables, config, num_rows)
+        return make_gt_tables(tables, config, num_rows, color_missing)
     render_tables(tables, config, num_rows)
     return None
 
