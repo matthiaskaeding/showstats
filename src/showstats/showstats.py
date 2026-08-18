@@ -181,6 +181,7 @@ def table_one(
         style: The location and spread to show. Use "mean_sd", "median_mad",
             or "median_iqr". Defaults to "mean_sd".
         show_missing: Show the NA% column with the percentage of missing values.
+            Categorical columns show the percentage on their first category row.
             Set this to False to omit the column. Defaults to True.
         n_categories: The maximum number of categorical values to show for each
             categorical column. Defaults to 3.

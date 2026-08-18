@@ -882,7 +882,7 @@ def format_table_one(
                 nw.concat_str(
                     [nw.col("Col"), nw.lit(" ("), nw.lit(statistic), nw.lit(")")]
                 ).alias("Col"),
-                nw.col("NA%"),
+                nw.col("NA%").cast(nw.String),
                 nw.col(value_column).alias("Overall"),
             )
         )
@@ -894,14 +894,16 @@ def format_table_one(
         frequencies = summary.stats[f"{_TOP_VALUES_STAT}{_STAT_SEPARATOR}{var}"]
         if not frequencies:
             categorical_rows["Col"].append(f"{var} (%)")
-            categorical_rows["NA%"].append(missing_pct)
+            categorical_rows["NA%"].append(str(missing_pct))
             categorical_rows["Overall"].append("")
             continue
-        for value_count in frequencies:
+        for category_index, value_count in enumerate(frequencies):
             value = value_count[var]
             count = value_count["count"]
             categorical_rows["Col"].append(f"{var} = {value} (%)")
-            categorical_rows["NA%"].append(missing_pct)
+            categorical_rows["NA%"].append(
+                str(missing_pct) if category_index == 0 else ""
+            )
             categorical_rows["Overall"].append(
                 f"{count} ({count / summary.num_rows:.0%})"
             )
@@ -910,7 +912,7 @@ def format_table_one(
         frames.append(
             nw.from_dict(
                 categorical_rows,
-                schema={"Col": nw.String, "NA%": nw.Int16, "Overall": nw.String},
+                schema={"Col": nw.String, "NA%": nw.String, "Overall": nw.String},
                 backend=summary.backend,
             )
         )

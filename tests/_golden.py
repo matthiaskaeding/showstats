@@ -104,6 +104,6 @@ TABLE_ONE = (
     " age (mean (SD))      25   43.67 (9.07) \n"
     " score (mean (SD))    0    8.0 (1.08)   \n"
     " group = control (%)  0    2 (50%)      \n"
-    " group = treated (%)  0    1 (25%)      \n"
-    " group = placebo (%)  0    1 (25%)      \n"
+    " group = treated (%)       1 (25%)      \n"
+    " group = placebo (%)       1 (25%)      \n"
 )

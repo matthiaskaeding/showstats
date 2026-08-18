@@ -150,6 +150,14 @@ def test_table_one_includes_percent_missing(capsys):
     assert "x (mean (SD))  25" in output
 
 
+def test_table_one_shows_categorical_percent_missing_once(capsys):
+    table_one(pl.DataFrame({"group": ["a", "b", None, "a"]}))
+
+    rows = [line for line in capsys.readouterr().out.splitlines() if "group" in line]
+    assert "group = a (%)  25" in rows[0]
+    assert "group = b (%)       1 (25%)" in rows[1]
+
+
 def test_table_one_can_hide_percent_missing(capsys):
     table_one(
         pl.DataFrame(
