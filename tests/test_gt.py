@@ -39,15 +39,15 @@ def test_gt_output_supports_input_backends(frame, capsys):
     assert "Numerical columns" in html
     assert "20 rows" in html
     assert (
-        '<td style="color: #000000; background-color: #cccccc;" '
+        '<td style="color: #000000; background-color: #dbdbdb;" '
         'class="gt_row gt_right">20</td>' in html
     )
     assert (
-        '<td style="color: #000000; background-color: #bfbfbf; '
+        '<td style="color: #000000; background-color: #d2d2d2; '
         'font-weight: bold;" class="gt_row gt_right">25</td>' in html
     )
     assert (
-        '<td style="color: #FFFFFF; background-color: #333333; '
+        '<td style="color: #FFFFFF; background-color: #6e6e6e; '
         'font-weight: bold;" class="gt_row gt_right">80</td>' in html
     )
     assert '<td class="gt_row gt_right">9.5</td>' in html

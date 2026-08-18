@@ -51,7 +51,7 @@ def make_gt_table(table: nw.DataFrame, table_type: str, num_rows: int):
         result = result.cols_align(align="right", columns=table.columns[1:])
     result = result.data_color(
         columns="NA%",
-        palette=["#FFFFFF", "#000000"],
+        palette=["#FFFFFF", "#4A4A4A"],
         domain=[0, 100],
         autocolor_text=True,
         truncate=True,

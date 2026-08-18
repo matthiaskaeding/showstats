@@ -80,7 +80,7 @@ def show_stats(
 
     Note:
         - Text output uses a fixed-width table with left-aligned cells.
-        - Great Tables output shows ``NA%`` on a white to black background
+        - Great Tables output shows ``NA%`` on a white to dark gray background
           scale and uses bold text for values of 25 percent or more.
         - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
         - Datetime columns are formatted as strings in the output.
