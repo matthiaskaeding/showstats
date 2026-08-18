@@ -55,8 +55,6 @@ def show_stats(
         df: The input frame. Polars, pandas, PyArrow, and other
             Narwhals compatible frames are accepted. For a lazy input,
             only the planned summary results are collected.
-        top_cols (list[str] | str | None, optional): Column or list of columns
-            that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
         quantiles (list[float] | None, optional): Extra quantiles (values in
             [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
@@ -105,7 +103,6 @@ def show_stats(
 def make_stats_tbl(
     df: IntoFrame,
     table_type: TableType = "num",
-    top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
 ) -> IntoDataFrame | dict[str, IntoDataFrame] | None:
@@ -126,8 +123,6 @@ def make_stats_tbl(
         df: The input frame. Polars, pandas, PyArrow, and other
             Narwhals compatible frames are accepted. For a lazy input,
             only the planned summary results are collected.
-        top_cols (list[str] | str | None, optional): Column or list of columns
-            that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
         quantiles (list[float] | None, optional): Extra quantiles (values in
             [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
