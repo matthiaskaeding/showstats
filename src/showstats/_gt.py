@@ -49,6 +49,13 @@ def make_gt_table(table: nw.DataFrame, table_type: str, num_rows: int):
     )
     if table_type == "num":
         result = result.cols_align(align="right", columns=table.columns[1:])
+    result = result.data_color(
+        columns="NA%",
+        palette=["#FFFFFF", "#000000"],
+        domain=[0, 100],
+        autocolor_text=True,
+        truncate=True,
+    )
     if high_missing_rows:
         result = result.tab_style(
             style=style.text(weight="bold"),
