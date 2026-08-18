@@ -21,7 +21,6 @@ def test_show_stats_runs_end_to_end_from_the_package(capsys):
     show_stats(
         MIXED,
         table_type="all",
-        top_cols="first_number",
         quantiles=[0.25],
         fold_quantiles=False,
     )
@@ -40,7 +39,6 @@ def test_make_stats_tbl_runs_end_to_end_from_the_package():
     tables = make_stats_tbl(
         MIXED,
         table_type="all",
-        top_cols="first_number",
         quantiles=[0.25],
         fold_quantiles=False,
     )
