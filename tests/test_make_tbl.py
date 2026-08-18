@@ -97,3 +97,17 @@ def test_make_stats_tbl_pandas_result_is_indexed_from_zero():
     """
     result = make_stats_tbl(MIXED_PL.to_pandas(), "num")
     assert list(result.index) == [0, 1]
+
+
+@pytest.mark.parametrize(("df", "native_type"), BACKENDS)
+def test_top_cols_ordering(df, native_type):
+    """top_cols used to work by casting to pl.Enum and sorting.
+
+    narwhals has no categorical-ordering trick to lean on, so the rank is
+    made explicit — and it has to keep working, natively, whatever frame
+    was passed in.
+    """
+    result = make_stats_tbl(df, "num", top_cols="float_col")
+    assert isinstance(result, native_type)
+    frame = stats_frame(result)
+    assert frame[frame.columns[0]].to_list() == ["float_col", "int_col"]

@@ -8,23 +8,14 @@ from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
     SummaryConfig,
-    SummaryResult,
-    TableOneType,
     TableType,
     build_summary_plan,
     compute_summary,
-    format_table_one,
     format_tables,
     normalize_config,
     prepare_input,
-    render_table_one,
     render_tables,
 )
-
-if TYPE_CHECKING:
-    from great_tables import GT
-
-Output = Literal["text", "gt"]
 
 if TYPE_CHECKING:
     from great_tables import GT
@@ -32,48 +23,30 @@ if TYPE_CHECKING:
 Format = Literal["text", "gt"]
 
 
-def _build_summary(
-    df: IntoFrame,
-    table_type: TableType,
-    quantiles: list[float] | None,
-    fold_quantiles: bool,
-    table_one: TableOneType | None = None,
-    n_categories: int = 3,
-) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
-    """Build formatted tables and the information needed to render them."""
-    config = normalize_config(table_type, quantiles, fold_quantiles)
-    prepared = prepare_input(df)
-    plan = build_summary_plan(prepared.schema, config)
-    summary = compute_summary(prepared.frame, plan)
-    return summary, config
-
-
 def _build_tables(
     df: IntoFrame,
     table_type: TableType,
+    top_cols: list[str] | str | None,
     quantiles: list[float] | None,
     fold_quantiles: bool,
-    table_one: TableOneType | None = None,
-    n_categories: int = 3,
 ) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
     """Build formatted tables and the information needed to render them."""
-    summary, config = _build_summary(
-        df,
-        table_type,
-        quantiles=quantiles,
-        fold_quantiles=fold_quantiles,
-        table_one=table_one,
-        n_categories=n_categories,
-    )
+    config = normalize_config(table_type, top_cols, quantiles, fold_quantiles)
+    prepared = prepare_input(df)
+    plan = build_summary_plan(prepared.schema, config)
+    summary = compute_summary(prepared.frame, plan)
     return format_tables(summary), config, summary.num_rows
 
 
 def show_stats(
     df: IntoFrame,
     table_type: TableType = "all",
+    top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
-) -> None:
+    fmt: Format = "text",
+    color_missing: bool = False,
+) -> None | GT | dict[str, GT]:
     """
     Show compact summary statistics for the given frame.
 
@@ -84,6 +57,8 @@ def show_stats(
         df: The input frame. Polars, pandas, PyArrow, and other
             Narwhals compatible frames are accepted. For a lazy input,
             only the planned summary results are collected.
+        top_cols (list[str] | str | None, optional): Column or list of columns
+            that should appear at the top of the summary table. Defaults to None.
         table_type (str): All variables (default) = "num" or categorical = "cat"
         quantiles (list[float] | None, optional): Extra quantiles (values in
             [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
@@ -94,19 +69,39 @@ def show_stats(
             statistic under two names. Set to False to keep Min/Max/Median as
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
+        fmt (str): Use ``"text"`` for the compact terminal table, or
+            ``"gt"`` for a styled Great Tables object. ``table_type="all"``
+            returns one Great Tables object per nonempty section. Defaults to
+            ``"text"``.
+        color_missing (bool): For Great Tables output, show ``NA%`` on a white
+            to dark gray background scale. Defaults to False.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
-            requested quantile is outside [0, 1].
+            requested quantile is outside [0, 1], or if output is unsupported.
+        ImportError: If ``fmt="gt"`` is requested without the optional
+            ``gt`` extra installed.
 
     Note:
-        - The output is formatted as an ASCII Markdown table with left-aligned cells
-          and no column data types displayed.
+        - Text output uses a fixed-width table with left-aligned cells.
+        - Great Tables output uses bold text for ``NA%`` values of 20 percent
+          or more. Set ``color_missing=True`` to add a white to dark gray scale.
         - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
         - Datetime columns are formatted as strings in the output.
     """
+    if fmt not in get_args(Format):
+        raise ValueError(
+            f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
+        )
+    if color_missing and fmt != "gt":
+        raise ValueError('color_missing=True requires fmt="gt"')
+
     tables, config, num_rows = _build_tables(
-        df, table_type, quantiles, fold_quantiles
+        df, table_type, top_cols, quantiles, fold_quantiles
     )
+    if fmt == "gt":
+        from showstats._gt import make_gt_tables
+
+        return make_gt_tables(tables, config, num_rows, color_missing)
     render_tables(tables, config, num_rows)
     return None
 
@@ -114,6 +109,7 @@ def show_stats(
 def make_stats_tbl(
     df: IntoFrame,
     table_type: TableType = "num",
+    top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
 ) -> IntoDataFrame | dict[str, IntoDataFrame] | None:
@@ -134,6 +130,8 @@ def make_stats_tbl(
         df: The input frame. Polars, pandas, PyArrow, and other
             Narwhals compatible frames are accepted. For a lazy input,
             only the planned summary results are collected.
+        top_cols (list[str] | str | None, optional): Column or list of columns
+            that should appear at the top of the summary table. Defaults to None.
         type (str): All variables (default) = "num" or categorical = "cat"
         quantiles (list[float] | None, optional): Extra quantiles (values in
             [0, 1]) to compute for numerical columns, shown as extra "Q<pct>"
@@ -155,7 +153,7 @@ def make_stats_tbl(
         - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
-    tables, _, _ = _build_tables(df, table_type, quantiles, fold_quantiles)
+    tables, _, _ = _build_tables(df, table_type, top_cols, quantiles, fold_quantiles)
     if table_type == "all":
         return {
             name: tables[name].to_native()
@@ -167,40 +165,3 @@ def make_stats_tbl(
     if stat_df is None:
         return None
     return stat_df.to_native()
-
-
-def table_one(
-    df: IntoFrame,
-    style: TableOneType = "mean_sd",
-    show_missing: bool = True,
-    n_categories: int = 3,
-) -> None:
-    """Print a compact numerical and categorical Table 1 summary.
-
-    Args:
-        df: The input frame. Polars, pandas, PyArrow, and other Narwhals
-            compatible frames are accepted. Lazy frames stay lazy while the
-            summary statistics are computed.
-        style: The location and spread to show. Use "mean_sd", "median_mad",
-            or "median_iqr". Defaults to "mean_sd".
-        show_missing: Show the NA% column with the percentage of missing values.
-            Categorical columns show the percentage on their first category row.
-            Set this to False to omit the column. Defaults to True.
-        n_categories: The maximum number of categorical values to show for each
-            categorical column. Defaults to 3.
-
-    Raises:
-        ValueError: If the input frame has no rows or columns, if the style is
-            not supported, or if n_categories is less than 1.
-        TypeError: If n_categories is not an integer.
-    """
-    summary, _ = _build_summary(
-        df,
-        table_type="all",
-        quantiles=None,
-        fold_quantiles=True,
-        table_one=style,
-        n_categories=n_categories,
-    )
-    table = format_table_one(summary, show_missing)
-    render_table_one(table, summary.num_rows)

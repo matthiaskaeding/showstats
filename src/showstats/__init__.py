@@ -1,6 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
-from showstats.showstats import make_stats_tbl, show_stats, table_one
+from showstats.showstats import make_stats_tbl, show_stats
 
 try:
     __version__ = version("showstats")
@@ -11,4 +11,4 @@ finally:
     del PackageNotFoundError
 
 
-__all__ = ["make_stats_tbl", "show_stats", "table_one"]
+__all__ = ["make_stats_tbl", "show_stats"]

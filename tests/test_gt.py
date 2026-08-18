@@ -6,18 +6,13 @@ import pyarrow as pa
 import pytest
 from great_tables import GT
 
-from showstats import show_stats, table_one
+from showstats import show_stats
 
 MISSING = {
     "complete": list(range(20)),
     "some_missing": [None] * 4 + list(range(16)),
     "threshold_missing": [None] * 5 + list(range(15)),
     "mostly_missing": [None] * 16 + [1, 2, 3, 4],
-}
-
-TABLE_ONE_DATA = {
-    "age": [34.0, 45.0, None, 52.0],
-    "group": ["control", "treated", "control", "placebo"],
 }
 
 
@@ -100,66 +95,3 @@ def test_gt_output_explains_how_to_install_the_extra(monkeypatch):
 
     with pytest.raises(ImportError, match=r'uv add "showstats\[gt\]"'):
         show_stats(pl.DataFrame({"number": [1]}), "num", fmt="gt")
-
-
-@pytest.mark.parametrize(
-    "frame",
-    [
-        pytest.param(pl.DataFrame(TABLE_ONE_DATA), id="polars"),
-        pytest.param(pd.DataFrame(TABLE_ONE_DATA), id="pandas"),
-        pytest.param(
-            pa.table(TABLE_ONE_DATA),
-            id="pyarrow",
-            marks=pytest.mark.filterwarnings(
-                "ignore:PyArrow Table support is currently experimental"
-            ),
-        ),
-    ],
-)
-def test_table_one_returns_gt_output(frame, capsys):
-    result = table_one(frame, fmt="gt")
-
-    assert isinstance(result, GT)
-    assert capsys.readouterr().out == ""
-    html = result.as_raw_html()
-    assert "Table 1" in html
-    assert "N = 4" in html
-    assert "age (mean (SD))" in html
-    assert "group = control (%)" in html
-    assert "group = treated (%)" in html
-
-
-def test_table_one_gt_output_can_hide_missing_percentages():
-    html = table_one(
-        pl.DataFrame({"age": [34.0, 45.0, None, 52.0]}),
-        fmt="gt",
-        show_missing=False,
-    ).as_raw_html()
-
-    assert "NA%" not in html
-
-
-def test_table_one_gt_output_can_color_missing_percentages():
-    html = table_one(
-        pl.DataFrame(
-            {
-                "age": [34.0, 45.0, None, 52.0],
-                "group": ["a", "b", None, "a"],
-            }
-        ),
-        fmt="gt",
-        color_missing=True,
-    ).as_raw_html()
-
-    assert (
-        '<td style="background-color: #d2d2d2; color: #000000; '
-        'font-weight: bold;" class="gt_row gt_right">25</td>' in html
-    )
-    assert '<td class="gt_row gt_right"></td>' in html
-
-
-def test_table_one_gt_output_explains_how_to_install_the_extra(monkeypatch):
-    monkeypatch.setitem(sys.modules, "great_tables", None)
-
-    with pytest.raises(ImportError, match=r'uv add "showstats\[gt\]"'):
-        table_one(pl.DataFrame({"number": [1]}), fmt="gt")

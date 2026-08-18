@@ -6,7 +6,7 @@ vertical orientation.
 
 ``` python
 import polars as pl
-from showstats import show_stats, table_one
+from showstats import show_stats
 
 # Daily weather in Seattle, 2012-2015
 df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
@@ -56,35 +56,6 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
      temp_max  0    16.44  15.6    7.35  -1.6  7.2  26.7  35.6 
      wind      0    3.24   3.0     1.44  0.4   1.7  5.2   9.5  
 
-Use the standalone `table_one` function to combine each numerical
-summary into one column. Set `style` to `mean_sd`, `median_mad`, or
-`median_iqr`. The `NA%` column gives the percentage of missing values.
-Pass `show_missing=False` to omit it. For a categorical column, the
-percentage appears only on the first category row. Categorical columns
-show their three most common values by default. Use `n_categories` to
-change that number. Each numerical variable name includes its summary
-format, and each categorical value appears on its own row.
-
-``` python
-table_one_df = pl.DataFrame(
-    {
-        "age": [34.0, 45.0, None, 52.0],
-        "score": [7.5, 8.0, 9.5, 7.0],
-        "group": ["control", "treated", "control", "placebo"],
-    }
-)
-
-table_one(table_one_df, style="mean_sd", n_categories=3)
-```
-
-    -Table 1 (N=4)------------------------------------------------------------------
-     Col                  NA%  Overall      
-     age (mean (SD))      25   43.67 (9.07) 
-     score (mean (SD))    0    8.0 (1.08)   
-     group = control (%)  0    2 (50%)      
-     group = treated (%)       1 (25%)      
-     group = placebo (%)       1 (25%)      
-
 ``` python
 # pandas, pyarrow and other narwhals-supported frames work the same way
 import pandas as pd
@@ -103,14 +74,11 @@ Install the optional output package with `uv add "showstats[gt]"`. The
 `gt` output returns a Great Tables object that displays as HTML in a
 notebook. Missing percentages of 20 percent or more use bold text. Set
 `color_missing=True` to add an optional white to dark gray background
-scale. The same options work with `table_one`.
+scale.
 
 ``` python
 table = show_stats(df, "num", fmt="gt")
 table
-
-table_one_gt = table_one(table_one_df, fmt="gt")
-table_one_gt
 ```
 
 ![Great Tables output with bold missing
