@@ -208,3 +208,22 @@ def test_table_one_rejects_too_few_categories(n_categories):
 def test_table_one_rejects_a_noninteger_category_count(n_categories):
     with pytest.raises(TypeError, match="must be an integer"):
         table_one(MIXED, n_categories=n_categories)
+
+
+@pytest.mark.parametrize("api", [show_stats, table_one])
+def test_public_api_rejects_an_invalid_format(api):
+    with pytest.raises(ValueError, match="fmt 'html' not supported"):
+        api(MIXED, fmt="html")
+
+
+@pytest.mark.parametrize("api", [show_stats, table_one])
+def test_color_missing_requires_gt_output(api):
+    with pytest.raises(ValueError, match='color_missing=True requires fmt="gt"'):
+        api(MIXED, color_missing=True)
+
+
+def test_table_one_color_missing_requires_the_missing_column():
+    with pytest.raises(
+        ValueError, match="color_missing=True requires show_missing=True"
+    ):
+        table_one(MIXED, fmt="gt", show_missing=False, color_missing=True)

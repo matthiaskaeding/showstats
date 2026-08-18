@@ -1,6 +1,8 @@
 # Central functions for table making
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Literal, get_args
+
 import narwhals as nw
 from narwhals.typing import IntoDataFrame, IntoFrame
 
@@ -18,6 +20,11 @@ from showstats._table import (
     render_table_one,
     render_tables,
 )
+
+if TYPE_CHECKING:
+    from great_tables import GT
+
+Format = Literal["text", "gt"]
 
 
 def _build_summary(
@@ -67,10 +74,14 @@ def show_stats(
     top_cols: list[str] | str | None = None,
     quantiles: list[float] | None = None,
     fold_quantiles: bool = True,
-) -> None:
+    fmt: Format = "text",
+    color_missing: bool = False,
+) -> None | GT | dict[str, GT]:
     """
-    Print a table of summary statistics for the given DataFrame, configured
-    for for optimal readability.
+    Show compact summary statistics for the given frame.
+
+    Text output is printed. Great Tables output is returned so a notebook can
+    display it, or so the caller can apply more Great Tables methods.
 
     Args:
         df: The input frame. Polars, pandas, PyArrow, and other
@@ -88,21 +99,41 @@ def show_stats(
             statistic under two names. Set to False to keep Min/Max/Median as
             separate columns, which keeps the column names stable regardless of
             which quantiles are requested. Defaults to True.
+        fmt (str): Use ``"text"`` for the compact terminal table, or
+            ``"gt"`` for a styled Great Tables object. ``table_type="all"``
+            returns one Great Tables object per nonempty section. Defaults to
+            ``"text"``.
+        color_missing (bool): For Great Tables output, show ``NA%`` on a white
+            to dark gray background scale. Defaults to False.
     Raises:
         ValueError: If the input DataFrame has no rows or columns, or if a
-            requested quantile is outside [0, 1].
+            requested quantile is outside [0, 1], or if output is unsupported.
+        ImportError: If ``fmt="gt"`` is requested without the optional
+            ``gt`` extra installed.
 
     Note:
-        - The output is formatted as an ASCII Markdown table with left-aligned cells
-          and no column data types displayed.
+        - Text output uses a fixed-width table with left-aligned cells.
+        - Great Tables output uses bold text for ``NA%`` values of 20 percent
+          or more. Set ``color_missing=True`` to add a white to dark gray scale.
         - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
-        - Percentage of missing values is grouped into categories for easier interpretation.
         - Datetime columns are formatted as strings in the output.
     """
+    if fmt not in get_args(Format):
+        raise ValueError(
+            f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
+        )
+    if color_missing and fmt != "gt":
+        raise ValueError('color_missing=True requires fmt="gt"')
+
     tables, config, num_rows = _build_tables(
         df, table_type, top_cols, quantiles, fold_quantiles
     )
+    if fmt == "gt":
+        from showstats._gt import make_gt_tables
+
+        return make_gt_tables(tables, config, num_rows, color_missing)
     render_tables(tables, config, num_rows)
+    return None
 
 
 def make_stats_tbl(
@@ -171,8 +202,13 @@ def table_one(
     style: TableOneType = "mean_sd",
     show_missing: bool = True,
     n_categories: int = 3,
-) -> None:
-    """Print a compact numerical and categorical Table 1 summary.
+    fmt: Format = "text",
+    color_missing: bool = False,
+) -> None | GT:
+    """Show a compact numerical and categorical Table 1 summary.
+
+    Text output is printed. Great Tables output is returned so a notebook can
+    display it, or so the caller can apply more Great Tables methods.
 
     Args:
         df: The input frame. Polars, pandas, PyArrow, and other Narwhals
@@ -185,12 +221,28 @@ def table_one(
             Set this to False to omit the column. Defaults to True.
         n_categories: The maximum number of categorical values to show for each
             categorical column. Defaults to 3.
+        fmt: Use "text" for the compact terminal table, or "gt" for a styled
+            Great Tables object. Defaults to "text".
+        color_missing: For Great Tables output, show NA% on a white to dark
+            gray background scale. Defaults to False.
 
     Raises:
-        ValueError: If the input frame has no rows or columns, if the style is
-            not supported, or if n_categories is less than 1.
+        ValueError: If the input frame has no rows or columns, if the style or
+            output format is not supported, if n_categories is less than 1, or
+            if color_missing is used with incompatible options.
         TypeError: If n_categories is not an integer.
+        ImportError: If fmt="gt" is requested without the optional gt extra
+            installed.
     """
+    if fmt not in get_args(Format):
+        raise ValueError(
+            f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
+        )
+    if color_missing and fmt != "gt":
+        raise ValueError('color_missing=True requires fmt="gt"')
+    if color_missing and not show_missing:
+        raise ValueError("color_missing=True requires show_missing=True")
+
     summary, _ = _build_summary(
         df,
         table_type="all",
@@ -201,4 +253,9 @@ def table_one(
         n_categories=n_categories,
     )
     table = format_table_one(summary, show_missing)
+    if fmt == "gt":
+        from showstats._gt import make_gt_table_one
+
+        return make_gt_table_one(table, summary.num_rows, color_missing)
     render_table_one(table, summary.num_rows)
+    return None
