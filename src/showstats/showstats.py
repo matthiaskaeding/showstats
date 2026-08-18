@@ -91,9 +91,7 @@ def show_stats(
     if color_missing and fmt != "gt":
         raise ValueError('color_missing=True requires fmt="gt"')
 
-    tables, config, num_rows = _build_tables(
-        df, table_type, quantiles, fold_quantiles
-    )
+    tables, config, num_rows = _build_tables(df, table_type, quantiles, fold_quantiles)
     if fmt == "gt":
         from showstats._gt import make_gt_tables
 

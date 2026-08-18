@@ -90,4 +90,3 @@ QUANTILES_UNFOLDED = (
     " int_col    20   2.5  2.5     1.29  1.75  1      4    \n"
     " bool_col   0    0.6  1.0     0.55  0.0   false  true \n"
 )
-

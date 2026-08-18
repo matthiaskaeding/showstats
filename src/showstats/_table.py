@@ -324,7 +324,6 @@ def normalize_config(
             f"expected one of {get_args(TableType)}"
         )
 
-
     requested_quantiles = quantiles if quantiles is not None else ()
     normalized_quantiles = tuple(sorted(set(requested_quantiles)))
     for quantile in normalized_quantiles:
@@ -623,7 +622,6 @@ def format_var_type(summary: SummaryResult, var_type: VarType) -> nw.DataFrame:
             *top_names,
         )
     return frame
-
 
 
 def _rebuild_frame(
