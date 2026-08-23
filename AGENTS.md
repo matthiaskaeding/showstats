@@ -48,8 +48,9 @@ uv build             # sdist + wheel
   it was removed in #69. A runtime dependency that tests also need does
   **not** have to be repeated in the dev group; `uv sync` installs the
   project itself.
-- `uv.lock` is committed, so CI and local dev resolve identically. Run
-  `uv sync` after changing dependencies and commit the updated lock.
+- `uv.lock` is ignored. This is a library, so CI resolves the allowed
+  dependency versions on each run and can catch new incompatibilities. Run
+  `uv sync` after changing dependencies, but do not commit the generated lock.
 - `.python-version` pins the interpreter (3.11.9) so CI does not silently
   drift to a newer Python; `uv` provisions it automatically.
 - Lint/format uses `ruff==0.16.0`. `required-version = "==0.16.0"` in

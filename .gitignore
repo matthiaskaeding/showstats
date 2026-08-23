@@ -138,6 +138,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+uv.lock
 env/
 venv/
 ENV/
@@ -183,4 +184,3 @@ references/figures/*
 
 src/experiments.py
 # .python-version is uv's interpreter pin: project config, so it is committed
-
