@@ -118,6 +118,16 @@ def test_duckdb_lazy_input_collects_to_pyarrow(capsys):
     assert lazy_output == capsys.readouterr().out
 
 
+def test_grouped_table_one_accepts_duckdb_lazy_input(capsys):
+    relation = duckdb.from_arrow(MIXED_PA)
+
+    table_one(relation, group="str_col")
+    lazy_output = capsys.readouterr().out
+    table_one(MIXED_PA, group="str_col")
+
+    assert lazy_output == capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     ("frame", "native_type"),
     [
