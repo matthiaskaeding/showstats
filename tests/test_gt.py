@@ -6,7 +6,7 @@ import pyarrow as pa
 import pytest
 from great_tables import GT
 
-from showstats import show_stats
+from showstats import show_stats, table_one
 
 MISSING = {
     "complete": list(range(20)),
@@ -85,3 +85,52 @@ def test_gt_output_explains_how_to_install_the_extra(monkeypatch):
 
     with pytest.raises(ImportError, match=r'uv add "showstats\[gt\]"'):
         show_stats(pl.DataFrame({"number": [1]}), "num", fmt="gt")
+
+
+def test_table_one_returns_grouped_gt_output(capsys):
+    result = table_one(
+        pl.DataFrame(
+            {
+                "age": [34.0, 45.0, None, 52.0],
+                "arm": ["control", "treated", "control", "treated"],
+            }
+        ),
+        group="arm",
+        fmt="gt",
+    )
+
+    assert isinstance(result, GT)
+    assert capsys.readouterr().out == ""
+    html = result.as_raw_html()
+    assert "Table 1" in html
+    assert "age (mean (SD))" in html
+    assert "arm = control (N=2)" in html
+    assert "arm = treated (N=2)" in html
+    assert "arm = control (%)" not in html
+
+
+def test_table_one_gt_output_can_hide_missing_percentages():
+    html = table_one(
+        pl.DataFrame({"age": [34.0, 45.0, None, 52.0]}),
+        fmt="gt",
+        show_missing=False,
+    ).as_raw_html()
+
+    assert "NA%" not in html
+
+
+def test_table_one_gt_output_can_color_missing_percentages():
+    html = table_one(
+        pl.DataFrame({"age": [34.0, 45.0, None, 52.0]}),
+        fmt="gt",
+        color_missing=True,
+    ).as_raw_html()
+
+    assert "background-color" in html
+
+
+def test_table_one_gt_output_explains_how_to_install_the_extra(monkeypatch):
+    monkeypatch.setitem(sys.modules, "great_tables", None)
+
+    with pytest.raises(ImportError, match=r'uv add "showstats\[gt\]"'):
+        table_one(pl.DataFrame({"number": [1]}), fmt="gt")

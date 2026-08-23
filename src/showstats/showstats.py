@@ -8,12 +8,16 @@ from narwhals.typing import IntoDataFrame, IntoFrame
 
 from showstats._table import (
     SummaryConfig,
+    SummaryResult,
+    TableOneType,
     TableType,
     build_summary_plan,
     compute_summary,
+    format_table_one,
     format_tables,
     normalize_config,
     prepare_input,
+    render_table_one,
     render_tables,
 )
 
@@ -21,6 +25,29 @@ if TYPE_CHECKING:
     from great_tables import GT
 
 Format = Literal["text", "gt"]
+
+_GROUP_COUNT = "__showstats_group_count"
+
+
+def _build_summary(
+    df: IntoFrame,
+    table_type: TableType,
+    quantiles: list[float] | None,
+    fold_quantiles: bool,
+    table_one_style: TableOneType | None = None,
+    n_categories: int = 3,
+) -> tuple[SummaryResult, SummaryConfig]:
+    """Compute a summary and return its normalized configuration."""
+    config = normalize_config(
+        table_type,
+        quantiles,
+        fold_quantiles,
+        table_one_style,
+        n_categories,
+    )
+    prepared = prepare_input(df)
+    plan = build_summary_plan(prepared.schema, config)
+    return compute_summary(prepared.frame, plan), config
 
 
 def _build_tables(
@@ -30,11 +57,119 @@ def _build_tables(
     fold_quantiles: bool,
 ) -> tuple[dict[str, nw.DataFrame], SummaryConfig, int]:
     """Build formatted tables and the information needed to render them."""
-    config = normalize_config(table_type, quantiles, fold_quantiles)
-    prepared = prepare_input(df)
-    plan = build_summary_plan(prepared.schema, config)
-    summary = compute_summary(prepared.frame, plan)
+    summary, config = _build_summary(df, table_type, quantiles, fold_quantiles)
     return format_tables(summary), config, summary.num_rows
+
+
+def _merge_grouped_table_one(
+    overall: nw.DataFrame,
+    grouped: list[nw.DataFrame],
+    backend: object,
+    show_missing: bool,
+) -> nw.DataFrame:
+    """Join Table 1 values by their displayed row label."""
+    labels = overall["Col"].to_list()
+    seen = set(labels)
+    for table in grouped:
+        for label in table["Col"].to_list():
+            if label not in seen:
+                labels.append(label)
+                seen.add(label)
+
+    result = {"Col": labels}
+    if show_missing:
+        missing_by_label = dict(
+            zip(overall["Col"].to_list(), overall["NA%"].to_list(), strict=True)
+        )
+        result["NA%"] = [missing_by_label.get(label, "") for label in labels]
+
+    for table in [overall, *grouped]:
+        value_column = table.columns[-1]
+        values_by_label = dict(
+            zip(table["Col"].to_list(), table[value_column].to_list(), strict=True)
+        )
+        result[value_column] = [
+            values_by_label.get(
+                label,
+                "0 (0%)" if " = " in label and label.endswith(" (%)") else "",
+            )
+            for label in labels
+        ]
+
+    return nw.from_dict(result, backend=backend)
+
+
+def _build_table_one(
+    df: IntoFrame,
+    style: TableOneType,
+    show_missing: bool,
+    n_categories: int,
+    group: str | None,
+) -> tuple[nw.DataFrame | None, int]:
+    """Build an overall Table 1 and optional columns for each group."""
+    prepared = prepare_input(df)
+    config = normalize_config(
+        "all",
+        quantiles=None,
+        fold_quantiles=True,
+        table_one=style,
+        n_categories=n_categories,
+    )
+
+    if group is not None and not isinstance(group, str):
+        raise TypeError("group must be a column name")
+    if group is not None and group not in prepared.schema:
+        raise ValueError(f"group column {group!r} not found")
+
+    columns = [name for name in prepared.schema if name != group]
+    schema = {name: prepared.schema[name] for name in columns}
+    summary_frame = prepared.frame.select(*(nw.col(name) for name in columns))
+    plan = build_summary_plan(schema, config)
+    overall_summary = compute_summary(summary_frame, plan)
+    overall = format_table_one(overall_summary, show_missing=True)
+    if overall is None or group is None:
+        if overall is not None and not show_missing:
+            overall = overall.select("Col", "Overall")
+        return overall, overall_summary.num_rows
+
+    count_column = _GROUP_COUNT
+    while count_column in prepared.schema:
+        count_column = f"{count_column}_"
+    counts = prepared.frame.group_by(group, drop_null_keys=False).agg(
+        nw.len().alias(count_column)
+    )
+    if isinstance(counts, nw.LazyFrame):
+        counts = counts.collect()
+    counts = counts.sort(group, nulls_last=True)
+
+    grouped = []
+    for value, count in counts.select(group, count_column).iter_rows():
+        condition = (
+            nw.col(group).is_null() if value is None else nw.col(group) == nw.lit(value)
+        )
+        group_frame = prepared.frame.filter(condition).select(
+            *(nw.col(name) for name in columns)
+        )
+        group_summary = compute_summary(group_frame, plan)
+        display_value = "Missing" if value is None else str(value)
+        label = f"{group} = {display_value} (N={count})"
+        group_table = format_table_one(
+            group_summary,
+            show_missing=True,
+            value_label=label,
+        )
+        if group_table is not None:
+            grouped.append(group_table)
+
+    return (
+        _merge_grouped_table_one(
+            overall,
+            grouped,
+            overall_summary.backend,
+            show_missing,
+        ),
+        overall_summary.num_rows,
+    )
 
 
 def show_stats(
@@ -156,3 +291,67 @@ def make_stats_tbl(
     if stat_df is None:
         return None
     return stat_df.to_native()
+
+
+def table_one(
+    df: IntoFrame,
+    style: TableOneType = "mean_sd",
+    show_missing: bool = True,
+    n_categories: int = 3,
+    group: str | None = None,
+    fmt: Format = "text",
+    color_missing: bool = False,
+) -> None | GT:
+    """Show a numerical and categorical Table 1 summary.
+
+    Text output is printed. Great Tables output is returned so a notebook can
+    display it, or so the caller can apply more Great Tables methods.
+
+    Args:
+        df: The input frame. Polars, pandas, PyArrow, and other Narwhals
+            compatible frames are accepted. Lazy inputs stay lazy while the
+            summary statistics are computed.
+        style: The numerical summary to show. Use "mean_sd", "median_mad",
+            or "median_iqr". Defaults to "mean_sd".
+        show_missing: Include the NA% column. A categorical variable shows its
+            percentage only on its first category row. Defaults to True.
+        n_categories: The maximum number of values to show for each categorical
+            variable. Defaults to 3.
+        group: A column used to split the statistics into separate columns. The
+            group column is not summarized as a row. Defaults to None.
+        fmt: Use "text" for the fixed width table, or "gt" for a Great Tables
+            object. Defaults to "text".
+        color_missing: For Great Tables output, show NA% on a white to dark gray
+            background scale. Defaults to False.
+
+    Raises:
+        ValueError: If the input is empty, an option is unsupported, or the
+            group column does not exist.
+        TypeError: If n_categories is not an integer, or group is not a string.
+        ImportError: If fmt="gt" is requested without the optional gt extra.
+    """
+    if fmt not in get_args(Format):
+        raise ValueError(
+            f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
+        )
+    if color_missing and fmt != "gt":
+        raise ValueError('color_missing=True requires fmt="gt"')
+    if color_missing and not show_missing:
+        raise ValueError("color_missing=True requires show_missing=True")
+
+    table, num_rows = _build_table_one(
+        df,
+        style,
+        show_missing,
+        n_categories,
+        group,
+    )
+    if fmt == "gt":
+        if table is None:
+            return None
+        from showstats._gt import make_gt_table
+
+        return make_gt_table(table, "table_one", num_rows, color_missing)
+
+    render_table_one(table, num_rows)
+    return None

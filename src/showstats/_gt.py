@@ -32,6 +32,7 @@ def make_gt_table(
         "time": "Date and datetime columns",
         "cat": "Categorical columns",
         "num": "Numerical columns",
+        "table_one": "Table 1",
     }
     result = (
         GT(table.to_native(), rowname_col="Col")
@@ -44,7 +45,7 @@ def make_gt_table(
             data_row_padding_horizontal="8px",
         )
     )
-    if table_type == "num":
+    if table_type in ("num", "table_one"):
         result = result.cols_align(align="right", columns=table.columns[1:])
     if color_missing:
         result = result.data_color(

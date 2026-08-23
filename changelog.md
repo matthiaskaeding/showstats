@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is available through the optional `gt` extra. Set `color_missing=True` to
   add a white to dark gray background scale. Numerical statistics are right
   aligned (#103).
+- The standalone `table_one` function reports numerical and categorical Table
+  1 summaries. It supports mean and standard deviation, median and median
+  absolute deviation, and median and interquartile range. Pass `group` to add
+  one statistics column for each value of another variable. The function also
+  supports Great Tables output, missing percentages, and a configurable number
+  of categorical values (#87).
 - Lazy frames are accepted. `show_stats(df.lazy())` used to raise
   `TypeError: Cannot only use eager_only ... with polars.LazyFrame`; the
   schema is read once and used to build the summary plan. Scalar statistics
@@ -26,8 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make_stats_tbl(..., table_type="all")` now returns a dictionary of the
   nonempty numerical, categorical, and temporal tables instead of returning
   `None`.
-
-### Fixed
 
 - Date and datetime columns raised `ArrowNotImplementedError: Unsupported
   cast from date32[day] to int64` on a pyarrow table — every one of them.
@@ -47,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   column, say — raised `ArrowInvalid: Invalid null value` on a pyarrow
   table, because Arrow types an all-null column as `null` rather than as an
   absent float (#86)
+
+### Removed
+
+- The `top_cols` argument was removed because summary rows already use a stable
+  order (#106).
 
 ### Changed
 
