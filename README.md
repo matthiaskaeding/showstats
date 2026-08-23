@@ -85,7 +85,7 @@ object. Set `color_missing=True` to add a white to dark gray background
 scale.
 
 ``` python
-table = show_stats(df, "num", fmt="gt", color_missing=True)
+table = show_stats(df, "num", fmt="gt")
 table
 ```
 
