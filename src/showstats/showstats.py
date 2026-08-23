@@ -29,32 +29,6 @@ Format = Literal["text", "gt"]
 _GROUP_COUNT = "__showstats_group_count"
 
 
-def _validate_output(
-    fmt: Format,
-    color_missing: bool,
-    show_missing: bool = True,
-) -> None:
-    """Validate output options shared by public display functions."""
-    if fmt not in get_args(Format):
-        raise ValueError(
-            f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
-        )
-    if color_missing and fmt != "gt":
-        raise ValueError('color_missing=True requires fmt="gt"')
-    if color_missing and not show_missing:
-        raise ValueError("color_missing=True requires show_missing=True")
-
-
-def _compute_summary_from_frame(
-    frame: nw.DataFrame | nw.LazyFrame,
-    schema: dict[str, object],
-    config: SummaryConfig,
-) -> SummaryResult:
-    """Run the shared summary planner and computation path."""
-    plan = build_summary_plan(schema, config)
-    return compute_summary(frame, plan)
-
-
 def _build_summary(
     df: IntoFrame,
     table_type: TableType,
@@ -72,12 +46,8 @@ def _build_summary(
         n_categories,
     )
     prepared = prepare_input(df)
-    summary = _compute_summary_from_frame(
-        prepared.frame,
-        dict(prepared.schema),
-        config,
-    )
-    return summary, config
+    plan = build_summary_plan(prepared.schema, config)
+    return compute_summary(prepared.frame, plan), config
 
 
 def _build_tables(
@@ -137,17 +107,6 @@ def _build_table_one(
     group: str | None,
 ) -> tuple[nw.DataFrame | None, int]:
     """Build an overall Table 1 and optional columns for each group."""
-    if group is None:
-        summary, _ = _build_summary(
-            df,
-            table_type="all",
-            quantiles=None,
-            fold_quantiles=True,
-            table_one_style=style,
-            n_categories=n_categories,
-        )
-        return format_table_one(summary, show_missing), summary.num_rows
-
     prepared = prepare_input(df)
     config = normalize_config(
         "all",
@@ -165,7 +124,8 @@ def _build_table_one(
     columns = [name for name in prepared.schema if name != group]
     schema = {name: prepared.schema[name] for name in columns}
     summary_frame = prepared.frame.select(*(nw.col(name) for name in columns))
-    overall_summary = _compute_summary_from_frame(summary_frame, schema, config)
+    plan = build_summary_plan(schema, config)
+    overall_summary = compute_summary(summary_frame, plan)
     overall = format_table_one(overall_summary, show_missing=True)
     if overall is None or group is None:
         if overall is not None and not show_missing:
@@ -190,7 +150,7 @@ def _build_table_one(
         group_frame = prepared.frame.filter(condition).select(
             *(nw.col(name) for name in columns)
         )
-        group_summary = _compute_summary_from_frame(group_frame, schema, config)
+        group_summary = compute_summary(group_frame, plan)
         display_value = "Missing" if value is None else str(value)
         label = f"{group} = {display_value} (N={count})"
         group_table = format_table_one(
@@ -259,7 +219,12 @@ def show_stats(
         - For large DataFrames (>100,000 rows), the row count is displayed in scientific notation.
         - Datetime columns are formatted as strings in the output.
     """
-    _validate_output(fmt, color_missing)
+    if fmt not in get_args(Format):
+        raise ValueError(
+            f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
+        )
+    if color_missing and fmt != "gt":
+        raise ValueError('color_missing=True requires fmt="gt"')
 
     tables, config, num_rows = _build_tables(df, table_type, quantiles, fold_quantiles)
     if fmt == "gt":
@@ -365,7 +330,14 @@ def table_one(
         TypeError: If n_categories is not an integer, or group is not a string.
         ImportError: If fmt="gt" is requested without the optional gt extra.
     """
-    _validate_output(fmt, color_missing, show_missing)
+    if fmt not in get_args(Format):
+        raise ValueError(
+            f"fmt {fmt!r} not supported; expected one of {get_args(Format)}"
+        )
+    if color_missing and fmt != "gt":
+        raise ValueError('color_missing=True requires fmt="gt"')
+    if color_missing and not show_missing:
+        raise ValueError("color_missing=True requires show_missing=True")
 
     table, num_rows = _build_table_one(
         df,
