@@ -47,7 +47,7 @@ def test_minimum_versions(session):
     )
     # Property tests check statistical behavior against random data. They do
     # not exercise a separate Narwhals API surface, so the ordinary CI job
-    # runs them once with the locked environment.
+    # runs them once with the main development environment.
     session.run("pytest", "tests/", "--ignore=tests/test_properties.py")
 
 
