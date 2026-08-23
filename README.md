@@ -6,7 +6,7 @@ vertical orientation.
 
 ``` python
 import polars as pl
-from showstats import show_stats
+from showstats import show_stats, table_one
 
 # Daily weather in Seattle, 2012-2015
 df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
@@ -56,6 +56,37 @@ show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
      temp_max  0    16.44  15.6    7.35  -1.6  7.2  26.7  35.6 
      wind      0    3.24   3.0     1.44  0.4   1.7  5.2   9.5  
 
+Use the standalone `table_one` function for a numerical and categorical
+Table 1 summary. Set `style` to `mean_sd`, `median_mad`, or
+`median_iqr`. Use `group` to report the statistics in separate columns
+for each value of another variable. The grouping variable is not
+included as a row.
+
+``` python
+table_one_df = pl.DataFrame(
+    {
+        "age": [34.0, 45.0, None, 52.0],
+        "score": [7.5, 8.0, 9.5, 7.0],
+        "outcome": ["yes", "no", "yes", "yes"],
+        "arm": ["control", "control", "treated", "treated"],
+    }
+)
+
+table_one(table_one_df, style="mean_sd", group="arm")
+```
+
+    -Table 1 (N=4)------------------------------------------------------------------
+     Col                NA%  Overall       arm = control (N=2)  arm = treated (N=2) 
+     age (mean (SD))    25   43.67 (9.07)  39.5 (7.78)          52.0                
+     score (mean (SD))  0    8.0 (1.08)    7.75 (0.35)          8.25 (1.77)         
+     outcome = yes (%)  0    3 (75%)       1 (50%)              2 (100%)            
+     outcome = no (%)        1 (25%)       1 (50%)              0 (0%)              
+
+The `NA%` column gives the percentage of missing values. Set
+`show_missing=False` to omit it. Categorical variables show their three
+most common values by default. Use `n_categories` to change that number.
+Set `fmt="gt"` to return a Great Tables object.
+
 ``` python
 # pandas, pyarrow and other narwhals-supported frames work the same way
 import pandas as pd
@@ -72,17 +103,15 @@ show_stats(pd.read_csv("docs/data/seattle-weather.csv")[["temp_max", "wind"]])
 
 Install the optional output package with `uv add "showstats[gt]"`. The
 `gt` output returns a Great Tables object that displays as HTML in a
-notebook. Missing percentages of 20 percent or more use bold text. Set
-`color_missing=True` to add an optional white to dark gray background
-scale.
+notebook. Set `color_missing=True` to add an optional white to dark gray
+background scale.
 
 ``` python
 table = show_stats(df, "num", fmt="gt")
 table
 ```
 
-![Great Tables output with bold missing
-percentages](docs/images/gt-output.png)
+![Great Tables output](docs/images/gt-output.png)
 
 - **showstats** works with any data frame
   [narwhals](https://github.com/narwhals-dev/narwhals) supports —

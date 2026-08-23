@@ -90,3 +90,13 @@ QUANTILES_UNFOLDED = (
     " int_col    20   2.5  2.5     1.29  1.75  1      4    \n"
     " bool_col   0    0.6  1.0     0.55  0.0   false  true \n"
 )
+
+TABLE_ONE = (
+    "-Table 1 (N=4)------------------------------------------------------------------\n"
+    " Col                  NA%  Overall      \n"
+    " age (mean (SD))      25   43.67 (9.07) \n"
+    " score (mean (SD))    0    8.0 (1.08)   \n"
+    " group = control (%)  0    2 (50%)      \n"
+    " group = treated (%)       1 (25%)      \n"
+    " group = placebo (%)       1 (25%)      \n"
+)
