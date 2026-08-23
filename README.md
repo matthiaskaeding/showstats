@@ -5,9 +5,9 @@
 vertical orientation.
 
 ``` python
+import duckdb
 import pandas as pd
 import polars as pl
-import pyarrow as pa
 
 from showstats import show_stats, table_one
 ```
@@ -72,9 +72,9 @@ of categorical values shown.
 pandas_df = pd.read_csv(weather_path, parse_dates=["date"])
 show_stats(pandas_df[["date", "temp_max", "wind"]])
 
-# PyArrow tables also work directly.
-arrow_table = pa.Table.from_pandas(pandas_df[["date", "weather"]])
-show_stats(arrow_table)
+# DuckDB relations are lazy.
+duckdb_df = duckdb.read_csv(weather_path).select("date, temp_max, wind")
+show_stats(duckdb_df)
 ```
 
 ## Optional Great Tables output
@@ -93,7 +93,7 @@ table
 
 - **showstats** works with data frames supported by
   [narwhals](https://github.com/narwhals-dev/narwhals), including
-  polars, pandas, and pyarrow.
+  polars, pandas, and lazy DuckDB relations.
 
 - Inspired by the R packages [skimr](https://github.com/ropensci/skimr)
   and
