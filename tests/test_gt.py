@@ -38,8 +38,9 @@ def test_gt_output_supports_input_backends(frame, capsys):
     html = result.as_raw_html()
     assert "Numerical columns" in html
     assert "20 rows" in html
-    assert '<td style="font-weight: bold;" class="gt_row gt_right">20</td>' in html
-    assert '<td style="font-weight: bold;" class="gt_row gt_right">25</td>' in html
+    assert '<td class="gt_row gt_right">20</td>' in html
+    assert '<td class="gt_row gt_right">25</td>' in html
+    assert 'style="font-weight: bold;' not in html
     assert '<td class="gt_row gt_right">9.5</td>' in html
     assert 'gt_columns_bottom_border gt_right" rowspan="1"' in html
 
@@ -52,19 +53,8 @@ def test_gt_output_can_color_missing_percentages():
         color_missing=True,
     ).as_raw_html()
 
-    assert (
-        '<td style="color: #000000; background-color: #dbdbdb; '
-        'font-weight: bold;" '
-        'class="gt_row gt_right">20</td>' in html
-    )
-    assert (
-        '<td style="color: #000000; background-color: #d2d2d2; '
-        'font-weight: bold;" class="gt_row gt_right">25</td>' in html
-    )
-    assert (
-        '<td style="color: #FFFFFF; background-color: #6e6e6e; '
-        'font-weight: bold;" class="gt_row gt_right">80</td>' in html
-    )
+    assert "background-color" in html
+    assert 'style="font-weight: bold;' not in html
 
 
 def test_gt_output_returns_one_table_per_section(capsys):

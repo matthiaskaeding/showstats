@@ -346,7 +346,7 @@ def normalize_config(
 
     return SummaryConfig(
         table_type=table_type,
-        quantiles=quantiles,
+        quantiles=normalized_quantiles,
         fold_quantiles=fold_quantiles,
         quantile_framing=quantile_framing,
     )

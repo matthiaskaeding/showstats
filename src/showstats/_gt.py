@@ -6,12 +6,10 @@ import narwhals as nw
 
 from showstats._table import SummaryConfig, row_count
 
-_HIGH_MISSING_PERCENTAGE = 20
-
 
 def _great_tables_api():
     try:
-        from great_tables import GT, loc, style
+        from great_tables import GT
     except ModuleNotFoundError as exc:
         if exc.name != "great_tables":
             raise
@@ -19,7 +17,7 @@ def _great_tables_api():
             "Great Tables output requires the optional 'gt' extra. "
             'Install it with `uv add "showstats[gt]"`.'
         ) from exc
-    return GT, loc, style
+    return GT
 
 
 def make_gt_table(
@@ -29,18 +27,12 @@ def make_gt_table(
     color_missing: bool = False,
 ):
     """Build one styled Great Tables object from a formatted summary table."""
-    GT, loc, style = _great_tables_api()
+    GT = _great_tables_api()
     titles = {
         "time": "Date and datetime columns",
         "cat": "Categorical columns",
         "num": "Numerical columns",
     }
-    high_missing_rows = [
-        index
-        for index, percentage in enumerate(table["NA%"].to_list())
-        if percentage >= _HIGH_MISSING_PERCENTAGE
-    ]
-
     result = (
         GT(table.to_native(), rowname_col="Col")
         .tab_header(title=titles[table_type], subtitle=f"{row_count(num_rows)} rows")
@@ -61,11 +53,6 @@ def make_gt_table(
             domain=[0, 100],
             autocolor_text=True,
             truncate=True,
-        )
-    if high_missing_rows:
-        result = result.tab_style(
-            style=style.text(weight="bold"),
-            locations=loc.body(columns="NA%", rows=high_missing_rows),
         )
     return result
 
