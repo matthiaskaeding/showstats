@@ -22,3 +22,9 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -v -m "not integration"
+
+      - name: Install minimum supported Python
+        run: uv python install 3.10
+
+      - name: Test minimum supported Narwhals
+        run: uv run nox -s minimum_versions

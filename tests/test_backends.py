@@ -4,12 +4,13 @@ Tests to verify showstats works correctly with different dataframe backends.
 
 from datetime import date, datetime
 
+import duckdb
 import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pytest
 
-from showstats import show_stats
+from showstats import show_stats, table_one
 from showstats.showstats import make_stats_tbl
 from tests.helpers import cell, row_for, stats_frame
 
@@ -79,8 +80,7 @@ def test_pandas_backend_basic():
 def test_pyarrow_backend_basic():
     """pyarrow input, which used to be accepted at the door and then die.
 
-    `_check_input_maybe_try_transform` has always taken pyarrow tables
-    (test_utils.py::test_input_check_pyarrow), but `_Table.__init__` read
+    `prepare_input` accepts pyarrow tables, but `_Table.__init__` read
     the aggregate row with `.iloc[0]` whenever the frame was not polars —
     treating "not polars" as "pandas". Every pyarrow table therefore
     raised AttributeError.
@@ -100,6 +100,32 @@ def test_pyarrow_backend_categorical_top_values():
 def test_pyarrow_backend_all_types(capsys):
     show_stats(MIXED_PA, "all")
     assert "int_col" in capsys.readouterr().out
+
+
+def test_duckdb_lazy_input_collects_to_pyarrow(capsys):
+    relation = duckdb.from_arrow(MIXED_PA)
+
+    result = make_stats_tbl(relation, "num")
+    assert isinstance(result, pa.Table)
+    assert (
+        stats_frame(result).rows()
+        == stats_frame(make_stats_tbl(MIXED_PA, "num")).rows()
+    )
+
+    show_stats(relation, "all")
+    lazy_output = capsys.readouterr().out
+    show_stats(MIXED_PA, "all")
+    assert lazy_output == capsys.readouterr().out
+
+
+def test_grouped_table_one_accepts_duckdb_lazy_input(capsys):
+    relation = duckdb.from_arrow(MIXED_PA)
+
+    table_one(relation, group="str_col")
+    lazy_output = capsys.readouterr().out
+    table_one(MIXED_PA, group="str_col")
+
+    assert lazy_output == capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
@@ -202,6 +228,29 @@ def test_rendering_does_not_depend_on_the_input_backend(capsys, df, kwargs):
     assert from_backend == capsys.readouterr().out
 
 
+@pytest.mark.parametrize(
+    "df",
+    [pytest.param(MIXED_PD, id="pandas"), pytest.param(MIXED_PA, id="pyarrow")],
+)
+@pytest.mark.parametrize("style", ["mean_sd", "median_mad", "median_iqr"])
+def test_table_one_rendering_does_not_depend_on_the_input_backend(capsys, df, style):
+    table_one(df, style=style)
+    from_backend = capsys.readouterr().out
+    table_one(MIXED_PL, style=style)
+    assert from_backend == capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "df",
+    [pytest.param(MIXED_PD, id="pandas"), pytest.param(MIXED_PA, id="pyarrow")],
+)
+def test_grouped_table_one_does_not_depend_on_the_input_backend(capsys, df):
+    table_one(df, group="str_col")
+    from_backend = capsys.readouterr().out
+    table_one(MIXED_PL, group="str_col")
+    assert from_backend == capsys.readouterr().out
+
+
 TEMPORAL_PL = pl.DataFrame(
     {
         "date_col": [date(2020, 1, 1), date(2020, 6, 1), None, date(2020, 12, 1)],
@@ -257,6 +306,27 @@ def test_temporal_median_of_an_even_count_is_the_midpoint():
     )
     row = stats_frame(make_stats_tbl(even_dt, "time")).rows(named=True)[0]
     assert row["Median"] == "2020-01-01 12:00:00"
+
+
+def test_show_stats_accepts_pyarrow_date_and_datetime(capsys):
+    """Pin the public API reproduction from #86."""
+    frame = pl.DataFrame(
+        {
+            "date_col": [date(2020, 1, 1), date(2020, 6, 1)],
+            "dt_col": [
+                datetime(2020, 1, 1),  # noqa: DTZ001
+                datetime(2020, 1, 2),  # noqa: DTZ001
+            ],
+        }
+    ).to_arrow()
+
+    show_stats(frame, "time")
+
+    output = capsys.readouterr().out
+    assert "date_col" in output
+    assert "2020-01-01" in output
+    assert "dt_col" in output
+    assert "2020-01-01 12:00:00" in output
 
 
 def test_polars_vs_pandas_numeric_stats():

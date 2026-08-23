@@ -9,7 +9,7 @@ import pandas as pd
 import polars as pl
 import pyarrow as pa
 
-from showstats import show_stats
+from showstats import show_stats, table_one
 ```
 
 ``` python
@@ -34,68 +34,69 @@ show_stats(df)
      weather  0    5        rain (44%)  sun (44%)  fog (7%) 
 
 ``` python
-# Only one type
-show_stats(df, "cat")  # Other are num, time
-```
-
-    -Categorical columns (N=1461)---------------------------------------------------
-     Col      NA%  Uniques  Top 1       Top 2      Top 3    
-     weather  0    5        rain (44%)  sun (44%)  fog (7%) 
-
-``` python
-# Any subset of columns works
-show_stats(df.select("temp_max", "wind"))
-```
-
-    -Numerical columns (N=1461)-----------------------------------------------------
-     Col       NA%  Avg    Median  SD    Min   Max  
-     temp_max  0    16.44  15.6    7.35  -1.6  35.6 
-     wind      0    3.24   3.0     1.44  0.4   9.5  
-
-``` python
-# Add extra quantiles for numerical columns
+# Select a table type, columns, or extra quantiles.
+show_stats(df, "cat")  # Other options are num and time.
 show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
 ```
 
-    -Numerical columns (N=1461)-----------------------------------------------------
-     Col       NA%  Avg    Median  SD    Q0    Q10  Q90   Q100 
-     temp_max  0    16.44  15.6    7.35  -1.6  7.2  26.7  35.6 
-     wind      0    3.24   3.0     1.44  0.4   1.7  5.2   9.5  
+Use `table_one` for a numerical and categorical Table 1 summary. The
+`style` can be `mean_sd`, `median_mad`, or `median_iqr`. Use `group` to
+report the statistics for each value of another variable.
 
 ``` python
-# pandas names the date columns to parse. Polars can detect them.
-pandas_df = pd.read_csv(weather_path, parse_dates=["date"])
-show_stats(pandas_df[["date", "temp_max", "wind"]])
+table_one_df = pl.DataFrame(
+    {
+        "age": [34.0, 45.0, None, 52.0],
+        "score": [7.5, 8.0, 9.5, 7.0],
+        "outcome": ["yes", "no", "yes", "yes"],
+        "arm": ["control", "control", "treated", "treated"],
+    }
+)
+
+table_one(table_one_df, style="mean_sd", group="arm")
 ```
 
-    -Date and datetime columns (N=1461)---------------------------------------------
-     Col   NA%  Median      Min         Max        
-     date  0    2013-12-31  2012-01-01  2015-12-31 
-    -Numerical columns (N=1461)-----------------------------------------------------
-     Col       NA%  Avg    Median  SD    Min   Max  
-     temp_max  0    16.44  15.6    7.35  -1.6  35.6 
-     wind      0    3.24   3.0     1.44  0.4   9.5  
+    -Table 1 (N=4)------------------------------------------------------------------
+     Col                NA%  Overall       arm = control (N=2)  arm = treated (N=2) 
+     age (mean (SD))    25   43.67 (9.07)  39.5 (7.78)          52.0                
+     score (mean (SD))  0    8.0 (1.08)    7.75 (0.35)          8.25 (1.77)         
+     outcome = yes (%)  0    3 (75%)       1 (50%)              2 (100%)            
+     outcome = no (%)        1 (25%)       1 (50%)              0 (0%)              
+
+The `NA%` column gives the percentage of missing values. Set
+`show_missing=False` to omit it. Use `n_categories` to change the number
+of categorical values shown.
 
 ``` python
-# PyArrow tables work directly too.
+# Polars detects dates. pandas needs the date column name.
+pandas_df = pd.read_csv(weather_path, parse_dates=["date"])
+show_stats(pandas_df[["date", "temp_max", "wind"]])
+
+# PyArrow tables also work directly.
 arrow_table = pa.Table.from_pandas(pandas_df[["date", "weather"]])
 show_stats(arrow_table)
 ```
 
-    -Date and datetime columns (N=1461)---------------------------------------------
-     Col   NA%  Median               Min                  Max                 
-     date  0    2013-12-31 00:00:00  2012-01-01 00:00:00  2015-12-31 00:00:00 
-    -Categorical columns (N=1461)---------------------------------------------------
-     Col      NA%  Uniques  Top 1       Top 2      Top 3    
-     weather  0    5        rain (44%)  sun (44%)  fog (7%) 
+## Optional Great Tables output
 
-- **showstats** works with any data frame
-  [narwhals](https://github.com/narwhals-dev/narwhals) supports —
-  polars, pandas, pyarrow and more. They all work directly, with no
-  extra installs or conversion step.
+Install the optional package with `uv add "showstats[gt]"`. Set
+`fmt="gt"` in `show_stats` or `table_one` to return a Great Tables
+object. Set `color_missing=True` to add a white to dark gray background
+scale.
 
-- Heavily inspired by the great R-packages
-  [skimr](https://github.com/ropensci/skimr) and
+``` python
+table = show_stats(df, "num", fmt="gt", color_missing=True)
+table
+```
+
+![Great Tables output](docs/images/gt-output.png)
+
+- **showstats** works with data frames supported by
+  [narwhals](https://github.com/narwhals-dev/narwhals), including
+  polars, pandas, and pyarrow.
+
+- Inspired by the R packages [skimr](https://github.com/ropensci/skimr)
+  and
   [modelsummary](https://modelsummary.com/vignettes/datasummary.html).
 
 - Numbers with many digits are automatically converted to scientific

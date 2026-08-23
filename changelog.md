@@ -7,13 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `show_stats(..., fmt="gt")` returns styled Great Tables output. Great Tables
+  is available through the optional `gt` extra. Set `color_missing=True` to
+  add a white to dark gray background scale. Numerical statistics are right
+  aligned (#103).
+- The standalone `table_one` function reports numerical and categorical Table
+  1 summaries. It supports mean and standard deviation, median and median
+  absolute deviation, and median and interquartile range. Pass `group` to add
+  one statistics column for each value of another variable. The function also
+  supports Great Tables output, missing percentages, and a configurable number
+  of categorical values (#87).
+- Lazy frames are accepted. `show_stats(df.lazy())` used to raise
+  `TypeError: Cannot only use eager_only ... with polars.LazyFrame`; the
+  schema is read once and used to build the summary plan. Scalar statistics
+  and the row count are collected as one row. Categorical top values and
+  temporal medians use small queries that collect no more than three rows per
+  column. `make_stats_tbl` always returns an eager frame, but showstats does
+  not materialize the full lazy input (#85)
+
 ### Fixed
 
 - `make_stats_tbl(..., table_type="all")` now returns a dictionary of the
   nonempty numerical, categorical, and temporal tables instead of returning
   `None`.
-
-### Fixed
 
 - Date and datetime columns raised `ArrowNotImplementedError: Unsupported
   cast from date32[day] to int64` on a pyarrow table — every one of them.
@@ -34,8 +52,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   table, because Arrow types an all-null column as `null` rather than as an
   absent float (#86)
 
+### Removed
+
+- The `top_cols` argument was removed because summary rows already use a stable
+  order (#106).
+
 ### Changed
 
+- CI now runs the stable suite with Python 3.10 and Narwhals 2.20.0, so the
+  declared minimum versions are checked on every PR. The pandas extra now
+  requires PyArrow 13, which is the minimum supported by Narwhals 2.20.0
+  (#78)
 - **Breaking:** `requires-python` is now `>= 3.10`, up from `>= 3.8`, and the
   minimum `narwhals` is 2.20.0. The two are linked: `requires-python` caps
   which narwhals is installable at all — 1.42.1 and below need 3.8, 1.43.0

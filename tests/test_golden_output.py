@@ -35,7 +35,7 @@ from datetime import date, datetime
 import polars as pl
 import pytest
 
-from showstats.showstats import show_stats
+from showstats.showstats import show_stats, table_one
 from tests import _golden
 
 MIXED = pl.DataFrame(
@@ -84,6 +84,14 @@ NULLS = pl.DataFrame({"null_col": [None] * 5, "int_col": [1, 2, 3, 4, 5]})
 
 MANY_ROWS = pl.DataFrame({"int_col": range(150_000)})
 
+TABLE_ONE = pl.DataFrame(
+    {
+        "age": [34.0, 45.0, None, 52.0],
+        "score": [7.5, 8.0, 9.5, 7.0],
+        "group": ["control", "treated", "control", "placebo"],
+    }
+)
+
 
 def render(capsys, df, **kwargs) -> str:
     show_stats(df, **kwargs)
@@ -111,12 +119,6 @@ CASES = [
         MIXED,
         {"table_type": "num", "quantiles": [0.25], "fold_quantiles": False},
     ),
-    (
-        "top_cols ordering",
-        _golden.TOP_COLS,
-        ALL,
-        {"table_type": "num", "top_cols": "int_col"},
-    ),
 ]
 
 
@@ -126,6 +128,11 @@ CASES = [
 )
 def test_rendered_output_matches_golden(capsys, expected, df, kwargs):
     assert render(capsys, df, **kwargs) == expected
+
+
+def test_table_one_rendered_output_matches_golden(capsys):
+    table_one(TABLE_ONE)
+    assert capsys.readouterr().out == _golden.TABLE_ONE
 
 
 def test_every_row_of_a_table_is_the_same_width(capsys):

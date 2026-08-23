@@ -3,9 +3,10 @@ import polars as pl
 import pytest
 
 from showstats._table import (
-    _check_input_maybe_try_transform,
     _map_cols_and_funs_for_var_type,
+    prepare_input,
 )
+from showstats.showstats import make_stats_tbl
 
 
 @pytest.mark.parametrize("bad", [1, 1.0, None, [], {}, {"a": []}])
@@ -16,20 +17,20 @@ def test_input_check_rejects_non_frames(bad):
     the first line ever ran: the rest were unreachable once it raised.
     """
     with pytest.raises(TypeError):
-        _check_input_maybe_try_transform(bad)
+        prepare_input(bad)
 
 
 def test_input_check(sample_df):
-    df2 = _check_input_maybe_try_transform(sample_df)
+    df2 = prepare_input(sample_df).frame
     # Now returns a narwhals DataFrame
     assert isinstance(df2, nw.DataFrame)
     assert df2.shape == sample_df.shape
     # Test with valid dict input (convert through polars first)
-    result2 = _check_input_maybe_try_transform(pl.DataFrame({"x": [1, 2, 3]}))
+    result2 = prepare_input(pl.DataFrame({"x": [1, 2, 3]})).frame
     assert isinstance(result2, nw.DataFrame)
 
     sample_df_pandas = sample_df.to_pandas()
-    sample_df_from_pandas = _check_input_maybe_try_transform(sample_df_pandas)
+    sample_df_from_pandas = prepare_input(sample_df_pandas).frame
     # Those wont be the same in general but only roughly
     assert sample_df.shape == sample_df_from_pandas.shape
     assert list(sample_df.columns) == list(sample_df_from_pandas.columns)
@@ -65,11 +66,23 @@ def test_input_check(sample_df):
         )
 
 
+def test_lazy_input_stays_lazy_during_preparation():
+    lf = pl.LazyFrame({"a": [1, 2, 3], "b": ["x", "y", "x"]})
+    prepared = prepare_input(lf)
+    assert isinstance(prepared.frame, nw.LazyFrame)
+    assert list(prepared.schema) == ["a", "b"]
+
+
+def test_an_empty_lazy_frame_is_still_rejected():
+    with pytest.raises(ValueError, match="must have rows and columns"):
+        make_stats_tbl(pl.LazyFrame({"a": []}))
+
+
 def test_input_check_pyarrow():
     import pyarrow as pa
 
     tbl = pa.table({"a": [1, 2, 3], "b": ["x", "y", "z"]})
-    df = _check_input_maybe_try_transform(tbl)
+    df = prepare_input(tbl).frame
     assert isinstance(df, nw.DataFrame)
     assert df.shape == (3, 2)
     assert list(df.columns) == ["a", "b"]

@@ -91,9 +91,12 @@ QUANTILES_UNFOLDED = (
     " bool_col   0    0.6  1.0     0.55  0.0   false  true \n"
 )
 
-TOP_COLS = (
-    "-Numerical columns (N=5)--------------------------------------------------------\n"
-    " Col        NA%  Avg  Median  SD    Min  Max \n"
-    " int_col    0    3.0  3.0     1.58  1    5   \n"
-    " float_col  0    3.5  3.5     1.58  1.5  5.5 \n"
+TABLE_ONE = (
+    "-Table 1 (N=4)------------------------------------------------------------------\n"
+    " Col                  NA%  Overall      \n"
+    " age (mean (SD))      25   43.67 (9.07) \n"
+    " score (mean (SD))    0    8.0 (1.08)   \n"
+    " group = control (%)  0    2 (50%)      \n"
+    " group = treated (%)       1 (25%)      \n"
+    " group = placebo (%)       1 (25%)      \n"
 )

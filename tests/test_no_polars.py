@@ -113,6 +113,20 @@ def test_show_stats_renders_without_polars():
     assert "int_col" in result.stdout
 
 
+def test_table_one_renders_without_polars():
+    result = run_without_polars(f"""
+        import pandas as pd
+        from showstats import table_one
+
+        df = pd.DataFrame({MIXED_PL.to_dict(as_series=False)!r})
+        table_one(df, style="median_iqr", show_missing=False)
+        assert "polars" not in sys.modules
+    """)
+    assert result.returncode == 0, result.stderr
+    assert "median [Q1, Q3]" in result.stdout
+    assert "NA%" not in result.stdout
+
+
 def test_make_stats_tbl_works_without_polars():
     result = run_without_polars(f"""
         import pandas as pd
