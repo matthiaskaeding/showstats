@@ -77,7 +77,7 @@ Install the optional package with `uv add "showstats[gt]"`. Set `fmt="gt"` in
 
 ```{python}
 # | eval: false
-table = show_stats(df, "num", fmt="gt", color_missing=True)
+table = show_stats(df, "num", fmt="gt")
 table
 ```
 
