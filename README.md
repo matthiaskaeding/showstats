@@ -5,11 +5,17 @@
 vertical orientation.
 
 ``` python
+import duckdb
+import pandas as pd
 import polars as pl
-from showstats import show_stats, table_one
 
+from showstats import show_stats, table_one
+```
+
+``` python
 # Daily weather in Seattle, 2012-2015
-df = pl.read_csv("docs/data/seattle-weather.csv", try_parse_dates=True)
+weather_path = "docs/data/seattle-weather.csv"
+df = pl.read_csv(weather_path, try_parse_dates=True)
 
 show_stats(df)
 ```
@@ -28,39 +34,14 @@ show_stats(df)
      weather  0    5        rain (44%)  sun (44%)  fog (7%) 
 
 ``` python
-# Only one type
-show_stats(df, "cat")  # Other are num, time
-```
-
-    -Categorical columns (N=1461)---------------------------------------------------
-     Col      NA%  Uniques  Top 1       Top 2      Top 3    
-     weather  0    5        rain (44%)  sun (44%)  fog (7%) 
-
-``` python
-# Any subset of columns works
-show_stats(df.select("temp_max", "wind"))
-```
-
-    -Numerical columns (N=1461)-----------------------------------------------------
-     Col       NA%  Avg    Median  SD    Min   Max  
-     temp_max  0    16.44  15.6    7.35  -1.6  35.6 
-     wind      0    3.24   3.0     1.44  0.4   9.5  
-
-``` python
-# Add extra quantiles for numerical columns
+# Select a table type, columns, or extra quantiles.
+show_stats(df, "cat")  # Other options are num and time.
 show_stats(df.select("temp_max", "wind"), "num", quantiles=[0.1, 0.9])
 ```
 
-    -Numerical columns (N=1461)-----------------------------------------------------
-     Col       NA%  Avg    Median  SD    Q0    Q10  Q90   Q100 
-     temp_max  0    16.44  15.6    7.35  -1.6  7.2  26.7  35.6 
-     wind      0    3.24   3.0     1.44  0.4   1.7  5.2   9.5  
-
-Use the standalone `table_one` function for a numerical and categorical
-Table 1 summary. Set `style` to `mean_sd`, `median_mad`, or
-`median_iqr`. Use `group` to report the statistics in separate columns
-for each value of another variable. The grouping variable is not
-included as a row.
+Use `table_one` for a numerical and categorical Table 1 summary. The
+`style` can be `mean_sd`, `median_mad`, or `median_iqr`. Use `group` to
+report the statistics for each value of another variable.
 
 ``` python
 table_one_df = pl.DataFrame(
@@ -83,43 +64,39 @@ table_one(table_one_df, style="mean_sd", group="arm")
      outcome = no (%)        1 (25%)       1 (50%)              0 (0%)              
 
 The `NA%` column gives the percentage of missing values. Set
-`show_missing=False` to omit it. Categorical variables show their three
-most common values by default. Use `n_categories` to change that number.
-Set `fmt="gt"` to return a Great Tables object.
+`show_missing=False` to omit it. Use `n_categories` to change the number
+of categorical values shown.
 
 ``` python
-# pandas, pyarrow and other narwhals-supported frames work the same way
-import pandas as pd
+# Polars detects dates. pandas needs the date column name.
+pandas_df = pd.read_csv(weather_path, parse_dates=["date"])
+show_stats(pandas_df[["date", "temp_max", "wind"]])
 
-show_stats(pd.read_csv("docs/data/seattle-weather.csv")[["temp_max", "wind"]])
+# DuckDB relations are lazy.
+duckdb_df = duckdb.read_csv(weather_path).select("date, temp_max, wind")
+show_stats(duckdb_df)
 ```
-
-    -Numerical columns (N=1461)-----------------------------------------------------
-     Col       NA%  Avg    Median  SD    Min   Max  
-     temp_max  0    16.44  15.6    7.35  -1.6  35.6 
-     wind      0    3.24   3.0     1.44  0.4   9.5  
 
 ## Optional Great Tables output
 
-Install the optional output package with `uv add "showstats[gt]"`. The
-`gt` output returns a Great Tables object that displays as HTML in a
-notebook. Set `color_missing=True` to add an optional white to dark gray
-background scale.
+Install the optional package with `uv add "showstats[gt]"`. Set
+`fmt="gt"` in `show_stats` or `table_one` to return a Great Tables
+object. Set `color_missing=True` to add a white to dark gray background
+scale.
 
 ``` python
-table = show_stats(df, "num", fmt="gt")
+table = show_stats(df, "num", fmt="gt", color_missing=True)
 table
 ```
 
 ![Great Tables output](docs/images/gt-output.png)
 
-- **showstats** works with any data frame
-  [narwhals](https://github.com/narwhals-dev/narwhals) supports —
-  polars, pandas, pyarrow and more. They all work directly, with no
-  extra installs or conversion step.
+- **showstats** works with data frames supported by
+  [narwhals](https://github.com/narwhals-dev/narwhals), including
+  polars, pandas, and lazy DuckDB relations.
 
-- Heavily inspired by the great R-packages
-  [skimr](https://github.com/ropensci/skimr) and
+- Inspired by the R packages [skimr](https://github.com/ropensci/skimr)
+  and
   [modelsummary](https://modelsummary.com/vignettes/datasummary.html).
 
 - Numbers with many digits are automatically converted to scientific
