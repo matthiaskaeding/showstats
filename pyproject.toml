@@ -21,9 +21,12 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
-version = "0.3.0"
+version = "0.4.0"
 readme = "README.md"
 requires-python = ">= 3.10"
+
+[project.scripts]
+showstats = "showstats._cli:main"
 
 [project.optional-dependencies]
 # Convenience extras for people who want a dataframe library installed
@@ -32,6 +35,7 @@ requires-python = ">= 3.10"
 pandas = ["pandas>=1.5.3", "pyarrow>=13.0.0"]
 polars = ["polars>=0.20.21"]
 gt = ["great-tables>=0.23.0"]
+cli = ["pyarrow>=13.0.0"]
 
 
 [dependency-groups]

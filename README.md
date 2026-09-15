@@ -77,6 +77,32 @@ duckdb_df = duckdb.read_csv(weather_path).select("date, temp_max, wind")
 show_stats(duckdb_df)
 ```
 
+## Command line
+
+Install with `uv tool install "showstats[cli]"` for CSV and Parquet
+support. The extra supplies PyArrow; plain `showstats` also works if a
+suitable dataframe library is already installed in the same environment.
+In a project, use `uv add "showstats[cli]"` and run commands with
+`uv run showstats`.
+
+``` sh
+showstats file.csv                 # Summary of all columns
+showstats file.parquet --type num  # Numerical summary only
+showstats file.csv --type cat      # Categorical summary only
+showstats file.csv -h              # First 3 rows
+showstats file.csv -t              # Last 3 rows
+showstats file.csv -h 10           # First 10 rows
+showstats file.csv --offset 4      # Rows 4, 5, and 6
+```
+
+Row numbers start at 0. Negative offsets count from the end, and `-h N`
+sets the preview length. Previews default to `--layout auto`: a normal
+table when it fits the terminal, or one record per block otherwise. Use
+`--layout table` or `--layout expanded` to choose explicitly.
+
+Files are read into memory. Use `showstats --help` for all options; `-h`
+means head.
+
 ## Optional Great Tables output
 
 Install the optional package with `uv add "showstats[gt]"`. Set
