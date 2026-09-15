@@ -79,94 +79,29 @@ show_stats(duckdb_df)
 
 ## Command line
 
-Install the command with `uv tool install "showstats[cli]"`. In a
-project, use `uv add "showstats[cli]"` and run it with
+Install with `uv tool install "showstats[cli]"` for CSV and Parquet
+support. The extra supplies PyArrow; plain `showstats` also works if a
+suitable dataframe library is already installed in the same environment.
+In a project, use `uv add "showstats[cli]"` and run commands with
 `uv run showstats`.
 
-Pass a CSV or Parquet file to print the usual summary table:
-
 ``` sh
-showstats file.csv
-showstats file.parquet
+showstats file.csv                 # Summary of all columns
+showstats file.parquet --type num  # Numerical summary only
+showstats file.csv --type cat      # Categorical summary only
+showstats file.csv -h              # First 3 rows
+showstats file.csv -t              # Last 3 rows
+showstats file.csv -h 10           # First 10 rows
+showstats file.csv --offset 4      # Rows 4, 5, and 6
 ```
 
-Use `--type cat` for categorical columns or `--type num` for numerical
-columns:
+Row numbers start at 0. Negative offsets count from the end, and `-h N`
+sets the preview length. Previews default to `--layout auto`: a normal
+table when it fits the terminal, or one record per block otherwise. Use
+`--layout table` or `--layout expanded` to choose explicitly.
 
-``` sh
-showstats file.csv --type cat
-showstats file.parquet --type num
-```
-
-The default is `--type all`. The `--type` option applies to summary
-tables and cannot be combined with head, tail, or offset previews.
-
-Use `-h` or `--head` to preview the first three rows, or `-t` or
-`--tail` to preview the last three rows. You can also specify the number
-of rows:
-
-``` sh
-showstats file.csv -h
-showstats file.parquet -h 10
-showstats file.csv -t
-showstats file.parquet -t 10
-```
-
-Row numbers start at 0 and refer to positions in the data, excluding the
-CSV header. Use `--offset` to start at a specific row. An offset alone
-previews three rows, and `-h N` changes the count:
-
-``` sh
-showstats file.csv --offset 4       # Rows 4, 5, and 6
-showstats file.csv --offset 4 -h 2  # Rows 4 and 5
-showstats file.csv --offset -3      # Last three rows
-```
-
-Negative offsets count from the end. Offsets before the beginning start
-at row 0, and offsets past the end show an empty preview. `--offset`
-cannot be combined with `--tail`.
-
-The default layout is `auto`. Previews use a normal table when it fits
-the terminal width, or an expanded view with one record per block when
-it does not. Use `--layout` to control the preview:
-
-``` sh
-showstats file.csv -h --layout auto
-showstats file.csv -h --layout table
-showstats file.csv -h --layout expanded
-```
-
-Expanded output keeps each field name beside its value, with long values
-wrapped onto continuation lines. Full names and values are retained. The
-`table` layout always prints a normal table, even if it exceeds the
-terminal width. Missing values appear as blank cells in both layouts.
-`--layout` requires `--head`, `--tail`, or `--offset`.
-
-For example, preview one weather record in the expanded layout:
-
-``` sh
-showstats docs/data/seattle-weather.csv --offset 4 -h 1 --layout expanded
-```
-
-    Rows (1 of 1461 rows)
-
-    Row 4
-    date           2012-01-05
-    precipitation  1.3
-    temp_max       8.9
-    temp_min       2.8
-    wind           6.1
-    weather        rain
-
-Use `showstats --help` for help, because `-h` means head. You can also
-run `uv run python -m showstats` with the same arguments.
-
-The CLI reads the file into memory. It uses Polars, PyArrow, or pandas,
-in that order, depending on which is installed. The `cli` extra includes
-PyArrow for reading both file formats. If you already have a suitable
-dataframe library, you can use the CLI without the extra. CSV column
-types are inferred by that library, while Parquet files carry their own
-schema.
+Files are read into memory. Use `showstats --help` for all options; `-h`
+means head.
 
 ## Optional Great Tables output
 
