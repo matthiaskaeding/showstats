@@ -5,12 +5,14 @@ Tests to verify showstats works correctly with different dataframe backends.
 from datetime import date, datetime
 
 import duckdb
+import narwhals as nw
 import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pytest
 
 from showstats import show_stats, table_one
+from showstats._cli import _render_preview
 from showstats.showstats import make_stats_tbl
 from tests.helpers import cell, row_for, stats_frame
 
@@ -29,6 +31,38 @@ MIXED_PL = pl.DataFrame(
 )
 MIXED_PD = MIXED_PL.to_pandas()
 MIXED_PA = MIXED_PL.to_arrow()
+
+
+@pytest.mark.parametrize("backend", ["polars", "pandas", "pyarrow"])
+@pytest.mark.parametrize("layout", ["table", "expanded"])
+def test_preview_format_is_consistent(backend, monkeypatch, layout):
+    monkeypatch.setenv("COLUMNS", "80")
+    frame = nw.from_dict(
+        {"value": [1.0, None], "flag": [True, False], "label": ["a\nb", "x\ty"]},
+        backend=backend,
+    )
+    expected = {
+        "table": (
+            "Head (2 of 2 rows)\n"
+            "Row  value  flag   label\n"
+            "0    1.0    True   a\\nb\n"
+            "1           False  x\\ty\n"
+        ),
+        "expanded": (
+            "Head (2 of 2 rows)\n\n"
+            "Row 0\nvalue  1.0\nflag   True\nlabel  a\\nb\n\n"
+            "Row 1\nvalue  \nflag   False\nlabel  x\\ty\n"
+        ),
+    }
+    assert _render_preview(frame, 3, tail=False, layout=layout) == expected[layout]
+
+
+@pytest.mark.parametrize("backend", ["polars", "pandas", "pyarrow"])
+@pytest.mark.parametrize("offset, number", [(1, 1), (-1, 2), (-10, 0)])
+def test_preview_offset_across_backends(backend, offset, number):
+    frame = nw.from_dict({"value": [10, 20, 30]}, backend=backend)
+    output = _render_preview(frame, 1, tail=False, layout="expanded", offset=offset)
+    assert output == f"Rows (1 of 3 rows)\n\nRow {number}\nvalue  {(number + 1) * 10}\n"
 
 
 def test_polars_backend_basic():

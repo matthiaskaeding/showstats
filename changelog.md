@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The `showstats` command prints summary statistics from CSV and Parquet files.
+  Use `--type cat` or `--type num` to show only categorical or numerical
+  summaries; the default is `--type all`.
+  Use `-h [N]` or `-t [N]` for head and tail previews, with three rows by
+  default. Wide previews automatically expand into one record per block;
+  `--layout auto|table|expanded` controls the layout. Row numbers start at 0,
+  and `--offset N` selects a starting row, with negative offsets counting from
+  the end. Help is available through `--help`. The optional `cli` extra
+  includes PyArrow for reading files.
 - `show_stats(..., fmt="gt")` returns styled Great Tables output. Great Tables
   is available through the optional `gt` extra. Set `color_missing=True` to
   add a white to dark gray background scale. Numerical statistics are right
