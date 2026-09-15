@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `--offset N` selects a starting row, with negative offsets counting from
   the end. Help is available through `--help`. The optional `cli` extra
   includes PyArrow for reading files.
+
+## [0.3.0] - 2026-08-23
+
+### Added
+
 - `show_stats(..., fmt="gt")` returns styled Great Tables output. Great Tables
   is available through the optional `gt` extra. Set `color_missing=True` to
   add a white to dark gray background scale. Numerical statistics are right
